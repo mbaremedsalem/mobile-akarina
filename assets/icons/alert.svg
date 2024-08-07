@@ -1,0 +1,6 @@
+<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M69.9375 40C69.9375 56.534 56.534 69.9375 40 69.9375C23.466 69.9375 10.0625 56.534 10.0625 40C10.0625 23.466 23.466 10.0625 40 10.0625C56.534 10.0625 69.9375 23.466 69.9375 40Z" fill="#FECACA" stroke="#B91C1C" stroke-width="0.125"/>
+<path d="M40 70C56.5685 70 70 56.5685 70 40C70 23.4315 56.5685 10 40 10C23.4315 10 10 23.4315 10 40C10 56.5685 23.4315 70 40 70Z" stroke="#B91C1C" stroke-width="3" stroke-miterlimit="10"/>
+<path d="M50 30L30 50" stroke="#B91C1C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M50 50L30 30" stroke="#B91C1C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
