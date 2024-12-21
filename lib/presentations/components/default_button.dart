@@ -14,6 +14,7 @@ class Defaultbutton extends StatelessWidget {
     this.suffixIcon,
     this.hasborder,
     this.borderColor,
+    this.borderRadius,
     this.hasIcon,
     Key? key,
   }) : super(key: key);
@@ -29,6 +30,7 @@ class Defaultbutton extends StatelessWidget {
   final bool? hasborder;
   final Color? borderColor;
   final bool? hasIcon;
+  final double? borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -41,11 +43,13 @@ class Defaultbutton extends StatelessWidget {
           height: height ?? getProportionateScreenHeight(30),
           decoration: BoxDecoration(
             color: color,
+            
             border: (hasborder ?? false)
                 ? Border.all(color: borderColor ?? colorBorder)
                 : null,
-            borderRadius: BorderRadius.all(
-                Radius.circular(getProportionateScreenWidth(5))),
+            // borderRadius: BorderRadius.all(
+            //     Radius.circular(getProportionateScreenWidth(5))),
+            borderRadius: BorderRadius.circular(borderRadius ?? 10)
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -67,64 +71,128 @@ class Defaultbutton extends StatelessWidget {
   }
 }
 
-
 Widget defaultTextField({
   required TextEditingController controller,
   bool isPassword = false,
   bool isClickable = true,
+  double height = 80,
   required TextInputType type,
-  Function? onSubmit,
+  Function(String)? onSubmit,
   Function? onTap,
   required String text,
-  required IconData prefix,
-  IconData? suffix,
+  IconData? prefix,
+  IconData? suffix,  // L'icône suffixe doit être obligatoire
   Function? suffixFunction,
   String textForUnValid = 'this element is required',
   Color? backgroundColor,
-  //required Function validate,
 }) =>
     Container(
-      height: 80,
+      height: height,
       decoration: const BoxDecoration(),
       child: TextFormField(
         enableSuggestions: true,
         autocorrect: true,
         controller: controller,
         enabled: isClickable,
-        onTap: () {
-          onTap!();
-        },
+        onTap: onTap != null ? () => onTap() : null,
         validator: (value) {
           if (value!.isEmpty) {
             return textForUnValid;
           }
           return null;
         },
-        onChanged: (value) {},
-        onFieldSubmitted: (value) {
-          onSubmit!(value);
+        onChanged: (value) {
+          if (suffixFunction != null) {
+            suffixFunction();
+          }
         },
-        obscureText: isPassword ? true : false,
+        onFieldSubmitted: (value) {
+          if (onSubmit != null) {
+            onSubmit(value);
+          }
+        },
+        obscureText: isPassword,
         keyboardType: type,
         decoration: InputDecoration(
           labelText: text,
           prefixIcon: Icon(prefix),
           suffixIcon: IconButton(
             onPressed: () {
-              suffixFunction!();
+              if (suffixFunction != null) {
+                suffixFunction();
+              }
             },
             icon: Icon(suffix),
           ),
           filled: true,
-              fillColor: backgroundColor,
-
+          fillColor: backgroundColor,
           border: const OutlineInputBorder(
-            // InputBorder.none,
-              borderRadius: BorderRadius.all(Radius.circular(7)),
-              borderSide: BorderSide.none,
-              gapPadding: 4),
-
+            borderRadius: BorderRadius.all(Radius.circular(7)),
+            borderSide: BorderSide.none,
+            gapPadding: 4,
+          ),
         ),
-            
       ),
     );
+
+
+// Widget defaultTextField({
+//   required TextEditingController controller,
+//   bool isPassword = false,
+//   bool isClickable = true,
+//   required TextInputType type,
+//   Function? onSubmit,
+//   Function? onTap,
+//   required String text,
+//   IconData? prefix,
+//   IconData? suffix,
+//   Function? suffixFunction,
+//   String textForUnValid = 'this element is required',
+//   Color? backgroundColor,
+//   //required Function validate,
+// }) =>
+//     Container(
+//       height: 80,
+//       decoration: const BoxDecoration(),
+//       child: TextFormField(
+//         enableSuggestions: true,
+//         autocorrect: true,
+//         controller: controller,
+//         enabled: isClickable,
+//         onTap: () {
+          
+//         },
+//         validator: (value) {
+//           if (value!.isEmpty) {
+//             return textForUnValid;
+//           }
+//           return null;
+//         },
+//         onChanged: (value) {},
+//         onFieldSubmitted: (value) {
+//           // onSubmit!(value);
+//         },
+//         obscureText: isPassword ? true : false,
+//         keyboardType: type,
+//         decoration: InputDecoration(
+//           labelText: text,
+//           prefixIcon: Icon(prefix),
+//           suffixIcon: IconButton(
+//             onPressed: () {
+//               suffixFunction(){};
+//             },
+//             icon: Icon(suffix),
+//           ),
+//           filled: true,
+//               fillColor: backgroundColor,
+
+//           border: const OutlineInputBorder(
+//             // InputBorder.none,
+//               borderRadius: BorderRadius.all(Radius.circular(7)),
+//               borderSide: BorderSide.none,
+//               gapPadding: 4),
+
+//         ),
+            
+//       ),
+//     );

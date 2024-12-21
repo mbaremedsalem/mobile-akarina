@@ -2,15 +2,282 @@ import 'dart:async';
 import 'dart:convert';
 // import 'package:bcipay/data/services.dart';
 import 'package:akarina/data/data_providers/exception.dart';
+import 'package:akarina/data/models/user.dart';
 import 'package:akarina/data/services.dart';
+import 'package:akarina/presentations/screens/login/login.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 class NetworkService {
   final storage = FlutterSecureStorage();
   int timeout = 60;
-  // String baseUrl = "https://bcipay-mr-dev.nw.r.appspot.com/";
+  String baseUrl = "https://akarina-9865f1a90dee.herokuapp.com/";
+
+  // String baseUrl = "https://akarina-location-b65cbbb9833c.herokuapp.com/";
+
+
+  Future<dynamic> login(String phone, String? password) async {
+    
+    // ignore: prefer_typing_uninitialized_variables
+    var responseJson;
+    var url = Uri.parse("${baseUrl}user/api/login/");
+    // print(baseParPays(pays));
+    try {
+      var response = await post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          "login": "+222$phone",
+          "password": password
+        }),
+      ).timeout(Duration(seconds: timeout));
+
+      responseJson = _loginresponse(response);
+    } catch (e) {
+      // print(e);
+    }
+
+    return responseJson;
+  }
+
+  Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
+    final url = '${baseUrl}akareena/residentiels/$id';
+    final response = await http.get(
+      Uri.parse(url),
+
+    );
+
+    if (response.statusCode == 200) {
+      print(response.body);
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load property details ${response.body}');
+    }
+  }
+
+
+
+
+  // Nouvelle méthode pour récupérer les catégories
+  Future<Map<String, dynamic>?> fetchCategories() async {
+    var url = Uri.parse("${baseUrl}akareena/immobilier-summary/");
+    try {
+      var response = await get(
+        url,
+      ).timeout(Duration(seconds: timeout));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to load categories : ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des catégories: $e');
+      return null;
+    }
+  }
+
+
+  Future<dynamic> fetchApartments() async {
+    var url = Uri.parse("${baseUrl}akareena/appartements/");
+    try {
+      var response = await get(
+        url,
+      ).timeout(Duration(seconds: timeout));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to load appartement : ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des appartement: $e');
+      return null;
+    }
+  }
+    Future<dynamic> fetchResidence() async {
+    var url = Uri.parse("${baseUrl}akareena/residentiels/");
+    try {
+      var response = await get(
+        url,
+      ).timeout(Duration(seconds: timeout));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to load categories : ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des catégories: $e');
+      return null;
+    }
+  }
+
+    Future<dynamic> fetchProximite() async {
+    var url = Uri.parse("${baseUrl}akareena/residentiel/recommendation/proximite/?x=2.294351&y=48.858844");
+    try {
+      var response = await get(
+        url,
+      ).timeout(Duration(seconds: timeout));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to load categories : ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des catégories: $e');
+      return null;
+    }
+  }
+// --------- chat  
+  // Fonction pour vérifier si le token est valide ou expiré
+  Future<bool> isTokenValid(String? token) async {
+    if (token == null || token.isEmpty) return false;
+    return !JwtDecoder.isExpired(token);  // Vérifier l'expiration du token
+  }
+
+  // Afficher une alerte si le token est invalide
+  void _showInvalidTokenAlert(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Session Expirée"),
+          content: const Text("Il faut que vous vous connectiez pour continuer."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => Login()));
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<List<User>> fetchUsers( BuildContext context) async {
+
+    final url = Uri.parse('${baseUrl}user/clients/');
+    String? token = await storage.read(key: "access");
+
+    if (!await isTokenValid(token)) {
+    _showInvalidTokenAlert(context);
+    throw Exception("Token invalide ou expiré");
+    }
+      final response = await http.get(url,    
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    });
+    if (response.statusCode == 200) {
+      List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => User.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load users${response.body}');
+    }
+  }
+  
+// Fonction pour créer ou récupérer une conversation
+Future<Map<String, dynamic>> getConversation(int participantId, BuildContext context) async {
+  final url = Uri.parse('${baseUrl}user/conversations/');
+  String? token = await storage.read(key: "access");
+  String? idString = await storage.read(key: "id");
+
+  int? id = idString != null ? int.tryParse(idString) : null;
+
+  if (!await isTokenValid(token)) {
+    _showInvalidTokenAlert(context);
+    throw Exception("Token invalide ou expiré");
+  }
+
+  final response = await http.post(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode({
+      "participants": [participantId, id],  // Inclure le participant et l'utilisateur actuel
+    }),
+  );
+
+  if (response.statusCode == 201) {
+    // Nouvelle conversation créée
+    return jsonDecode(response.body);
+  } else if (response.statusCode == 400) {
+    var errorResponse = jsonDecode(response.body);
+    if (errorResponse['message'] == "Une conversation avec ces participants existe déjà.") {
+      // La conversation existe déjà, retourner son ID
+      return {"id": errorResponse["id"], "participants": [participantId, id]};
+    } else {
+      throw Exception('Erreur: ${errorResponse["message"]}');
+    }
+  } else {
+    throw Exception('Impossible de récupérer la conversation: ${response.body}');
+  }
+}
+
+
+// Fonction pour envoyer un message
+Future<void> sendMessage(int conversationId, String content, BuildContext context) async {
+  final url = Uri.parse('${baseUrl}user/messages/');
+  String? token = await storage.read(key: "access");
+
+  if (!await isTokenValid(token)) {
+    _showInvalidTokenAlert(context);
+    throw Exception("Token invalide ou expiré");
+  }
+
+  final response = await http.post(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode({
+      "conversation": conversationId,
+      "content": content,
+    }),
+  );
+
+  if (response.statusCode != 201) {
+    throw Exception('Échec de l\'envoi du message: ${response.body}');
+  }
+}
+
+// Fonction pour récupérer les messages d'une conversation
+Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) async {
+  final url = Uri.parse('${baseUrl}user/$conversationId/messages/');
+  String? token = await storage.read(key: "access");
+
+  if (!await isTokenValid(token)) {
+    _showInvalidTokenAlert(context);
+    throw Exception("Token invalide ou expiré");
+  }
+
+  final response = await http.get(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception('Échec de la récupération des messages: ${response.body}');
+  }
+}
+
 
   Future<List<dynamic>?> fetchcagnotte() async {
     String? token = await storage.read(key: "token");
@@ -870,29 +1137,6 @@ class NetworkService {
     return responseJson;
   }
 
-  Future<dynamic> login(String telephone, String? password, String? uid) async {
-    String? pays = await storage.read(key: 'country');
-    var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/client/login/");
-    // print(baseParPays(pays));
-    try {
-      var response = await post(
-        url,
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode({
-          "username": telephone,
-          "password": password,
-          "device_connecte": uid
-        }),
-      ).timeout(Duration(seconds: timeout));
-
-      responseJson = _loginresponse(response);
-    } catch (e) {
-      // print(e);
-    }
-
-    return responseJson;
-  }
 
   Future<List<dynamic>?> listGroupe() async {
     String? token = await storage.read(key: "token");
@@ -1660,6 +1904,8 @@ class NetworkService {
         );
     }
   }
+
+
 
   Response _responseAll(Response response) {
     // print(response.body);

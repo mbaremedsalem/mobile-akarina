@@ -102,29 +102,29 @@ class Mylocalstorage {
   }
 }
 
-class ContactPermission {
-  Future<Contact?> contactPermissions() async {
-    final FlutterContactPicker contactPicker = new FlutterContactPicker();
+// class ContactPermission {
+//   Future<Contact?> contactPermissions() async {
+//     final FlutterContactPicker contactPicker = new FlutterContactPicker();
 
-    PermissionStatus permissionStatus = await _getContactPermission();
-    if (permissionStatus == PermissionStatus.granted) {
-      Contact? contact = await contactPicker.selectContact();
-      return contact;
-    } else {
-      return null;
-    }
-  }
+//     PermissionStatus permissionStatus = await _getContactPermission();
+//     if (permissionStatus == PermissionStatus.granted) {
+//       Contact? contact = await contactPicker.selectContact();
+//       return contact;
+//     } else {
+//       return null;
+//     }
+//   }
 
-  Future<PermissionStatus> _getContactPermission() async {
-    PermissionStatus permission = await Permission.contacts.status;
-    if (permission != PermissionStatus.granted) {
-      PermissionStatus permissionStatus = await Permission.contacts.request();
-      return permissionStatus;
-    } else {
-      return permission;
-    }
-  }
-}
+//   Future<PermissionStatus> _getContactPermission() async {
+//     PermissionStatus permission = await Permission.contacts.status;
+//     if (permission != PermissionStatus.granted) {
+//       PermissionStatus permissionStatus = await Permission.contacts.request();
+//       return permissionStatus;
+//     } else {
+//       return permission;
+//     }
+//   }
+// }
 
 class CameraPermission {
   Future<void> cameraPermissions() async {

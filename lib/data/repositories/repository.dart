@@ -257,8 +257,8 @@ class Repository {
     return paiementmauritel;
   }
 
-  Future<dynamic> login(String telephone, String? password, String? uid) async {
-    final login = await networkService!.login(telephone, password, uid);
+  Future<dynamic> login(String phone, String? password) async {
+    final login = await networkService!.login(phone, password);
     // print('---------$login');
     return login;
   }

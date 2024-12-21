@@ -1,5 +1,6 @@
 import 'package:akarina/presentations/components/default_button.dart';
 import 'package:akarina/presentations/constants/constants.dart';
+import 'package:akarina/presentations/screens/login/login.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
@@ -41,17 +42,17 @@ class _OnboardingState extends State<Onboarding> {
   List<BoardingModel> boarding =
   [
     BoardingModel(
-      image: 'assets/images/on1.jpg',
+      image: 'assets/images/image1.png',
       title: getTranslated(context, 'Choose maison')!,
       body: getTranslated(context, 'Find your best house  from popular allocation without any delay')!,
     ),
     BoardingModel(
-      image: 'assets/images/on2.jpg',
+      image: 'assets/images/image2.png',
       title: getTranslated(context, 'Make Payment')!,
       body: getTranslated(context, 'There are many payment options available for ease')!,
     ),
     BoardingModel(
-      image: 'assets/images/on3.jpg',
+      image: 'assets/images/image3.png',
       title: getTranslated(context, 'Get Your Commands')!,
       body: getTranslated(context,'Your demande despatch within one business day delivered at you')!,
     ),
@@ -65,9 +66,10 @@ class _OnboardingState extends State<Onboarding> {
           TextButton(
               onPressed: ()
               {
-                // Navigator.push(context, MaterialPageRoute(builder: (context) => const Login()));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const Login()));
 
-              }, child:  Text(
+              }, 
+              child:  Text(
             getTranslated(context, 'SKIP')!,
             style: const TextStyle(
               color: pcolor,
@@ -103,7 +105,6 @@ class _OnboardingState extends State<Onboarding> {
 
               ),
             ),
-            
             Expanded(
               child: SmoothPageIndicator(
                     controller: boardController,
@@ -111,22 +112,24 @@ class _OnboardingState extends State<Onboarding> {
                       dotColor: Colors.grey,
                       dotHeight: 10,
                       activeDotColor: pcolor,
-                      expansionFactor: 4,
+                      expansionFactor: 2,
                       dotWidth: 10,
-                      spacing: 5,
+                      spacing: 2,
                     ),
                     count: boarding.length,
                   ),
                ),
-               const SizedBox(
-               height: 20,
+              SizedBox(
+               height: getProportionateScreenHeight(20),
                ), 
                isLast?
                Defaultbutton(
                       height: getProportionateScreenHeight(45),
                       text: getTranslated(context, 'Get Started')!,
+                      borderRadius: getProportionateScreenWidth(5),
+                      width: getProportionateScreenWidth(500),
                       onTap: () async {
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => const Login()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const Login()));
                       },
                       color: pcolor,
                       textcolor: kWhiteColor,
@@ -139,11 +142,10 @@ class _OnboardingState extends State<Onboarding> {
   }
 
   Widget buildBoardingItem(BoardingModel model) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(
         child: Center(
-          child: Container(
+          child: SizedBox(
             width: getProportionateScreenWidth(400), // Définissez la largeur de l'image
             height: getProportionateScreenHeight(200), 
             child: Image(
@@ -153,9 +155,6 @@ class _OnboardingState extends State<Onboarding> {
             ),
           ),
         ),
-      ),
-      const SizedBox(
-        height: 30,
       ),
       Center(
         child: Text(
@@ -167,9 +166,7 @@ class _OnboardingState extends State<Onboarding> {
           ),
         ),
       ),
-      const SizedBox(
-        height: 15,
-      ),
+
       Center(
         child: Text(
           model.body,
@@ -180,9 +177,7 @@ class _OnboardingState extends State<Onboarding> {
           ),
         ),
       ),
-      const SizedBox(
-        height: 15,
-      ),
+
     ],
   );
 }

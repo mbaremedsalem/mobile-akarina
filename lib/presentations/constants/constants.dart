@@ -68,6 +68,12 @@ const kchingutelcolor = Color(0xFF0283C0);
 
 const kGreyColor = Color(0xff8A959E);
 
+TextStyle textstyle = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: getProportionateScreenWidth(14),
+    fontWeight: FontWeight.w400,
+    color: Colors.black);
+    
 final maintextstyle = TextStyle(
     fontFamily: 'Inter',
     fontSize: getProportionateScreenWidth(14),
