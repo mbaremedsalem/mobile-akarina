@@ -7,7 +7,7 @@ import 'package:akarina/data/repositories/repository.dart';
 import 'package:akarina/data/services.dart';
 import 'package:akarina/firebase_options.dart';
 import 'package:akarina/presentations/constants/constants.dart';
-import 'package:akarina/presentations/screens/api/firebase_api.dart';
+// import 'package:akarina/presentations/screens/api/firebase_api.dart';
 import 'package:akarina/presentations/screens/on_boarding/shoose.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:akarina/router.dart';
@@ -22,7 +22,7 @@ import 'package:firebase_core/firebase_core.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); 
-  await FirebaseApi().initNotifications();
+  // await FirebaseApi().initNotifications();
   runApp(MyApp(
     appRouter: AppRouter(),
   ));
