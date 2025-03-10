@@ -1,13 +1,19 @@
+import 'dart:convert';
+
+import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/components/default_button.dart';
+import 'package:akarina/presentations/components/spiner.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/size_config.dart';
+import 'package:custom_timer/custom_timer.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:async';
-
-// Example primary color (replace with your actual color)
-
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_styled_toast/flutter_styled_toast.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:http/http.dart' as http;
 class Register extends StatefulWidget {
   const Register({super.key});
 
@@ -16,195 +22,1455 @@ class Register extends StatefulWidget {
 }
 
 class _RegisterState extends State<Register> {
-  int _currentStep = 0; // Track current step
-  String? selectedOtpMethod;
-  TextEditingController phoneController = TextEditingController();
-  TextEditingController passController = TextEditingController();
-  TextEditingController otpController = TextEditingController();
-  TextEditingController fullNameController = TextEditingController();
-  TextEditingController nniController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
+  int fiftenyears = 5475;
+  int _currentStep = 0;
+  StepperType stepperType = StepperType.vertical;
   final _formKey = GlobalKey<FormState>();
+  final _formKey2 = GlobalKey<FormState>();
+  final _formKey3 = GlobalKey<FormState>();
+  final _formKekotp = GlobalKey<FormState>();
+  String? prenom;
+  String? nom;
+  String? nni;
+  String? newpassword;
+  bool loading = false;
+  bool obscure1 = true;
+  bool obscure2 = true;
+  String? msg;
+  String phone = '';
+  final storage = FlutterSecureStorage();
 
-  Timer? _timer;
-  int _remainingTime = 30; // 30 seconds for OTP expiration
+  bool codeinvalid = false;
 
-  void startTimer() {
-    if (_timer != null) _timer!.cancel();
-    _remainingTime = 30;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_remainingTime > 0) {
-          _remainingTime--;
-        } else {
-          timer.cancel(); // Stop the timer
-        }
-      });
-    });
+  bool nniValid = false;
+  bool phoneValid = false;
+  bool otpValid = false;
+  bool passwordValid = false;
+
+  String? validatepassword(String value) {
+    String pattern =
+        r'^(?!(.)\1{3})(?!0123|1234|2345|3456|4567|5678|6789|7890|0987|9876|8765|7654|6543|5432|4321|3210)\d{4}$';
+    RegExp regExp = new RegExp(pattern);
+    if (value.length == 0) {
+      return getTranslated(context, "pay2");
+    } else if (!regExp.hasMatch(value)) {
+      return getTranslated(context, 'mdp faible');
+    }
+    return null;
   }
 
-  @override
-  void dispose() {
-    if (_timer != null) _timer!.cancel();
-    super.dispose();
-  }
+  final CustomTimerController _controller = CustomTimerController();
+  int _duration = 5;
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
+    return   Scaffold(
+      body: Container(
         child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 100.0),
-              child: Column(
-                children: [
-                  Center(
-                    child: SvgPicture.asset(
-                      'assets/svg/logo.svg',
-                      width: 180,
-                      height: 180,
-                    ),
-                  ),
-                  
-                  Theme(
-                    data: ThemeData(
-                      colorScheme: ColorScheme.light(primary: pcolor),
-                    ),
-                    child: Stepper(
-                      currentStep: _currentStep,
-                      onStepTapped: (step) => setState(() => _currentStep = step),
-                      onStepContinue: () {
-                        if (_currentStep == 1 && _formKey.currentState!.validate()) {
-                          startTimer(); // Start OTP timer
-                        }
-                        if (_currentStep < 2) {
-                          setState(() => _currentStep++);
-                        } else {
-                          // Handle registration submission
-                          if (_formKey.currentState!.validate()) {
-                            // Perform the registration logic
-                            print("Registering user...");
-                          }
-                        }
-                      },
-                      onStepCancel: _currentStep == 0
-                          ? null
-                          : () => setState(() => _currentStep--),
-                      steps: _buildSteps(),
-                      controlsBuilder: (context, details) {
-                        return Row(
-                          children: [
-                        Defaultbutton(
-                            onTap: () {
-                         
-                            },
-                            color: pcolor,
-                            textcolor: kWhiteColor,
-                            text: getTranslated(context, 'Continuer')!,
-                            borderRadius: getProportionateScreenWidth(5),
-                            width: getProportionateScreenWidth(90),
-                            height: getProportionateScreenHeight(35),
-                          ),
-                            TextButton(
-                              onPressed: details.onStepCancel,
-                              style: TextButton.styleFrom(
-                                // foregroundColor: pcolor, // Use pcolor for cancel button
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                // margin: EdgeInsets.symmetric(
+                //     horizontal: getProportionateScreenWidth(20)),
+                padding: EdgeInsets.symmetric(
+                    horizontal: getProportionateScreenWidth(20),
+                    vertical: getProportionateScreenHeight(25)),
+                decoration: const BoxDecoration(),
+                //----------------- NNI ---------------------
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _currentStep == 0 && nniValid == false
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(
+                                        getProportionateScreenWidth(4)),
+                                    decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: kBlackColor),
+                                    child: SvgPicture.asset(
+                                      "assets/icons/profile_plus.svg",
+                                      colorFilter: const ColorFilter.mode(
+                                          kWhiteColor, BlendMode.srcIn),
+                                      width: getProportionateScreenWidth(22),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: getProportionateScreenWidth(10),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(getTranslated(context, "ÉTAPE 1")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      10),
+                                              fontWeight: FontWeight.w600,
+                                              color: kgrey400)),
+                                      Text(
+                                          getTranslated(context,
+                                              "Informations personnelles")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      14),
+                                              fontWeight: FontWeight.w400,
+                                              color: kBlackColor)),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              child: const Text("Cancel"),
-                            ),
-                          ],
-                        );
-                      },
+                              SizedBox(
+                                height: getProportionateScreenHeight(5),
+                              ),
+                              Form(
+                                key: _formKey,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    spaceWidth(5),
+                                    SizedBox(
+                                      height: getProportionateScreenHeight(220),
+                                      width: getProportionateScreenWidth(20),
+                                      child: VerticalDivider(
+                                        color: kgrey300,
+                                        width: getProportionateScreenWidth(11),
+                                        thickness: 2,
+                                      ),
+                                    ),
+                                    spaceWidth(10),
+                                    SizedBox(
+                                      width: getProportionateScreenWidth(300),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Container(
+                                            padding: EdgeInsets.all(
+                                                getProportionateScreenWidth(3)),
+                                            decoration: BoxDecoration(
+                                                border:
+                                                    Border.all(color: kgrey300),
+                                                borderRadius: BorderRadius.circular(
+                                                    getProportionateScreenWidth(
+                                                        12))),
+                                            child: TextFormField(
+                                              maxLength: 10,
+                                              inputFormatters: <
+                                                  TextInputFormatter>[
+                                                FilteringTextInputFormatter
+                                                    .allow(RegExp('[0-9]')),
+                                              ],
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              decoration:
+                                                  textformdecoration.copyWith(
+                                                      prefixIcon: Padding(
+                                                        padding: EdgeInsets.symmetric(
+                                                            vertical:
+                                                                getProportionateScreenHeight(
+                                                                    10),
+                                                            horizontal:
+                                                                getProportionateScreenWidth(
+                                                                    6)),
+                                                        child: SvgPicture.asset(
+                                                          "assets/icons/card_id.svg",
+                                                          colorFilter:
+                                                               ColorFilter.mode(
+                                                                  kgrey800,
+                                                                  BlendMode
+                                                                      .srcIn),
+                                                        ),
+                                                      ),
+                                                      labelText: getTranslated(
+                                                          context,
+                                                          "Numéro national d'identification")!),
+                                              validator: (v) {
+                                                if (v!.isEmpty) {
+                                                  return getTranslated(
+                                                      context, "nnicourt");
+                                                } else {
+                                                  if (v.length == 10) {
+                                                    return null;
+                                                  }
+                                                  return getTranslated(
+                                                      context, "nnicourt");
+                                                }
+                                              },
+                                              onChanged: (v) {
+                                                setState(() {
+                                                  nni = v;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          spaceHeight(15),
+                                          Container(
+                                            padding: EdgeInsets.all(
+                                                getProportionateScreenWidth(3)),
+                                            decoration: BoxDecoration(
+                                                border:
+                                                    Border.all(color: kgrey300),
+                                                borderRadius: BorderRadius.circular(
+                                                    getProportionateScreenWidth(
+                                                        12))),
+                                            child: TextFormField(
+                                              maxLength: 8,
+                                              inputFormatters: <
+                                                  TextInputFormatter>[
+                                                FilteringTextInputFormatter
+                                                    .allow(RegExp('[0-9]')),
+                                              ],
+                                              validator: (value) {
+                                                String pattern = r'^[0-9]*$';
+                                                RegExp regExp =
+                                                    new RegExp(pattern);
+
+                                                if (value!.isEmpty) {
+                                                  return getTranslated(context,
+                                                      "telobligatoire");
+                                                } else {
+                                                  if (value.startsWith('2') ||
+                                                      value.startsWith('3') ||
+                                                      value.startsWith('4')) {
+                                                    if (value.length == 8) {
+                                                      if (regExp
+                                                          .hasMatch(value)) {
+                                                        return null;
+                                                      } else {
+                                                        return getTranslated(
+                                                            context,
+                                                            "telnonvalide");
+                                                      }
+                                                    } else {
+                                                      return getTranslated(
+                                                          context,
+                                                          "telnonvalide");
+                                                    }
+                                                  } else {
+                                                    return getTranslated(
+                                                        context,
+                                                        "telnonvalide");
+                                                  }
+                                                }
+                                              },
+                                              decoration:
+                                                  textformdecoration.copyWith(
+                                                      prefixIcon: Padding(
+                                                        padding: EdgeInsets.symmetric(
+                                                            vertical:
+                                                                getProportionateScreenHeight(
+                                                                    10),
+                                                            horizontal:
+                                                                getProportionateScreenWidth(
+                                                                    6)),
+                                                        child: SvgPicture.asset(
+                                                          "assets/icons/phone.svg",
+                                                          colorFilter:
+                                                               ColorFilter.mode(
+                                                                  kgrey800,
+                                                                  BlendMode
+                                                                      .srcIn),
+                                                          height: 8,
+                                                        ),
+                                                      ),
+                                                      labelText: getTranslated(
+                                                          context,
+                                                          "Numéro de Téléphone")!),
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              onChanged: (v) {
+                                                setState(() {
+                                                  phone = v;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height:
+                                                getProportionateScreenHeight(
+                                                    10),
+                                          ),
+                                           loading
+                                              ? spiner()
+                                              : Defaultbutton(
+                                                  height:
+                                                      getProportionateScreenHeight(
+                                                          50),
+                                                  text: getTranslated(
+                                                      context, "suivant"),
+                                                  onTap: () async {
+                                                    setState(() {
+                                                      nniValid = true;
+                                                      _currentStep += 1;
+                                                    });
+                                                    if (_formKey.currentState!
+                                                        .validate()) {
+                                                      // continued();
+                                                    }
+                                                  },
+                                                  color: pcolor,
+                                                  textcolor: kWhiteColor,
+                                                ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                      backgroundColor: secondcolor,
+                                      maxRadius:
+                                          getProportionateScreenWidth(16),
+                                      child: Icon(
+                                        Icons.check,
+                                        color: kWhiteColor,
+                                        size: getProportionateScreenWidth(22),
+                                      )),
+                                  SizedBox(
+                                    width: getProportionateScreenWidth(10),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(getTranslated(context, "ÉTAPE 1")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      10),
+                                              fontWeight: FontWeight.w600,
+                                              color: kgrey400)),
+                                      Text(
+                                          getTranslated(context,
+                                              "Informations personnelles")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      14),
+                                              fontWeight: FontWeight.w400,
+                                              color: kBlackColor)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: EdgeInsets.only(
+                                    left: getProportionateScreenWidth(16),
+                                    right: getProportionateScreenWidth(16),
+                                    top: getProportionateScreenHeight(5)),
+                                height: getProportionateScreenHeight(30),
+                                width: getProportionateScreenWidth(20),
+                                child: VerticalDivider(
+                                  color: secondcolor,
+                                  width: getProportionateScreenWidth(11),
+                                  thickness: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                    spaceHeight(5),
+                    //-------------- Telephone ---------------
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _currentStep != 1 && phoneValid == false
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(
+                                            getProportionateScreenWidth(6)),
+                                        decoration: BoxDecoration(
+                                            border: Border.all(
+                                                color: kgrey300, width: 1.2),
+                                            shape: BoxShape.circle),
+                                        child: Text('#',
+                                            textScaleFactor: 1.0,
+                                            style: TextStyle(
+                                                fontSize:
+                                                    getProportionateScreenWidth(
+                                                        20),
+                                                fontWeight: FontWeight.w400,
+                                                color: colorBorder)),
+                                      ),
+                                      SizedBox(
+                                        width: getProportionateScreenWidth(10),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                              getTranslated(
+                                                  context, "ÉTAPE 2")!,
+                                              textScaleFactor: 1.0,
+                                              style: TextStyle(
+                                                  fontSize:
+                                                      getProportionateScreenWidth(
+                                                          10),
+                                                  fontWeight: FontWeight.w600,
+                                                  color: colorTextMuted)),
+                                          Text(
+                                              getTranslated(context,
+                                                  "Confirmation numéro de téléphone")!,
+                                              textScaleFactor: 1.0,
+                                              style: TextStyle(
+                                                  fontSize:
+                                                      getProportionateScreenWidth(
+                                                          14),
+                                                  fontWeight: FontWeight.w400,
+                                                  color: colorTextMuted)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: EdgeInsets.only(
+                                        left: getProportionateScreenWidth(13),
+                                        right: getProportionateScreenWidth(13),
+                                        top: getProportionateScreenHeight(5)),
+                                    height: getProportionateScreenHeight(20),
+                                    width: getProportionateScreenWidth(20),
+                                    child: VerticalDivider(
+                                      color: colorBorder,
+                                      width: getProportionateScreenWidth(11),
+                                      thickness: 2,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : _currentStep == 1 && phoneValid == false
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: kBlackColor,
+                                            maxRadius:
+                                                getProportionateScreenWidth(16),
+                                            child: Text(
+                                              '#',
+                                              style: TextStyle(
+                                                color: kWhiteColor,
+                                                fontSize:
+                                                    getProportionateScreenWidth(
+                                                        18),
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width:
+                                                getProportionateScreenWidth(10),
+                                          ),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                  getTranslated(
+                                                      context, "ÉTAPE 2")!,
+                                                  textScaleFactor: 1.0,
+                                                  style: TextStyle(
+                                                      fontSize:
+                                                          getProportionateScreenWidth(
+                                                              10),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: colorTextMuted)),
+                                              Text(
+                                                  getTranslated(context,
+                                                      "Confirmation numéro de téléphone")!,
+                                                  textScaleFactor: 1.0,
+                                                  style: TextStyle(
+                                                      fontSize:
+                                                          getProportionateScreenWidth(
+                                                              14),
+                                                      fontWeight:
+                                                          FontWeight.w400,
+                                                      color: kBlackColor)),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(
+                                        height:
+                                            getProportionateScreenHeight(15),
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            getTranslated(context, "prenom")!,
+                                            textScaleFactor: 1.0,
+                                            style: const TextStyle(
+                                                color: kBlackColor),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              prenom ?? "",
+                                              textScaleFactor: 1.0,
+                                              textAlign: TextAlign.end,
+                                              style: const TextStyle(
+                                                  color: kBlackColor,
+                                                  fontWeight: FontWeight.w500),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Defaultbutton(
+                                          height:
+                                              getProportionateScreenHeight(20), onTap: () {  },),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            getTranslated(context, "nom")!,
+                                            textScaleFactor: 1.0,
+                                            style: const TextStyle(
+                                                color: kBlackColor),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              nom ?? "",
+                                              textScaleFactor: 1.0,
+                                              textAlign: TextAlign.end,
+                                              style: const TextStyle(
+                                                  color: kBlackColor,
+                                                  fontWeight: FontWeight.w500),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Defaultbutton(
+                                          height:
+                                              getProportionateScreenHeight(20), onTap: () {  },),
+                                      SizedBox(
+                                        height:
+                                            getProportionateScreenHeight(18),
+                                      ),
+                                      Text(getTranslated(context, "tel")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                            color: kBlackColor,
+                                            fontSize:
+                                                getProportionateScreenWidth(16),
+                                          )),
+                                      SizedBox(
+                                        height: getProportionateScreenHeight(8),
+                                      ),
+                                      Form(
+                                        key: _formKey2,
+                                        child: Column(
+                                          children: [
+                                            TextFormField(
+                                              maxLength: 8,
+                                              inputFormatters: <
+                                                  TextInputFormatter>[
+                                                FilteringTextInputFormatter
+                                                    .allow(RegExp('[0-9]')),
+                                              ],
+                                              validator: (value) {
+                                                String pattern = r'^[0-9]*$';
+                                                RegExp regExp =
+                                                    new RegExp(pattern);
+
+                                                if (value!.isEmpty) {
+                                                  return getTranslated(context,
+                                                      "telobligatoire");
+                                                } else {
+                                                  if (value.startsWith('2') ||
+                                                      value.startsWith('3') ||
+                                                      value.startsWith('4')) {
+                                                    if (value.length == 8) {
+                                                      if (regExp
+                                                          .hasMatch(value)) {
+                                                        return null;
+                                                      } else {
+                                                        return getTranslated(
+                                                            context,
+                                                            "telnonvalide");
+                                                      }
+                                                    } else {
+                                                      return getTranslated(
+                                                          context,
+                                                          "telnonvalide");
+                                                    }
+                                                  } else {
+                                                    return getTranslated(
+                                                        context,
+                                                        "telnonvalide");
+                                                  }
+                                                }
+                                              },
+                                              decoration:
+                                                  textformdecoration.copyWith(
+                                                      errorStyle: TextStyle
+                                                          (
+                                                              fontSize:
+                                                                  getProportionateScreenWidth(
+                                                                      12),
+                                                              color:
+                                                                  pdarkcolor)),
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              onChanged: (v) {
+                                                setState(() {
+                                                  phone = v;
+                                                });
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height:
+                                            getProportionateScreenHeight(20),
+                                      ),
+                                      loading
+                                          ? spiner()
+                                          : Defaultbutton(
+                                              height:
+                                                  getProportionateScreenHeight(
+                                                      50),
+                                              text: getTranslated(
+                                                  context, "suivant"),
+                                              onTap: () async {
+                                                if (_formKey2.currentState!
+                                                    .validate()) {
+                                                  // telValidate();
+                                                }
+                                              },
+                                              color: pcolor,
+                                              textcolor: kWhiteColor,
+                                            ),
+                                    ],
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                          backgroundColor: pcolor,
+                                          maxRadius:
+                                              getProportionateScreenWidth(10),
+                                          child: Icon(
+                                            Icons.check,
+                                            color: kWhiteColor,
+                                            size:
+                                                getProportionateScreenWidth(15),
+                                          )),
+                                      SizedBox(
+                                        width: getProportionateScreenWidth(10),
+                                      ),
+                                      Text(getTranslated(context, "tel")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      14),
+                                              fontWeight: FontWeight.w700,
+                                              color: pcolor)),
+                                    ],
+                                  ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ),
+
+                    // -------------- Otp ----------------
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _currentStep != 2 && otpValid == false
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: getProportionateScreenWidth(20),
+                                    decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: pdarkcolor, width: 1.2)),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '3',
+                                      style: maintextstyle.copyWith(
+                                        color: pdarkcolor,
+                                        fontSize:
+                                            getProportionateScreenWidth(12),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: getProportionateScreenWidth(10),
+                                  ),
+                                  Text(getTranslated(context, "smsconfirme")!,
+                                      textScaleFactor: 1.0,
+                                      style: maintextstyle.copyWith(
+                                          fontSize:
+                                              getProportionateScreenWidth(14),
+                                          fontWeight: FontWeight.w700,
+                                          color: pdarkcolor)),
+                                ],
+                              )
+                            : _currentStep == 2 && otpValid == false
+                                ? Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor: pdarkcolor,
+                                              maxRadius:
+                                                  getProportionateScreenWidth(
+                                                      10),
+                                              child: Text(
+                                                '3',
+                                                style: maintextstyle.copyWith(
+                                                  color: kWhiteColor,
+                                                  fontSize:
+                                                      getProportionateScreenWidth(
+                                                          12),
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width:
+                                                  getProportionateScreenWidth(
+                                                      10),
+                                            ),
+                                            Text(
+                                                getTranslated(
+                                                    context, "smsconfirme")!,
+                                                textScaleFactor: 1.0,
+                                                style: maintextstyle.copyWith(
+                                                    fontSize:
+                                                        getProportionateScreenWidth(
+                                                            14),
+                                                    fontWeight: FontWeight.w700,
+                                                    color: pdarkcolor)),
+                                          ],
+                                        ),
+                                        SizedBox(
+                                          height:
+                                              getProportionateScreenHeight(25),
+                                        ),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                                height:
+                                                    getProportionateScreenHeight(
+                                                        60),
+                                                width:
+                                                    getProportionateScreenWidth(
+                                                        140),
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal:
+                                                      getProportionateScreenWidth(
+                                                          20),
+                                                ),
+                                                decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                        color: kBlackColor,
+                                                        width: 1.2),
+                                                    color: plightcolor,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            getProportionateScreenHeight(
+                                                                10))),
+                                                child: CustomTimer(
+                                                    controller: _controller,
+                                                    begin: Duration(
+                                                        minutes: _duration),
+                                                    end: const Duration(),
+                                                    builder: (time) {
+                                                      return Text(
+                                                          "${time.minutes}:${time.seconds}",
+                                                          textScaleFactor: 1.0,
+                                                          style: maintextstyle.copyWith(
+                                                              fontSize:
+                                                                  getProportionateScreenWidth(
+                                                                      30),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w400,
+                                                              color:
+                                                                  pdarkcolor));
+                                                    },
+                                                    stateBuilder:
+                                                        (time, state) {
+                                                      // If null is returned, "builder" is displayed.
+                                                      return null;
+                                                    },
+                                                    animationBuilder: (child) {
+                                                      return AnimatedSwitcher(
+                                                        duration: const Duration(
+                                                            milliseconds: 250),
+                                                        child: child,
+                                                      );
+                                                    },
+                                                    onChangeState: (state) {
+                                                      if (state ==
+                                                          CustomTimerState
+                                                              .finished) {
+                                                        setState(() {
+                                                          codeinvalid = true;
+                                                        });
+                                                      }
+                                                      if (state ==
+                                                          CustomTimerState
+                                                              .reset) {
+                                                        _controller.start();
+                                                      }
+                                                    })),
+                                          ],
+                                        ),
+                                        SizedBox(
+                                          height:
+                                              getProportionateScreenHeight(15),
+                                        ),
+                                        codeinvalid
+                                            ? Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: <Widget>[
+                                                  Text(
+                                                    getTranslated(context,
+                                                        "le code n'est plus valide")!,
+                                                    textScaleFactor: 1.0,
+                                                    style:
+                                                        maintextstyle.copyWith(
+                                                            color: kredcolor),
+                                                  ),
+                                                  GestureDetector(
+                                                      onTap: () async {
+                                                        setState(() {
+                                                          codeinvalid = false;
+                                                        });
+                                                        _controller.reset();
+                                                        var u = Uri.parse(
+                                                            "${NetworkService()
+                                                                    .baseUrl}api/user/otp/verify/$phone/");
+
+                                                        await http.get(u, headers: {
+                                                          'Content-Type':
+                                                              'application/json; charset=utf-8'
+                                                        });
+                                                        // print(respone.statusCode);
+                                                      },
+                                                      child: Text(
+                                                        getTranslated(context,
+                                                            "Ressayer")!,
+                                                        textScaleFactor: 1.0,
+                                                        style: maintextstyle
+                                                            .copyWith(
+                                                                color:
+                                                                    pdarkcolor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize:
+                                                                    getProportionateScreenWidth(
+                                                                        18)),
+                                                      )),
+                                                ],
+                                              )
+                                            : Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Align(
+                                                    alignment:
+                                                        Alignment.topLeft,
+                                                    child: Text("SMS code",
+                                                        textScaleFactor: 1.0,
+                                                        style: maintextstyle
+                                                            .copyWith(
+                                                          color: kBlackColor,
+                                                          fontSize:
+                                                              getProportionateScreenWidth(
+                                                                  14),
+                                                        )),
+                                                  ),
+                                                  SizedBox(
+                                                    height:
+                                                        getProportionateScreenHeight(
+                                                            5),
+                                                  ),
+                                                  Form(
+                                                    key: _formKekotp,
+                                                    child: Column(
+                                                      children: [
+                                                        TextFormField(
+                                                          maxLength: 6,
+                                                          inputFormatters: <
+                                                              TextInputFormatter>[
+                                                            FilteringTextInputFormatter
+                                                                .allow(RegExp(
+                                                                    '[0-9]')),
+                                                          ],
+                                                          validator: (v) {
+                                                            if (v!.isEmpty) {
+                                                              return getTranslated(
+                                                                  context,
+                                                                  "pay2");
+                                                            } else {
+                                                              if (v.length ==
+                                                                  6) {
+                                                                return null;
+                                                              }
+                                                              return "";
+                                                            }
+                                                          },
+                                                          decoration: textformdecoration.copyWith(
+                                                              errorStyle: maintextstyle.copyWith(
+                                                                  fontSize:
+                                                                      getProportionateScreenWidth(
+                                                                          12),
+                                                                  color:
+                                                                      kredcolor)),
+                                                          keyboardType:
+                                                              TextInputType
+                                                                  .number,
+                                                          onChanged: (v) {
+                                                            setState(() {
+                                                              msg = v;
+                                                            });
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    height:
+                                                        getProportionateScreenHeight(
+                                                            10),
+                                                  ),
+                                                  loading
+                                                      ? spiner()
+                                                      : Defaultbutton(
+                                                          height:
+                                                              getProportionateScreenHeight(
+                                                                  50),
+                                                          text: getTranslated(
+                                                              context,
+                                                              "suivant"),
+                                                          onTap: () async {
+                                                            if (_formKekotp
+                                                                .currentState!
+                                                                .validate()) {
+                                                              otpValidate();
+                                                            }
+                                                          },
+                                                          color: pdarkcolor,
+                                                          textcolor:
+                                                              kWhiteColor,
+                                                        ),
+                                                ],
+                                              ),
+                                      ],
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                          backgroundColor: pcolor,
+                                          maxRadius:
+                                              getProportionateScreenWidth(10),
+                                          child: Icon(
+                                            Icons.check,
+                                            color: kWhiteColor,
+                                            size:
+                                                getProportionateScreenWidth(15),
+                                          )),
+                                      SizedBox(
+                                        width: getProportionateScreenWidth(10),
+                                      ),
+                                      Text(
+                                          getTranslated(
+                                              context, "smsconfirme")!,
+                                          textScaleFactor: 1.0,
+                                          style: maintextstyle.copyWith(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      14),
+                                              fontWeight: FontWeight.w700,
+                                              color: pcolor)),
+                                    ],
+                                  ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: getProportionateScreenHeight(30),
+                    ),
+
+                    //-------------- Code ---------------
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _currentStep != 3 && passwordValid == false
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(
+                                        getProportionateScreenWidth(6)),
+                                    decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: kgrey300, width: 1.2),
+                                        shape: BoxShape.circle),
+                                    child: Text('#',
+                                        textScaleFactor: 1.0,
+                                        style: TextStyle(
+                                            fontSize:
+                                                getProportionateScreenWidth(20),
+                                            fontWeight: FontWeight.w400,
+                                            color: colorBorder)),
+                                  ),
+                                  SizedBox(
+                                    width: getProportionateScreenWidth(10),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(getTranslated(context, "ÉTAPE 3")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      10),
+                                              fontWeight: FontWeight.w600,
+                                              color: colorTextMuted)),
+                                      Text(
+                                          getTranslated(context,
+                                              "Création mot de passe")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      14),
+                                              fontWeight: FontWeight.w400,
+                                              color: colorTextMuted)),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : _currentStep == 3 && passwordValid == false
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor: plightcolor,
+                                            maxRadius:
+                                                getProportionateScreenWidth(10),
+                                            child: Text(
+                                              '4',
+                                              style: TextStyle(
+                                                color: kWhiteColor,
+                                                fontSize:
+                                                    getProportionateScreenWidth(
+                                                        12),
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width:
+                                                getProportionateScreenWidth(10),
+                                          ),
+                                          Text(getTranslated(context, "code")!,
+                                              textScaleFactor: 1.0,
+                                              style: TextStyle(
+                                                  fontSize:
+                                                      getProportionateScreenWidth(
+                                                          14),
+                                                  fontWeight: FontWeight.w700,
+                                                  color: plightcolor)),
+                                        ],
+                                      ),
+                                      SizedBox(
+                                        height:
+                                            getProportionateScreenHeight(25),
+                                      ),
+                                      Form(
+                                        key: _formKey3,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: <Widget>[
+                                            Align(
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                  getTranslated(
+                                                      context, 'codeerror')!,
+                                                  textScaleFactor: 1.0,
+                                                  style: TextStyle(
+                                                      color: kBlackColor,
+                                                      fontSize:
+                                                          getProportionateScreenWidth(
+                                                              14),
+                                                      fontWeight:
+                                                          FontWeight.w400)),
+                                            ),
+                                            SizedBox(
+                                              height:
+                                                  getProportionateScreenHeight(
+                                                      20),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal:
+                                                      getProportionateScreenWidth(
+                                                          30)),
+                                              child: Directionality(
+                                                textDirection:
+                                                    TextDirection.ltr,
+                                                child: PinCodeTextField(
+                                                  enablePinAutofill: false,
+                                                  cursorHeight:
+                                                      getProportionateScreenWidth(
+                                                          24),
+                                                  appContext: context,
+                                                  pastedTextStyle: const TextStyle(
+                                                    color: kGreyColor,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  length: 4,
+                                                  animationType:
+                                                      AnimationType.fade,
+                                                  validator: (v) =>
+                                                      validatepassword(v!),
+                                                  pinTheme: PinTheme(
+                                                    borderWidth: 1,
+                                                    selectedColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                    selectedFillColor:
+                                                        kGreyColor
+                                                            .withOpacity(0.2),
+                                                    inactiveFillColor:
+                                                        kGreyColor
+                                                            .withOpacity(0.2),
+                                                    inactiveColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                    shape:
+                                                        PinCodeFieldShape.box,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            getProportionateScreenWidth(
+                                                                10)),
+                                                    fieldHeight:
+                                                        getProportionateScreenHeight(
+                                                            65),
+                                                    fieldWidth:
+                                                        getProportionateScreenWidth(
+                                                            48),
+                                                    activeFillColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                    activeColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                  ),
+                                                  obscuringWidget: Icon(
+                                                    Icons.circle,
+                                                    color: kBlackColor,
+                                                    size:
+                                                        getProportionateScreenWidth(
+                                                            25),
+                                                  ),
+                                                  cursorColor: kBlackColor,
+                                                  enableActiveFill: true,
+                                                  keyboardType:
+                                                      TextInputType.number,
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      newpassword = value;
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height:
+                                                  getProportionateScreenHeight(
+                                                      16),
+                                            ),
+                                            Align(
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                  getTranslated(
+                                                      context, 'confirme')!,
+                                                  textScaleFactor: 1.0,
+                                                  style: TextStyle(
+                                                      color: kBlackColor,
+                                                      fontSize:
+                                                          getProportionateScreenWidth(
+                                                              14),
+                                                      fontWeight:
+                                                          FontWeight.w400)),
+                                            ),
+                                            SizedBox(
+                                              height:
+                                                  getProportionateScreenHeight(
+                                                      20),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal:
+                                                      getProportionateScreenWidth(
+                                                          30)),
+                                              child: Directionality(
+                                                textDirection:
+                                                    TextDirection.ltr,
+                                                child: PinCodeTextField(
+                                                  enablePinAutofill: false,
+                                                  cursorHeight:
+                                                      getProportionateScreenWidth(
+                                                          24),
+                                                  appContext: context,
+                                                  pastedTextStyle: const TextStyle(
+                                                    color: kGreyColor,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  length: 4,
+                                                  animationType:
+                                                      AnimationType.fade,
+                                                  pinTheme: PinTheme(
+                                                    borderWidth: 1,
+                                                    selectedColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                    selectedFillColor:
+                                                        kGreyColor
+                                                            .withOpacity(0.2),
+                                                    inactiveFillColor:
+                                                        kGreyColor
+                                                            .withOpacity(0.2),
+                                                    inactiveColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                    shape:
+                                                        PinCodeFieldShape.box,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            getProportionateScreenWidth(
+                                                                10)),
+                                                    fieldHeight:
+                                                        getProportionateScreenHeight(
+                                                            65),
+                                                    fieldWidth:
+                                                        getProportionateScreenWidth(
+                                                            48),
+                                                    activeFillColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                    activeColor: kGreyColor
+                                                        .withOpacity(0.2),
+                                                  ),
+                                                  obscuringWidget: Icon(
+                                                    Icons.circle,
+                                                    color: kBlackColor,
+                                                    size:
+                                                        getProportionateScreenWidth(
+                                                            25),
+                                                  ),
+                                                  cursorColor: kBlackColor,
+                                                  enableActiveFill: true,
+                                                  keyboardType:
+                                                      TextInputType.number,
+                                                  validator: (v) =>
+                                                      v != newpassword
+                                                          ? getTranslated(
+                                                              context,
+                                                              "identiquemot")
+                                                          : null,
+                                                  onChanged: (value) {},
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height:
+                                            getProportionateScreenHeight(10),
+                                      ),
+                                      loading
+                                          ? spiner()
+                                          : Defaultbutton(
+                                              height:
+                                                  getProportionateScreenHeight(
+                                                      50),
+                                              text: getTranslated(
+                                                  context, "confirmer"),
+                                              onTap: () async {
+                                                if (_formKey3.currentState!
+                                                    .validate()) {
+                                                  // continued();
+                                                }
+                                              },
+                                              color: pcolor,
+                                              textcolor: kWhiteColor,
+                                            ),
+                                    ],
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      CircleAvatar(
+                                          backgroundColor: pcolor,
+                                          maxRadius:
+                                              getProportionateScreenWidth(10),
+                                          child: Icon(
+                                            Icons.check,
+                                            color: kWhiteColor,
+                                            size:
+                                                getProportionateScreenWidth(15),
+                                          )),
+                                      SizedBox(
+                                        width: getProportionateScreenWidth(10),
+                                      ),
+                                      Text(getTranslated(context, "code")!,
+                                          textScaleFactor: 1.0,
+                                          style: TextStyle(
+                                              fontSize:
+                                                  getProportionateScreenWidth(
+                                                      14),
+                                              fontWeight: FontWeight.w700,
+                                              color: pcolor)),
+                                    ],
+                                  ),
+                      ],
+                    ),
+
+                    //-----------------------------------
+                  ],
+                ),
+              )
+            ],
           ),
         ),
       ),
     );
   }
 
-  // Build the steps for the Stepper
-  List<Step> _buildSteps() {
-    return [
-      Step(
-        title: const Text("Phone Number"),
-        content: Column(
-          children: [
-            TextFormField(
-              controller: phoneController,
-              decoration: const InputDecoration(labelText: "Phone Number"),
-              validator: (value) =>
-                  value!.isEmpty ? "Please enter your phone number" : null,
+  void otpValidate() async {
+    if (_currentStep == 2) {
+      if (_formKekotp.currentState!.validate()) {
+        setState(() {
+          loading = true;
+        });
+        _controller.pause();
+        try {
+          var u = Uri.parse(
+              NetworkService().baseUrl + "api/user/otp/verify/$phone/");
+
+          var respone = await http.post(u,
+              headers: {'Content-Type': 'application/json; charset=utf-8'},
+              body: jsonEncode({
+                'otp': msg,
+              }));
+          // print(respone.statusCode);
+          if (respone.statusCode == 200) {
+            setState(() {
+              loading = false;
+              _currentStep += 1;
+              otpValid = true;
+            });
+          } else {
+            setState(() {
+              loading = false;
+            });
+            _controller.start();
+
+            showToast(
+              getTranslated(context, "Code OTP invalid"),
+              textPadding: EdgeInsets.only(
+                  right: getProportionateScreenWidth(4),
+                  left: getProportionateScreenWidth(4)),
+              context: context,
+              position: StyledToastPosition.top,
+              textStyle: maintextstyle.copyWith(
+                fontSize: getProportionateScreenWidth(16),
+              ),
+              backgroundColor: Colors.red,
+              animation: StyledToastAnimation.slideFromRight,
+              reverseAnimation: StyledToastAnimation.slideFromRight,
+              duration: Duration(seconds: 7),
+              animDuration: Duration(milliseconds: 350),
+              fullWidth: false,
+              isHideKeyboard: false,
+            );
+          }
+        } catch (e) {
+          setState(() {
+            loading = false;
+          });
+          _controller.start();
+
+          showToast(
+            getTranslated(context, "Code OTP invalid"),
+            textPadding: EdgeInsets.only(
+                right: getProportionateScreenWidth(4),
+                left: getProportionateScreenWidth(4)),
+            context: context,
+            position: StyledToastPosition.top,
+            textStyle: maintextstyle.copyWith(
+              fontSize: getProportionateScreenWidth(16),
             ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              value: selectedOtpMethod,
-              decoration: const InputDecoration(labelText: "OTP Method"),
-              items: const [
-                DropdownMenuItem(value: "phone", child: Text("Phone")),
-                DropdownMenuItem(value: "email", child: Text("Email")),
-              ],
-              onChanged: (value) => setState(() => selectedOtpMethod = value),
-              validator: (value) =>
-                  value == null ? "Please select an OTP method" : null,
-            ),
-          ],
-        ),
-        isActive: _currentStep >= 0,
-        state: _currentStep > 0 ? StepState.complete : StepState.indexed,
-      ),
-      Step(
-        title: const Text("OTP Verification"),
-        content: Column(
-          children: [
-            TextFormField(
-              controller: otpController,
-              decoration: const InputDecoration(labelText: "Enter OTP"),
-              validator: (value) =>
-                  value!.isEmpty ? "Please enter the OTP" : null,
-            ),
-            const SizedBox(height: 10),
-            Text("Expires in: $_remainingTime seconds"),
-          ],
-        ),
-        isActive: _currentStep >= 1,
-        state: _currentStep > 1 ? StepState.complete : StepState.indexed,
-      ),
-      Step(
-        title: const Text("Final Details"),
-        content: Column(
-          children: [
-            TextFormField(
-              controller: fullNameController,
-              decoration: const InputDecoration(labelText: "Full Name"),
-              validator: (value) =>
-                  value!.isEmpty ? "Please enter your full name" : null,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: passwordController,
-              decoration: const InputDecoration(labelText: "Password"),
-              obscureText: true,
-              validator: (value) =>
-                  value!.isEmpty ? "Please enter a password" : null,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: nniController,
-              decoration: const InputDecoration(labelText: "NNI"),
-              validator: (value) =>
-                  value!.isEmpty ? "Please enter your NNI" : null,
-            ),
-          ],
-        ),
-        isActive: _currentStep >= 2,
-        state: _currentStep == 2 ? StepState.indexed : StepState.complete,
-      ),
-    ];
+            backgroundColor: Colors.red,
+            animation: StyledToastAnimation.slideFromRight,
+            reverseAnimation: StyledToastAnimation.slideFromRight,
+            duration: Duration(seconds: 7),
+            animDuration: Duration(milliseconds: 350),
+            fullWidth: false,
+            isHideKeyboard: false,
+          );
+        }
+      }
+    }
   }
+
+
+
 }

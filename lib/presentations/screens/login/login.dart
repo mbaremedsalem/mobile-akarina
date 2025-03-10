@@ -1,17 +1,21 @@
-import 'package:akarina/business_logic/cubits/cubit/login_cubit.dart';
-import 'package:akarina/business_logic/cubits/cubit/login_state.dart';
-import 'package:akarina/data/localization/language_constants.dart';
-import 'package:akarina/presentations/components/default_button.dart';
-import 'package:akarina/presentations/components/showToast.dart';
+import 'package:akarina/presentations/components/country_select.dart';
+import 'package:akarina/presentations/components/langue_select.dart';
 import 'package:akarina/presentations/constants/constants.dart';
-import 'package:akarina/presentations/layout/layout.dart';
-import 'package:akarina/presentations/screens/register/register.dart';
-import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
-import '../../components/spiner.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+import '../../../business_logic/cubits/cubit/login_cubit.dart';
+import '../../../business_logic/cubits/cubit/login_state.dart';
+import '../../../data/localization/language_constants.dart';
+import '../../../size_config.dart';
+import '../../components/default_button.dart';
+import '../../components/spiner.dart';
+import '../../layout/layout.dart';
+import 'dart:convert';
+
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -21,154 +25,423 @@ class Login extends StatefulWidget {
 }
 
 class _LoginState extends State<Login> {
-  bool? filledColor = false;
-
-  String hintText = '';
-
-  TextEditingController phoneController = TextEditingController();
-
-  TextEditingController passController = TextEditingController();
+  String? password;
+  String? uid;
+  String? pays;
   final _formKey = GlobalKey<FormState>();
+  final telephonecontroller = TextEditingController();
   @override
   Widget build(BuildContext context) {
-    SizeConfig().init(context);
-    return  Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0,vertical: 50),
-            child: Form(
-              key: _formKey,
-              child: Column(
+    return  BlocProvider<LoginCubit>(
+      create: (BuildContext context) => LoginCubit(),
+      child: BlocConsumer<LoginCubit, LoginStates>(
+      listener: (context, state) {
+          if (state is LoginSuccessState) {
+            Fluttertoast.showToast(
+              msg: utf8.decode(state.loginModel.message!.runes.toList()), // Décodage en UTF-8
+              // msg: state.loginModel.message!,
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+              backgroundColor: Colors.green,
+              textColor: Colors.white,
+              fontSize: 16.0,
+            ).then((value) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const Layout()),
+                (route) => false,
+              );
+            });
+          } else if (state is LoginErrorState) {
+            Fluttertoast.showToast(
+              msg: utf8.decode(state.error.runes.toList()), // Décodage en UTF-8
+              toastLength: Toast.LENGTH_LONG,
+              gravity: ToastGravity.BOTTOM,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0,
+            );
+          }
+        },
+        builder: (context, state) {
+          return     Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                 Center(
-                child: 
-                  SvgPicture.asset(
-                      'assets/svg/logo.svg',
-                  width: 180,
-                  height: 180,
-                ),
-              ),
-                SizedBox(height: getProportionateScreenHeight(20),),
-                Text(
-                getTranslated(context, 'Login to your Account')!
-                ,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-               ) ,
-               Text(
-                getTranslated(context, 'Welcome back, please enter your details')!,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color:kgrey600,
-                ),
-               ),
-               SizedBox(height: getProportionateScreenHeight(25)),
-                defaultTextField(
-                            controller: phoneController,
-                            type: TextInputType.text,
-                            text: getTranslated(context, 'Téléphone')!,
-                            prefix: Icons.phone,
-                          ),
-                defaultTextField(
-                            controller: passController,
-                            type: TextInputType.text,
-                            text: getTranslated(context, 'code')!,
-                            
-                            prefix: Icons.lock,
-                            suffix: Icons.remove_red_eye,
-                          ),
-              Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                InkWell(
-                  onTap: (){},
-                  child: Text(
-                    getTranslated(context, 'Mot de passe oublié ?')!,
-                      style: const TextStyle(
-                          color:
-                              pcolor,
-                                  fontSize: 18,
-                                    fontWeight:
-                                    FontWeight.w500)
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        margin:
+                            EdgeInsets.only(top: getProportionateScreenHeight(20)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: getProportionateScreenWidth(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding:
+                                  EdgeInsets.all(getProportionateScreenWidth(3)),
+                              decoration: BoxDecoration(
+                                  border: Border.all(color: kgrey300),
+                                  borderRadius: BorderRadius.circular(
+                                      getProportionateScreenWidth(12))),
+                              child: TextFormField(
+                                maxLength: 8,
+                                inputFormatters: <TextInputFormatter>[
+                                  FilteringTextInputFormatter.allow(
+                                      RegExp('[0-9]')),
+                                ],
+                                controller: telephonecontroller,
+                                validator: (value) {
+                                  String pattern = r'^[0-9]*$';
+                                  RegExp regExp = new RegExp(pattern);
+        
+                                  if (value!.isEmpty) {
+                                    return getTranslated(context, "telobligatoire");
+                                  } else {
+                                    if (value.startsWith('2') ||
+                                        value.startsWith('3') ||
+                                        value.startsWith('4')) {
+                                      if (value.length == 8) {
+                                        if (regExp.hasMatch(value)) {
+                                          return null;
+                                        } else {
+                                          return getTranslated(
+                                              context, "telnonvalide");
+                                        }
+                                      } else {
+                                        return getTranslated(
+                                            context, "telnonvalide");
+                                      }
+                                    } else {
+                                      return getTranslated(context, "telnonvalide");
+                                    }
+                                  }
+                                },
+                                keyboardType: TextInputType.number,
+                                decoration: textformdecoration.copyWith(
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: getProportionateScreenWidth(20),
+                                      vertical: getProportionateScreenHeight(10)),
+                                  prefixIcon: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        vertical: getProportionateScreenHeight(10),
+                                        horizontal: getProportionateScreenWidth(6)),
+                                    child: SvgPicture.asset(
+                                      "assets/icons/phone.svg",
+                                      colorFilter:
+                                          const ColorFilter.mode(pcolor, BlendMode.srcIn),
+                                      height: 8,
                                     ),
                                   ),
-                                        ],
+                                  // hintText:
+                                  //     getTranslated(context, 'Numéro de Téléphone'),
+                                  labelText:
+                                      getTranslated(context, 'Numéro de Téléphone'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      spaceHeight(10),
+                      Container(
+                          width: SizeConfig.screenWidth! - getProportionateScreenWidth(40),
+                          margin: EdgeInsets.symmetric(
+                            horizontal: getProportionateScreenWidth(20),
+                          ),
+                          padding: EdgeInsets.only(
+                              right: getProportionateScreenWidth(10),
+                              left: getProportionateScreenWidth(10)),
+                          decoration: BoxDecoration(
+                              border: Border.all(color: kgrey300),
+                              borderRadius: BorderRadius.circular(
+                                  getProportionateScreenWidth(12))),
+                          child: Row(
+                            children: [
+                              SvgPicture.asset(
+                                "assets/icons/password.svg",
+                                colorFilter:
+                                    const ColorFilter.mode(pcolor, BlendMode.srcIn),
+                                width: getProportionateScreenWidth(28),
+                              ),
+                              spaceWidth(8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  spaceHeight(4),
+                                  Text(getTranslated(context, "Mot de passe")!,
+                                      textScaleFactor: 1.0,
+                                      style: TextStyle(
+                                          fontSize: getProportionateScreenWidth(12),
+                                          fontWeight: FontWeight.w400,
+                                          color: kBlackColor)),
+                                  SizedBox(
+                                    width: SizeConfig.screenWidth -
+                                        getProportionateScreenWidth(100),
+                                    child: Directionality(
+                                      textDirection: TextDirection.ltr,
+                                      child: PinCodeTextField(
+                                        enablePinAutofill: false,
+                                        cursorHeight:
+                                            getProportionateScreenWidth(20),
+                                        appContext: context,
+                                        pastedTextStyle:  TextStyle(
+                                          color: kgrey500,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        length: 4,
+                                        animationType: AnimationType.fade,
+                                        validator: (v) {
+                                          if (v!.isEmpty) {
+                                            return "";
+                                          } else {
+                                            if (v.length == 4) {
+                                              return null;
+                                            }
+                                            return "";
+                                          }
+                                        },
+                                        pinTheme: PinTheme(
+                                            borderWidth: 1,
+                                            selectedColor: colorSurfaceElement,
+                                            inactiveColor: colorSurfaceElement,
+                                            activeColor: colorSurfaceElement,
+                                            selectedFillColor: colorSurfaceElement,
+                                            inactiveFillColor: colorSurfaceElement,
+                                            activeFillColor: colorSurfaceElement,
+                                            shape: PinCodeFieldShape.box,
+                                            borderRadius: BorderRadius.circular(
+                                                getProportionateScreenWidth(10)),
+                                            fieldHeight:
+                                                getProportionateScreenHeight(48),
+                                            fieldWidth:
+                                                getProportionateScreenWidth(64),
+                                            fieldOuterPadding: EdgeInsets.only(
+                                                top: getProportionateScreenHeight(
+                                                    8))),
+                                        obscuringWidget: Icon(
+                                          Icons.circle,
+                                          color: kBlackColor,
+                                          size: getProportionateScreenWidth(22),
+                                        ),
+                                        cursorColor: kBlackColor,
+                                        enableActiveFill: true,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            password = value;
+                                          });
+                                        },
                                       ),
-              SizedBox(height: getProportionateScreenHeight(5),),
-                            BlocConsumer<LoginCubit, LoginState>(
-                listener: (context, state) {
-                  if (state is LoginError) {
-                    showToaster(context, state.msg, kredcolor);
-                  }
-                  if (state is LoginSuccess) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (context) => const Layout()),
-                      (route) => false,
-                    );
-                  }
-                },
-                builder: (context, state) {
-                  return (state is LoginLoading)
-                      ? spiner()
-                      : 
-                      Defaultbutton(
-                          onTap: () {
-                            if (_formKey.currentState!.validate()) {
-                              BlocProvider.of<LoginCubit>(context).login(
-                                context,
-                                phoneController.text,
-                                passController.text,
-                              );
-                            }
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )),
+                      // devTestBanner(),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: getProportionateScreenHeight(10),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: getProportionateScreenWidth(16)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                           
+                          // showDialog(
+                          //     context: context,
+                          //     builder: (context) => ForgetPassword());
+                          // Navigator.of(context).pushNamed("restore_password",
+                          //     arguments: telephonecontroller.text);
+                        },
+                        child: Text(
+                          getTranslated(context, "Mot de passe oublié ?")!,
+                          textScaleFactor: 1.0,
+                          style: TextStyle(
+                              color: kgrey800,
+                              fontSize: getProportionateScreenWidth(12),
+                              fontWeight: FontWeight.w400),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: getProportionateScreenHeight(20),
+                ),
+                
+                state is !LoginLoadingState
+                ? 
+                 Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: getProportionateScreenWidth(20)),
+                        child: 
+                        Defaultbutton(
+                          height: getProportionateScreenHeight(45),
+                          text: getTranslated(context, "Connexion"),
+                          onTap: () async {
+                            // Navigator.push(
+                            // context,
+                            // MaterialPageRoute(builder: (context) => const Layout()),
+                            
+                          // );
+                            FocusScope.of(context)
+                                            .requestFocus(FocusNode());
+                                        if (_formKey.currentState!.validate()) {
+                                          LoginCubit.get(context).userLogin(
+                                            phone: telephonecontroller.text,
+                                            password: password!,
+                                          );
+                                        }
+                            
+                              
+                      
+
+                              // BlocProvider.of<LoginCubit>(context).login(
+                              //     telephonecontroller.text, password, uid, context);
+                          
                           },
                           color: pcolor,
                           textcolor: kWhiteColor,
-                          text: getTranslated(context, 'cnx')!,
-                          borderRadius: getProportionateScreenWidth(5),
-                          width: getProportionateScreenWidth(500),
-                          height: getProportionateScreenHeight(45),
-                        );
-                },
-              ),
-
-                        
-                         Row(
-                                            mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                            children: [
-                                               Text(
-                                                getTranslated(context, 'Vous navez pas un compte?')!,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w400,
-                                                  fontSize: 12,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                Navigator.push(context, MaterialPageRoute(builder: (context) => const Register()));
-                                                },
-                                                child: Text(
-                                                  getTranslated(context, 'register')!,
-                                                  style: const TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight: FontWeight.w600,
-                                                      color:pcolor),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                        ),
+                      ):spiner(
+                  
+                ),
+                const Spacer(),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: getProportionateScreenWidth(20)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet<String>(
+                            context: context,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(
+                                        getProportionateScreenHeight(20)),
+                                    topRight: Radius.circular(
+                                        getProportionateScreenHeight(20)))),
+                            builder: (BuildContext context) {
+                              return CountrySelect(
+                                country: pays,
+                              );
+                            },
+                          ).then((value) {
+                            setState(() {
+                              if (value != null && value != '') {
+                                pays = value;
+                              }
+                            });
+                            
+                          });
+                        },
+                        child: Text(
+                          getTranslated(context, "Changer le pays (MR)")!,
+                          textScaleFactor: 1.0,
+                          style: TextStyle(
+                            color: kgrey700,
+                            fontSize: getProportionateScreenWidth(14),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      
+                      Icon(
+                        Icons.circle,
+                        color: kgrey700,
+                        size: getProportionateScreenWidth(4),
+                      ),
+        
+                      GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet<String>(
+                            context: context,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(
+                                        getProportionateScreenHeight(20)),
+                                    topRight: Radius.circular(
+                                        getProportionateScreenHeight(20)))),
+                            builder: (BuildContext context) {
+                              return const LangueSelect();
+                            },
+                          );
+                        },
+                        child: Text(
+                          getTranslated(context, "Changer la langue")!,
+                          textScaleFactor: 1.0,
+                          style: TextStyle(
+                            color: kgrey700,
+                            fontSize: getProportionateScreenWidth(14),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                spaceHeight(10),
+                GestureDetector(
+                  onTap: () {
+                    // Navigator.push(
+                    //     context, MaterialPageRoute(builder: (_) => Contactus()));
+                  },
+                  child: Container(
+                    margin: EdgeInsets.symmetric(
+                        horizontal: getProportionateScreenWidth(20)),
+                    height: getProportionateScreenHeight(45),
+                    decoration: BoxDecoration(
+                        border: Border.all(color: kgrey300),
+                        borderRadius:
+                            BorderRadius.circular(getProportionateScreenWidth(12)),
+                        color: kWhiteColor),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          "assets/icons/chat.svg",
+                          colorFilter:
+                              const ColorFilter.mode(kBlackColor, BlendMode.srcIn),
+                          width: getProportionateScreenWidth(24),
+                        ),
+                        spaceWidth(10),
+                        Text(
+                          getTranslated(context, "Contactez-nous")!,
+                          textScaleFactor: 1.0,
+                          style: TextStyle(
+                            color: kBlackColor,
+                            fontSize: getProportionateScreenWidth(14),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                spaceHeight(20),
               ],
-              ),
-            ),
-          ),
-        )
-        ),
+            );
+        },
+      ),
     );
+  
+  
+    
+
   }
 }

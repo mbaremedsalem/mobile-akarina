@@ -44,3 +44,13 @@ String? getTranslated(BuildContext context, String? key) {
     return key;
   }
 }
+
+Future<String> getCurrentLanguage(BuildContext context) async {
+  final storage = FlutterSecureStorage();
+  return await storage.read(key: LAGUAGE_CODE) ?? ARABIC; // Retourne 'ar' par défaut
+}
+
+// String getCurrentLanguage(BuildContext context) {
+//   Locale myLocale = Localizations.localeOf(context);
+//   return myLocale.languageCode; // Retourne "fr" ou "ar"
+// }

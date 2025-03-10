@@ -1,5 +1,6 @@
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/models/facture.dart';
+import 'package:akarina/data/models/profile.dart';
 import 'package:http/http.dart';
 
 
@@ -209,10 +210,10 @@ class Repository {
     return paiementgroupe;
   }
 
-  // Future<Profil> profiledata() async {
-  //   final profiledata = await networkService!.profiledata();
-  //   return Profil.fromJson(profiledata);
-  // }
+  Future<Profil> profiledata() async {
+    final profiledata = await networkService!.profiledata();
+    return Profil.fromJson(profiledata);
+  }
 
   Future<dynamic> updateprofile(Map body) async {
     final updateprofile = await networkService!.updateprofile(body);

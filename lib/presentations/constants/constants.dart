@@ -1,11 +1,13 @@
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 
-const pcolor = Color(0xFF5538D9);
-const plightcolor = Color(0xFF9680FF);
-const pdarkcolor = Color(0xFF3819B5);
+const pcolor = Color(0xFF2A92CF);
+// const pcolor = Color(0xFF5538D9);
 
-const secondcolor = Color(0xFFCABDFF);
+const plightcolor = Color(0xFF6A92CF);
+const pdarkcolor = Color(0xFF2A92CF);
+
+const secondcolor = Color(0xFF6A92CF);
 const secondlightcolor = Color(0xFFF1EDFF);
 const kmaincolor = Color(0xFF162A4B);
 

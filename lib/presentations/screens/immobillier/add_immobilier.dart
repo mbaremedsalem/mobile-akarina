@@ -12,6 +12,8 @@ import 'package:akarina/data/localization/language_constants.dart';
 import 'package:intl/intl.dart';
 
 class PostAnnonceScreen extends StatefulWidget {
+  const PostAnnonceScreen({super.key});
+
   @override
   _PostAnnonceScreenState createState() => _PostAnnonceScreenState();
 }
@@ -19,41 +21,66 @@ class PostAnnonceScreen extends StatefulWidget {
 class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   String? selectedType;
   String? selectedimmo;
-  String? selectedVille;
   String? selectedZone;
   List<dynamic> villes = [];
   int currentState = 0;
   bool isLoaded = false;
+  String selectedCity = '';
 
   TextEditingController descriptionController = TextEditingController();
   TextEditingController prixController = TextEditingController();
   TextEditingController surfaceController = TextEditingController();
+  TextEditingController addressController = TextEditingController();
 
-  final storage = FlutterSecureStorage(); // Pour stocker les données de manière sécurisée
-  final String apiUrl = 'https://akarina-9865f1a90dee.herokuapp.com/akareena/imobiers/new/';
+  final storage = const FlutterSecureStorage(); // Pour stocker les données de manière sécurisée
+  final String apiUrl = 'https://akarina.online/akareena/imobiers/new/';
+
+  List<Map<String, dynamic>> availableCities = []; // Stocke la liste des villes
+  String? selectedVille; // Ville sélectionnée (ID stocké sous forme de String)
+  bool isLoadingCities = true; // Pour afficher un indicateur de chargement
 
   @override
   void initState() {
     super.initState();
-    fetchVilles();
+    fetchCities();
   }
 
-  // Fonction pour récupérer les villes depuis l'API
-  Future<void> fetchVilles() async {
+
+  /// Récupération des villes depuis l'API
+  Future<void> fetchCities() async {
     try {
-      final response = await http.get(Uri.parse('https://akarina-9865f1a90dee.herokuapp.com/akareena/get-ville/'));
+      final response = await http.get(
+        Uri.parse("https://akarina.online/akareena/villes/"),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      );
+
       if (response.statusCode == 200) {
         setState(() {
-          villes = json.decode(response.body);
+          availableCities = List<Map<String, dynamic>>.from(
+            jsonDecode(utf8.decode(response.bodyBytes)), // Gère l'encodage UTF-8
+          );
+          isLoadingCities = false;
         });
       } else {
-        throw Exception('Erreur lors du chargement des villes.');
+        throw Exception("Erreur lors du chargement des villes : ${response.statusCode}");
       }
-    } catch (error) {
-      showToast('Erreur de chargement des villes', backgroundColor: Colors.red, duration: Duration(seconds: 4));
+    } catch (e) {
+      setState(() {
+        isLoadingCities = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur : $e")),
+      );
     }
   }
 
+  /// Récupère la langue actuelle et affiche le nom en FR ou AR
+  String getCityName(Map<String, dynamic> city) {
+    String? currentLang = Localizations.localeOf(context).languageCode;
+    return currentLang == 'ar' ? city['nom_ar'] : city['nom'];
+  }
 
 
   // Fonction pour soumettre l'annonce immobilière
@@ -98,7 +125,7 @@ Future<void> submitAnnonce(BuildContext context) async {
         jsonResponse['message'],
         context: context, // Ensure context is passed here
         backgroundColor: Colors.green,
-        duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 4),
       );
     } else {
       final errorResponse = json.decode(response.body);
@@ -106,7 +133,7 @@ Future<void> submitAnnonce(BuildContext context) async {
         errorResponse['error'] ?? 'Une erreur est survenue',
         context: context, // Ensure context is passed here
         backgroundColor: Colors.red,
-        duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 4),
       );
     }
   } catch (e) {
@@ -114,7 +141,7 @@ Future<void> submitAnnonce(BuildContext context) async {
       'Erreur réseau. Veuillez réessayer.',
       context: context, // Ensure context is passed here
       backgroundColor: Colors.red,
-      duration: Duration(seconds: 4),
+      duration: const Duration(seconds: 4),
     );
   } finally {
     setState(() {
@@ -164,8 +191,8 @@ Future<void> submitAnnonce(BuildContext context) async {
                 ],
               ),
             ),
-            SizedBox(height: 10),
-            currentState == 0 ? buildImmobilierForm() : ProjectSubmissionForm(),
+            const SizedBox(height: 10),
+            currentState == 0 ? buildImmobilierForm() : const ProjectSubmissionForm(),
           ],
         ),
       ),
@@ -224,7 +251,7 @@ Future<void> submitAnnonce(BuildContext context) async {
                 width: 40,
                 fit: BoxFit.cover, // Ensure the image covers the container proportionally
               ),
-              SizedBox(width: 16), // Space between image and text
+              const SizedBox(width: 16), // Space between image and text
               // Column for price, duration, and contact
               Expanded(
                 child: Column(
@@ -232,24 +259,24 @@ Future<void> submitAnnonce(BuildContext context) async {
                   children: [
                     Text(
                       '6,600 ${getTranslated(context, "MRU")}', // Price
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 4), // Slight space between text
+                    const SizedBox(height: 4), // Slight space between text
                     Text(
                       '6 ${getTranslated(context, "mois")}', // Duration
-                      style: TextStyle(fontSize: 14),
+                      style: const TextStyle(fontSize: 14),
                     ),
-                    SizedBox(height: 8), // Space between text and contact
+                    const SizedBox(height: 8), // Space between text and contact
                     Text(
                       '${getTranslated(context, "Contact")}: 47100063', // Contact information
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
               // Copy icon on the right
               IconButton(
-                icon: Icon(Icons.copy),
+                icon: const Icon(Icons.copy),
                 onPressed: () {
                   // Action to copy contact details
                 },
@@ -260,7 +287,7 @@ Future<void> submitAnnonce(BuildContext context) async {
       ),
       // End of the Card Layout
 
-      SizedBox(height: 8), // Space between card and the next element
+      const SizedBox(height: 8), // Space between card and the next element
 
       // GestureDetector for choosing screenshot
       GestureDetector(
@@ -277,11 +304,11 @@ Future<void> submitAnnonce(BuildContext context) async {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.upload, size: 30, color: Colors.grey),
-                SizedBox(height: 8),
+                const Icon(Icons.upload, size: 30, color: Colors.grey),
+                const SizedBox(height: 8),
                 Text(
                   '${getTranslated(context, "Cliquez pour choisir capture d'écran du paiement")}',
-                  style: TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: Colors.grey),
                 ),
               ],
             ),
@@ -289,27 +316,29 @@ Future<void> submitAnnonce(BuildContext context) async {
         ),
       ),
 
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         // Dropdown pour sélectionner la ville
-        DropdownButtonFormField<int>(
-          value: selectedVille != null ? int.tryParse(selectedVille!) : null,
-          onChanged: (int? newValue) {
-            setState(() {
-              selectedVille = newValue?.toString();  // Store the city ID as a string
-            });
-          },
-          items: villes.map<DropdownMenuItem<int>>((ville) {
-            return DropdownMenuItem<int>(
-              value: ville['id'],  // Use the city ID as the value
-              child: Text(ville['nom']),  // Display the city name
-            );
-          }).toList(),
-          decoration: InputDecoration(
-            labelText: getTranslated(context, "Ville"),
-            border: OutlineInputBorder(),
-          ),
-        ),
-        SizedBox(height: 16),
+            isLoadingCities
+                ? const CircularProgressIndicator() // Affiche un chargement
+                : DropdownButtonFormField<int>(
+                    value: selectedVille != null ? int.tryParse(selectedVille!) : null,
+                    onChanged: (int? newValue) {
+                      setState(() {
+                        selectedVille = newValue?.toString(); // Stocke l'ID en string
+                      });
+                    },
+                    items: availableCities.map<DropdownMenuItem<int>>((ville) {
+                      return DropdownMenuItem<int>(
+                        value: ville['id'], // ID de la ville
+                        child: Text(getCityName(ville)), // Nom affiché selon la langue
+                      );
+                    }).toList(),
+                    decoration: InputDecoration(
+                      labelText: getTranslated(context, "Ville"),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),    
+        const SizedBox(height: 10),
         // Dropdown pour le type d'annonce
         DropdownButtonFormField<String>(
           value: selectedType,
@@ -324,9 +353,9 @@ Future<void> submitAnnonce(BuildContext context) async {
               child: Text(type),
             );
           }).toList(),
-          decoration: InputDecoration(labelText:getTranslated(context, "Type d'Annonce")!, border: OutlineInputBorder()),
+          decoration: InputDecoration(labelText:getTranslated(context, "Type d'Annonce")!, border: const OutlineInputBorder()),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         // Dropdown pour le type d'immobilier
         DropdownButtonFormField<String>(
           value: selectedimmo,
@@ -341,47 +370,37 @@ Future<void> submitAnnonce(BuildContext context) async {
               child: Text(type),
             );
           }).toList(),
-          decoration: InputDecoration(labelText:getTranslated(context, "Type d'Immobilier"), border: OutlineInputBorder()),
+          decoration: InputDecoration(labelText:getTranslated(context, "Type d'Immobilier"), border: const OutlineInputBorder()),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         // Champ pour le prix
         TextFormField(
           controller: prixController,
-          decoration: InputDecoration(labelText: getTranslated(context, "Prix"), border: OutlineInputBorder()),
+          decoration: InputDecoration(labelText: getTranslated(context, "Prix"), border: const OutlineInputBorder()),
           keyboardType: TextInputType.number,
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         // Champ pour la surface
         TextFormField(
           controller: surfaceController,
-          decoration: InputDecoration(labelText: getTranslated(context, "Surface"), border: OutlineInputBorder()),
+          decoration: InputDecoration(labelText: getTranslated(context, "Surface"), border: const OutlineInputBorder()),
           keyboardType: TextInputType.number,
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         // Dropdown pour la zone
-        DropdownButtonFormField<String>(
-          value: selectedZone,
-          onChanged: (newValue) {
-            setState(() {
-              selectedZone = newValue;
-            });
-          },
-          items: ['Tevragh Zeina', 'Arafat', 'Sebkha'].map((zone) {
-            return DropdownMenuItem<String>(
-              value: zone,
-              child: Text(zone),
-            );
-          }).toList(),
-          decoration: InputDecoration(labelText: getTranslated(context, "Adresse"), border: OutlineInputBorder()),
+        TextFormField(
+          controller: addressController,
+          decoration: InputDecoration(labelText: getTranslated(context, "Adresse"), border: const OutlineInputBorder()),
+          keyboardType: TextInputType.text,
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         // Champ pour la description
         TextField(
           controller: descriptionController,
           maxLines: 4,
-          decoration: InputDecoration(border: OutlineInputBorder(), labelText: getTranslated(context, "Description")),
+          decoration: InputDecoration(border: const OutlineInputBorder(), labelText: getTranslated(context, "Description")),
         ),
-        SizedBox(height: 20),
+        const SizedBox(height: 20),
         // Bouton de soumission
         isLoaded
             ? spiner() // Affichage du spinner si isLoaded est vrai
@@ -403,34 +422,13 @@ Future<void> submitAnnonce(BuildContext context) async {
 
 
 
-        //   SizedBox(height: 20),
-        // // Image/Video upload section
-        // GestureDetector(
-        //   onTap: () {
-        //     // Action for selecting images or videos
-        //   },
-        //   child: Container(
-        //     height: 150,
-        //     decoration: BoxDecoration(
-        //       borderRadius: BorderRadius.circular(10),
-        //       border: Border.all(color: Colors.grey),
-        //     ),
-        //     child: Center(
-        //       child: Column(
-        //         mainAxisAlignment: MainAxisAlignment.center,
-        //         children: [
-        //           Icon(Icons.upload, size: 30, color: Colors.grey),
-        //           SizedBox(height: 8),
-        //           Text('Images ou vidéos du bien immobilier', style: TextStyle(color: Colors.grey)),
-        //         ],
-        //       ),
-        //     ),
-        //   ),
-        // ),
+
 // Project submission form code remains unchanged
 
 
 class ProjectSubmissionForm extends StatefulWidget {
+  const ProjectSubmissionForm({super.key});
+
   @override
   _ProjectSubmissionFormState createState() => _ProjectSubmissionFormState();
 }
@@ -471,29 +469,29 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
               height: 100,
             ),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Text(
             getTranslated(context, "Soumettre un Projet Immobilier")!,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           Text(
             getTranslated(context, "Chez Akareena, nous nous engageons à traiter votre demande rapidement et efficacement. Remplissez le formulaire ci-dessous pour nous fournir les détails de votre projet. Nous reviendrons vers vous dès que possible.")!,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 14),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           // Dropdown for selecting project type
           DropdownButtonFormField<String>(
             decoration: InputDecoration(
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
               labelText: getTranslated(context, "Type de Projet")!,
             ),
             value: selectedType,
             items: [getTranslated(context, "appartement")!, getTranslated(context, "Maison")!,getTranslated(context, "Terrain")!]
                 .map((label) => DropdownMenuItem(
-                      child: Text(label),
                       value: label,
+                      child: Text(label),
                     ))
                 .toList(),
             onChanged: (value) {
@@ -502,36 +500,36 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
               });
             },
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           // Address input field
           TextField(
             controller: addressController,
             decoration: InputDecoration(
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
               labelText: getTranslated(context, "Adresse")!,
             ),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           // Budget input field
           TextField(
             controller: budgetController,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
               labelText: getTranslated(context, "Budget")!,
             ),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           // Description input field
           TextField(
             controller: descriptionController,
             maxLines: 4,
             decoration: InputDecoration(
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
               labelText: getTranslated(context, "Description")!,
             ),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           // Date pickers for project start and end dates
           Row(
             children: [
@@ -539,22 +537,22 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
                 child: TextField(
                   controller: startDateController,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                     labelText: getTranslated(context, "Début du Projet")!,
-                    suffixIcon: Icon(Icons.calendar_today),
+                    suffixIcon: const Icon(Icons.calendar_today),
                   ),
                   readOnly: true,
                   onTap: () => _selectDate(context, startDateController),
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   controller: endDateController,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                     labelText: getTranslated(context, "Fin du Projet")!,
-                    suffixIcon: Icon(Icons.calendar_today),
+                    suffixIcon: const Icon(Icons.calendar_today),
                   ),
                   readOnly: true,
                   onTap: () => _selectDate(context, endDateController),
@@ -562,7 +560,7 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
               ),
             ],
           ),
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
           // Submit button
           Defaultbutton(
             onTap: () {

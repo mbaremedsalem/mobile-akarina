@@ -17,9 +17,9 @@ class LayoutCubit extends Cubit<LayoutStates>
     const Home(),
     const Category(),
     // const ChatPage(),
-     PostAnnonceScreen(),
-     MyHome(),
-    const Profile(),
+    PostAnnonceScreen(),
+    const MyHome(),
+    ProfilePage(),
   ];
 
   void changeBottom(int index)

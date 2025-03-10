@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 // import 'package:bcipay/data/services.dart';
 import 'package:akarina/data/data_providers/exception.dart';
 import 'package:akarina/data/models/user.dart';
@@ -13,10 +14,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
 
+import '../../presentations/screens/login/index_login.dart';
+
 class NetworkService {
-  final storage = FlutterSecureStorage();
+  final storage = const FlutterSecureStorage();
   int timeout = 60;
-  String baseUrl = "https://akarina-9865f1a90dee.herokuapp.com/";
+  String baseUrl = "https://akarina.online/";
 
   // String baseUrl = "https://akarina-location-b65cbbb9833c.herokuapp.com/";
 
@@ -45,20 +48,26 @@ class NetworkService {
     return responseJson;
   }
 
-  Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
-    final url = '${baseUrl}akareena/residentiels/$id';
-    final response = await http.get(
-      Uri.parse(url),
 
-    );
+Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
+  final url = '${baseUrl}akareena/residentiels/$id';
+  final response = await http.get(
+    Uri.parse(url),
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8', // Indique que les données attendues sont en UTF-8
+    },
+  );
 
-    if (response.statusCode == 200) {
-      print(response.body);
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load property details ${response.body}');
-    }
+  if (response.statusCode == 200) {
+    // Décoder explicitement en UTF-8 pour gérer les caractères spéciaux
+    final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
+    print(decodedBody); // Facultatif : pour vérifier les données reçues
+    return decodedBody;
+  } else {
+    throw Exception('Failed to load property details: ${response.body}');
   }
+}
+
 
 
 
@@ -69,6 +78,9 @@ class NetworkService {
     try {
       var response = await get(
         url,
+        headers: {
+        'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
+      },
       ).timeout(Duration(seconds: timeout));
 
       if (response.statusCode == 200) {
@@ -83,12 +95,10 @@ class NetworkService {
   }
 
 
-  Future<dynamic> fetchApartments() async {
-    var url = Uri.parse("${baseUrl}akareena/appartements/");
+  Future<dynamic> fetchApartments(Uri uri) async {
+    // var url = Uri.parse("${baseUrl}akareena/appartements/");
     try {
-      var response = await get(
-        url,
-      ).timeout(Duration(seconds: timeout));
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -105,10 +115,15 @@ class NetworkService {
     try {
       var response = await get(
         url,
+        headers: {
+        'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
+      },
       ).timeout(Duration(seconds: timeout));
 
       if (response.statusCode == 200) {
+        print("#########${response.body}");
         return jsonDecode(response.body);
+        
       } else {
         throw Exception('Failed to load categories : ${response.body}');
       }
@@ -123,6 +138,9 @@ class NetworkService {
     try {
       var response = await get(
         url,
+        headers: {
+        'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
+      },
       ).timeout(Duration(seconds: timeout));
 
       if (response.statusCode == 200) {
@@ -136,55 +154,146 @@ class NetworkService {
     }
   }
 // --------- chat  
-  // Fonction pour vérifier si le token est valide ou expiré
-  Future<bool> isTokenValid(String? token) async {
-    if (token == null || token.isEmpty) return false;
-    return !JwtDecoder.isExpired(token);  // Vérifier l'expiration du token
+// Fonction pour vérifier si le token est valide ou expiré
+// Future<bool> isTokenValid(String? token) async {
+//   if (token == null || token.isEmpty) return false;
+
+//   try {
+//     // Utiliser JwtDecoder pour vérifier si le token est expiré
+//     return !JwtDecoder.isExpired(token);
+//   } catch (e) {
+//     // Gérer les cas où le token est mal formé ou non décodable
+//     return false;
+//   }
+// }
+
+// Fonction pour afficher une alerte si le token est invalide ou expiré
+// void _showInvalidTokenAlert(BuildContext context) {
+//   showDialog(
+//     context: context,
+//     barrierDismissible: false, // Empêche de fermer l'alerte sans action
+//     builder: (BuildContext context) {
+//       return AlertDialog(
+//         title: const Text("Session Expirée"),
+//         content: const Text("Votre session a expiré. Veuillez vous reconnecter pour continuer."),
+//         actions: [
+//           TextButton(
+//             onPressed: () {
+//               // Rediriger vers l'écran de connexion
+//               Navigator.pushReplacement(
+//                 context,
+//                 MaterialPageRoute(builder: (context) => const IndexLogin()),
+//               );
+//             },
+//             child: const Text("OK"),
+//           ),
+//         ],
+//       );
+//     },
+//   );
+// }
+
+
+  Future<void> sendImage(int conversationId, File imageFile, BuildContext context) async {
+    final uri = Uri.parse('$baseUrl/conversations/$conversationId/messages/');
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['type'] = 'image'
+      ..files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+    // Include headers or authentication tokens if necessary
+    // request.headers['Authorization'] = 'Bearer YOUR_TOKEN';
+
+    try {
+      final response = await request.send();
+      if (response.statusCode != 201) {
+        throw Exception('Failed to send image. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error sending image: $e');
+    }
   }
 
-  // Afficher une alerte si le token est invalide
-  void _showInvalidTokenAlert(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Session Expirée"),
-          content: const Text("Il faut que vous vous connectiez pour continuer."),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => Login()));
-              },
-              child: const Text("OK"),
-            ),
-          ],
-        );
+
+// --------- chat  
+// Fonction pour vérifier si le token est valide ou expiré
+Future<bool> isTokenValid(String? token) async {
+  if (token == null || token.isEmpty) return false;
+  return !JwtDecoder.isExpired(token); // Retourne false si le token est expiré
+}
+
+// Afficher une alerte si le token est invalide ou expiré
+void _showInvalidTokenAlert(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text("Session Expirée"),
+        content: const Text("Votre session a expiré. Veuillez vous reconnecter."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const IndexLogin()),
+              );
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+// Fonction pour récupérer les utilisateurs
+Future<List<User>> fetchUsers(BuildContext context) async {
+  final url = Uri.parse('https://akarina.online/user/clients/');
+  String? token = await storage.read(key: "access");
+  
+  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
+  if (token == null || token.isEmpty || await isTokenValid(token)) {
+    _showInvalidTokenAlert(context);
+
+    // Attendre que l'alerte soit affichée avant de lever une exception
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    // throw Exception("Token invalide ou expiré");
+  }
+
+  try {
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
     );
-  }
 
-  Future<List<User>> fetchUsers( BuildContext context) async {
-
-    final url = Uri.parse('${baseUrl}user/clients/');
-    String? token = await storage.read(key: "access");
-
-    if (!await isTokenValid(token)) {
-    _showInvalidTokenAlert(context);
-    throw Exception("Token invalide ou expiré");
-    }
-      final response = await http.get(url,    
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    });
     if (response.statusCode == 200) {
+      // Si la requête réussit, on parse la réponse
       List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => User.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load users${response.body}');
+    } else if (response.statusCode == 401) {
+      // Si le token est invalide ou expiré (401 Unauthorized)
+      final responseBody = jsonDecode(response.body);
+      if (responseBody['code'] == "token_not_valid") {
+        _showInvalidTokenAlert(context);
+
+        // Attendre que l'alerte soit affichée avant de lever une exception
+        await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+        throw Exception("Le token est invalide ou expiré.");
+      }
     }
+
+    // Gérer les autres erreurs
+    print('Erreur API : ${response.body}');
+    throw Exception('Échec du chargement des utilisateurs : ${response.body}');
+  } 
+  catch (e) {
+    print('Erreur : $e');
+    rethrow;
   }
-  
+}
+
 // Fonction pour créer ou récupérer une conversation
 Future<Map<String, dynamic>> getConversation(int participantId, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/conversations/');
@@ -193,9 +302,13 @@ Future<Map<String, dynamic>> getConversation(int participantId, BuildContext con
 
   int? id = idString != null ? int.tryParse(idString) : null;
 
-  if (!await isTokenValid(token)) {
+  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
+  if (token == null || token.isEmpty || await isTokenValid(token)) {
     _showInvalidTokenAlert(context);
-    throw Exception("Token invalide ou expiré");
+
+    // Attendre que l'alerte soit affichée avant de lever une exception
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    // throw Exception("Token invalide ou expiré");
   }
 
   final response = await http.post(
@@ -231,9 +344,13 @@ Future<void> sendMessage(int conversationId, String content, BuildContext contex
   final url = Uri.parse('${baseUrl}user/messages/');
   String? token = await storage.read(key: "access");
 
-  if (!await isTokenValid(token)) {
+  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
+  if (token == null || token.isEmpty || await isTokenValid(token)) {
     _showInvalidTokenAlert(context);
-    throw Exception("Token invalide ou expiré");
+
+    // Attendre que l'alerte soit affichée avant de lever une exception
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    // throw Exception("Token invalide ou expiré");
   }
 
   final response = await http.post(
@@ -254,30 +371,37 @@ Future<void> sendMessage(int conversationId, String content, BuildContext contex
 }
 
 // Fonction pour récupérer les messages d'une conversation
+
+
 Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/$conversationId/messages/');
   String? token = await storage.read(key: "access");
 
-  if (!await isTokenValid(token)) {
+  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
+  if (token == null || token.isEmpty || await isTokenValid(token)) {
     _showInvalidTokenAlert(context);
-    throw Exception("Token invalide ou expiré");
+
+    // Attendre que l'alerte soit affichée avant de lever une exception
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    // throw Exception("Token invalide ou expiré");
   }
 
   final response = await http.get(
     url,
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
+      'Authorization': 'Bearer $token'
     },
   );
 
   if (response.statusCode == 200) {
-    return jsonDecode(response.body);
+    // Décoder le corps en UTF-8 pour garantir que les caractères spéciaux sont correctement interprétés
+    final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
+    return decodedBody;
   } else {
     throw Exception('Échec de la récupération des messages: ${response.body}');
   }
 }
-
 
   Future<List<dynamic>?> fetchcagnotte() async {
     String? token = await storage.read(key: "token");
@@ -287,7 +411,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await post(
-          Uri.parse(baseParPays(pays!) + "api/cagnote/list/"),
+          Uri.parse("${baseParPays(pays!)}api/cagnote/list/"),
           headers: {"Authorization": "JWT $token"},
           body: jsonEncode({"id": id})).timeout(Duration(seconds: timeout));
       // print(response.statusCode);
@@ -310,7 +434,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) + "api/agence/list/"),
+        Uri.parse("${baseParPays(pays!)}api/agence/list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       responseJson = _response(response);
@@ -333,8 +457,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await post(
-          Uri.parse(baseParPays(pays!) +
-              "api/func/transaction/beneficiaires-payement_masse/"),
+          Uri.parse("${baseParPays(pays!)}api/func/transaction/beneficiaires-payement_masse/"),
           headers: {"Authorization": "JWT $token"},
           body: jsonEncode({
             "numero_grp_payement": numerogroupe,
@@ -361,7 +484,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) + "api/user/facturier/list/"),
+        Uri.parse("${baseParPays(pays!)}api/user/facturier/list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       // print(response.statusCode);
@@ -381,7 +504,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) + "api/notification/list/"),
+        Uri.parse("${baseParPays(pays!)}api/notification/list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       responseJson = _response(response);
@@ -407,13 +530,13 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     try {
       final response = await post(
-              Uri.parse(baseParPays(pays!) + "api/transaction/list/filter/"),
+              Uri.parse("${baseParPays(pays!)}api/transaction/list/filter/"),
               headers: {
                 "Authorization": "JWT $token",
                 'Content-Type': 'application/json; charset=utf-8'
               },
               body: jsonEncode({"date_1": startDate, "date_2": endDate}))
-          .timeout(Duration(seconds: 70));
+          .timeout(const Duration(seconds: 70));
       // print(response.statusCode);
       // print(response.body);
       responseJson = _response(response);
@@ -436,12 +559,12 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     // print('here..');
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) + "api/transaction/list/last/"),
+        Uri.parse("${baseParPays(pays!)}api/transaction/list/last/"),
         headers: {
           "Authorization": "JWT $token",
           "Content-Type": "application/json; charset=utf-8"
         },
-      ).timeout(Duration(seconds: 70));
+      ).timeout(const Duration(seconds: 70));
       responseJson = _response(response);
       // print(response.statusCode);
       // print(response.body);
@@ -462,7 +585,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/valid-vendor-id/");
+        "${baseParPays(pays!)}api/func/client_digiPay/valid-vendor-id/");
     var responseJson;
 
     try {
@@ -491,7 +614,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
 
-    var url = Uri.parse(baseParPays(pays!) + "api/get_frais_transaction/");
+    var url = Uri.parse("${baseParPays(pays!)}api/get_frais_transaction/");
     var responseJson;
 
     try {
@@ -527,7 +650,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
 
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/valid-code-payement/");
+        "${baseParPays(pays!)}api/func/client_digiPay/valid-code-payement/");
 
     try {
       var response = await post(
@@ -561,7 +684,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
 
-    var url = Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/check/");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/check/");
 
     try {
       var response = await post(
@@ -595,7 +718,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
 
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/fast-payement/");
+        "${baseParPays(pays!)}api/func/client_digiPay/fast-payement/");
 
     try {
       var response = await post(
@@ -635,7 +758,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     // print(codeComptable);
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/payement/");
+        Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/payement/");
     try {
       var response = await post(
         url,
@@ -666,7 +789,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<Response> restorePassword(String phone) async {
     String? pays = await storage.read(key: 'country');
     Response responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/user/password/reset/");
+    var url = Uri.parse("${baseParPays(pays!)}api/user/password/reset/");
 
     try {
       Response response = await post(
@@ -694,7 +817,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/envoie/");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/envoie/");
     try {
       var response = await post(
         url,
@@ -731,7 +854,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/envoie/");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/envoie/");
     try {
       var response = await post(
         url,
@@ -769,7 +892,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/retrait/");
+        Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/retrait/");
     try {
       var response = await post(
         url,
@@ -804,9 +927,9 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
       String? langue) async {
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
+    Response responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/forfait/carte-credit/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/forfait/carte-credit/");
     try {
       var response = await post(url,
           headers: {
@@ -841,7 +964,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/user/auth-user/get/$myid/");
+    var url = Uri.parse("${baseParPays(pays!)}api/user/auth-user/get/$myid/");
     try {
       var response = await get(
         url,
@@ -871,7 +994,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/cagnote/check-client_digipay/");
+        Uri.parse("${baseParPays(pays!)}api/cagnote/check-client_digipay/");
     try {
       var response = await post(
         url,
@@ -902,7 +1025,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/cagnote/create/");
+    var url = Uri.parse("${baseParPays(pays!)}api/cagnote/create/");
 
     Map body = {
       "client": myid,
@@ -940,7 +1063,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/cagnote/delete/");
+    var url = Uri.parse("${baseParPays(pays!)}api/cagnote/delete/");
 
     try {
       var response = await post(
@@ -975,7 +1098,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/participer-cagnote/");
+        "${baseParPays(pays!)}api/func/client_digiPay/participer-cagnote/");
     try {
       var response = await post(
         url,
@@ -1013,7 +1136,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/valid-cagnote-code/");
+        "${baseParPays(pays!)}api/func/client_digiPay/valid-cagnote-code/");
     try {
       var response = await post(
         url,
@@ -1045,7 +1168,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/cloturer-cagnote/");
+        "${baseParPays(pays!)}api/func/client_digiPay/cloturer-cagnote/");
     try {
       var response = await post(url,
               headers: {
@@ -1077,7 +1200,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/participants-cagnote/");
+        "${baseParPays(pays!)}api/func/client_digiPay/participants-cagnote/");
     try {
       var response = await post(url,
               headers: {
@@ -1109,7 +1232,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/update-participation/");
+        "${baseParPays(pays!)}api/func/client_digiPay/update-participation/");
     try {
       var response = await post(url,
           headers: {
@@ -1141,7 +1264,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<List<dynamic>?> listGroupe() async {
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
-    var url = Uri.parse(baseParPays(pays!) + "api/grp-payement/list/");
+    var url = Uri.parse("${baseParPays(pays!)}api/grp-payement/list/");
 
     var responseJson;
 
@@ -1173,7 +1296,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/beneficiaire-grp_payement/list/");
+        Uri.parse("${baseParPays(pays!)}api/beneficiaire-grp_payement/list/");
     try {
       var response = await post(url,
               headers: {
@@ -1204,7 +1327,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/grp-payement/create/");
+    var url = Uri.parse("${baseParPays(pays!)}api/grp-payement/create/");
     try {
       var response = await post(
         url,
@@ -1237,7 +1360,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/grp-payement/check-client_digipay/");
+        "${baseParPays(pays!)}api/grp-payement/check-client_digipay/");
     try {
       var response = await post(
         url,
@@ -1269,7 +1392,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/beneficiaire-grp_payement/create/");
+        Uri.parse("${baseParPays(pays!)}api/beneficiaire-grp_payement/create/");
     try {
       var response = await post(url,
           headers: {
@@ -1302,7 +1425,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/grp-payement/delete/$id/");
+    var url = Uri.parse("${baseParPays(pays!)}api/grp-payement/delete/$id/");
     try {
       var response = await delete(
         url,
@@ -1333,7 +1456,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/beneficiaire-grp_payement/update/$id/");
+        "${baseParPays(pays!)}api/beneficiaire-grp_payement/update/$id/");
     try {
       var response = await put(url,
           headers: {
@@ -1367,7 +1490,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/beneficiaire-grp_payement/delete/$id/");
+        "${baseParPays(pays!)}api/beneficiaire-grp_payement/delete/$id/");
     try {
       var response = await delete(
         url,
@@ -1400,7 +1523,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/payement-masse/");
+        "${baseParPays(pays!)}api/func/client_digiPay/payement-masse/");
     try {
       var response = await post(url,
           headers: {
@@ -1430,18 +1553,17 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
   Future<dynamic> profiledata() async {
     String? token = await storage.read(key: "token");
-    String? myid = await storage.read(key: "id");
-    String? pays = await storage.read(key: 'country');
+
 
     var responseJson;
     // var url = Uri.parse(baseParPays(pays!) + "api/func/profil/statistique/$myid/");
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/profil/new_statistique/$myid/");
+        "$baseUrl/user/profile/");
     try {
       var response = await get(
         url,
         headers: {
-          "Authorization": "JWT $token",
+          "Authorization": "Bearer $token",
           'Content-Type': 'application/json; charset=utf-8'
         },
       ).timeout(Duration(seconds: timeout));
@@ -1464,16 +1586,14 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
   Future<dynamic> updateprofile(Map body) async {
     String? token = await storage.read(key: "token");
-    String? myid = await storage.read(key: "id");
-    String? pays = await storage.read(key: 'country');
 
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/user/client_digiPay/update/$myid/");
+        Uri.parse("$baseUrl/user/update-profile/");
     try {
       var response = await put(url,
               headers: {
-                "Authorization": "JWT $token",
+                "Authorization": "Bearer $token",
                 'Content-Type': 'application/json; charset=utf-8'
               },
               body: jsonEncode(body))
@@ -1499,11 +1619,11 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/logout/");
+    var url = Uri.parse("${baseParPays(pays!)}api/logout/");
     try {
       var response = await post(url,
               headers: {
-                "Authorization": "JWT $token",
+                "Authorization": "Bearer $token",
                 'Content-Type': 'application/json; charset=utf-8'
               },
               body: jsonEncode(body))
@@ -1531,14 +1651,15 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/user/password/update/$myid/");
+    var url = Uri.parse("${baseParPays(pays!)}api/user/password/update/$myid/");
     try {
       var response = await put(url,
               headers: {
                 "Authorization": "JWT $token",
                 'Content-Type': 'application/json; charset=utf-8'
               },
-              body: jsonEncode(body))
+              body: jsonEncode(body)
+              )
           .timeout(Duration(seconds: timeout));
 
       // print(response.body);
@@ -1563,7 +1684,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/user/func/valid-PIN/");
+    var url = Uri.parse("${baseParPays(pays!)}api/user/func/valid-PIN/");
     try {
       var response = await post(url,
               headers: {
@@ -1594,8 +1715,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/bmi/client_digiPay/get-facture/wifi-mauritel/$number/");
+    var url = Uri.parse("${baseParPays(pays!)}api/bmi/client_digiPay/get-facture/wifi-mauritel/$number/");
     try {
       var response = await get(
         url,
@@ -1628,7 +1748,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/get-facture/somelec/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/get-facture/somelec/");
     try {
       var response = await post(url,
               headers: {
@@ -1661,7 +1781,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/payement/wifi-mauritel/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/payement/wifi-mauritel/");
     try {
       var response = await post(url,
           headers: {
@@ -1699,7 +1819,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/payement/somelec/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/payement/somelec/");
     try {
       var response = await post(url,
           headers: {
@@ -1736,14 +1856,14 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/token/refresh/");
+    var url = Uri.parse("${baseParPays(pays!)}api/token/refresh/");
     try {
       var response = await post(url,
               headers: {
                 'Content-Type': 'application/json; charset=utf-8',
               },
               body: jsonEncode({"refresh": refresh}))
-          .timeout(Duration(seconds: 30));
+          .timeout(const Duration(seconds: 30));
 
       // print("${response.statusCode} NewaccessToken");
 
@@ -1766,14 +1886,14 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     // print("called");
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/session/check_session_expiration");
+        "${baseParPays(pays!)}api/func/session/check_session_expiration");
     try {
       var response = await get(
         url,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
         },
-      ).timeout(Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 30));
 
       // print("${response.statusCode}");
 
@@ -1810,7 +1930,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/virement/");
+        Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/virement/");
     try {
       var response = await post(url,
           headers: {
@@ -1961,7 +2081,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<Response> resetPassword(Map body) async {
     String? pays = await storage.read(key: 'country');
     Response responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/user/password/new_reset/");
+    var url = Uri.parse("${baseParPays(pays!)}api/user/password/new_reset/");
 
     try {
       Response response = await post(
@@ -1990,7 +2110,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     try {
       final response = await get(
         Uri.parse(
-            baseParPays(pays!) + "api/notifications_demande_retrait/list/"),
+            "${baseParPays(pays!)}api/notifications_demande_retrait/list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       responseJson = _response(response);
@@ -2011,7 +2131,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     Response responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/func/client_digiPay/annuler-retrait/");
+        "${baseParPays(pays!)}api/func/client_digiPay/annuler-retrait/");
     String? token = await storage.read(key: "token");
 
     try {
@@ -2055,7 +2175,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<Response> changeLangue(Map body) async {
     String? pays = await storage.read(key: 'country');
     Response responseJson;
-    var url = Uri.parse(baseParPays(pays!) + "api/func/change_user_language");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/change_user_language");
     String? token = await storage.read(key: "token");
 
     try {
@@ -2086,8 +2206,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/func/clientdigiPay-and-vendor/retrait_par_gab/");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/clientdigiPay-and-vendor/retrait_par_gab/");
     try {
       var response = await post(
         url,
@@ -2119,11 +2238,11 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<dynamic> listeCartesRecharge(String? operateur) async {
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
+    Response responseJson;
     try {
       final response = await post(
         Uri.parse(
-            baseParPays(pays!) + "api/bmi/client_digiPay/list/carte-credit/"),
+            "${baseParPays(pays!)}api/bmi/client_digiPay/list/carte-credit/"),
         headers: {"Authorization": "JWT $token"},
         body: jsonEncode({
           "operateur": operateur,
@@ -2151,7 +2270,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/payement/carte-credit/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/payement/carte-credit/");
     try {
       var response = await post(url,
           headers: {
@@ -2186,8 +2305,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/bmi/client_digiPay/get-facture/snde/$reference/");
+    var url = Uri.parse("${baseParPays(pays!)}api/bmi/client_digiPay/get-facture/snde/$reference/");
     try {
       var response = await get(
         url,
@@ -2225,7 +2343,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/bmi/client_digiPay/payement/snde/");
+        Uri.parse("${baseParPays(pays!)}api/bmi/client_digiPay/payement/snde/");
     try {
       var response = await post(url,
           headers: {
@@ -2263,7 +2381,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/get-facture/etat/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/get-facture/etat/");
     print({"service": service, "reference": reference});
     try {
       var response = await post(url,
@@ -2297,7 +2415,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url =
-        Uri.parse(baseParPays(pays!) + "api/bmi/client_digiPay/payement/etat/");
+        Uri.parse("${baseParPays(pays!)}api/bmi/client_digiPay/payement/etat/");
     try {
       var response = await post(url,
           headers: {
@@ -2334,8 +2452,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) +
-            "api/user/client_digiPay/check_agent_virtuel/"),
+        Uri.parse("${baseParPays(pays!)}api/user/client_digiPay/check_agent_virtuel/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       responseJson = _response(response);
@@ -2358,7 +2475,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/user/client_digiPay/update_fields/");
+        "${baseParPays(pays!)}api/user/client_digiPay/update_fields/");
     try {
       var response = await put(url,
           headers: {
@@ -2394,7 +2511,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     var responseJson;
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) + "api/agent_virtuel/list/"),
+        Uri.parse("${baseParPays(pays!)}api/agent_virtuel/list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       responseJson = _response(response);
@@ -2421,8 +2538,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/func/transaction/retrait-list-agent-virtuel/");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/transaction/retrait-list-agent-virtuel/");
     try {
       var response = await post(url,
           headers: {
@@ -2455,8 +2571,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
 
     var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/func/clientdigiPay-and-vendor/retrait-agent-virtuel/");
+    var url = Uri.parse("${baseParPays(pays!)}api/func/clientdigiPay-and-vendor/retrait-agent-virtuel/");
     try {
       var response = await post(url,
           headers: {
@@ -2491,7 +2606,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     try {
       final response = await post(
           Uri.parse(
-              baseParPays(pays!) + "api/func/liste_paiements_par_facturier/"),
+              "${baseParPays(pays!)}api/func/liste_paiements_par_facturier/"),
           headers: {
             "Authorization": "JWT $token",
             'Content-Type': 'application/json; charset=utf-8'
@@ -2524,7 +2639,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     try {
       final response = await post(
           Uri.parse(
-              baseParPays(pays!) + "api/func/liste_derniers_beneficiaires/"),
+              "${baseParPays(pays!)}api/func/liste_derniers_beneficiaires/"),
           headers: {
             "Authorization": "JWT $token",
             'Content-Type': 'application/json; charset=utf-8'
@@ -2556,7 +2671,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? pays = await storage.read(key: 'country');
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/payement/carte-credit/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/payement/carte-credit/");
     try {
       var response = await post(url,
           headers: {
@@ -2593,8 +2708,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     dynamic responseJson;
     try {
       final response = await post(
-              Uri.parse(baseParPays(pays!) +
-                  "/api/bmi/client_digiPay/vignette/consultation-infos/"),
+              Uri.parse("${baseParPays(pays!)}/api/bmi/client_digiPay/vignette/consultation-infos/"),
               headers: {
                 "Authorization": "JWT $token",
                 'Content-Type': 'application/json; charset=utf-8'
@@ -2622,7 +2736,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "/api/bmi/client_digiPay/vignette/consultation/");
+        "${baseParPays(pays!)}/api/bmi/client_digiPay/vignette/consultation/");
     try {
       var response = await post(url,
               headers: {
@@ -2656,7 +2770,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
 
     var responseJson;
     var url = Uri.parse(
-        baseParPays(pays!) + "api/bmi/client_digiPay/vignette/paiement/");
+        "${baseParPays(pays!)}api/bmi/client_digiPay/vignette/paiement/");
     try {
       var response = await post(url,
               headers: {
@@ -2686,11 +2800,10 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? id = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
 
-    var responseJson;
+    Response responseJson;
     try {
       final response = await post(
-          Uri.parse(baseParPays(pays!) +
-              "api/core_banking/check_infos_default_account/"),
+          Uri.parse("${baseParPays(pays!)}api/core_banking/check_infos_default_account/"),
           headers: {"Authorization": "JWT $token"},
           body: jsonEncode({"id": id})).timeout(Duration(seconds: timeout));
       // print(response.statusCode);
@@ -2713,11 +2826,11 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? id = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
 
-    var responseJson;
+    Response responseJson;
     try {
       final response = await post(
         Uri.parse(
-            baseParPays(pays!) + "api/core_banking/transfert_compte_wallet/"),
+            "${baseParPays(pays!)}api/core_banking/transfert_compte_wallet/"),
         headers: {"Authorization": "JWT $token"},
         body: jsonEncode({"id": id, "montant": montant, "note": note}),
       ).timeout(Duration(seconds: timeout));
@@ -2741,11 +2854,11 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? id = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
 
-    var responseJson;
+    Response responseJson;
     try {
       final response = await post(
         Uri.parse(
-            baseParPays(pays!) + "api/core_banking/transfert_wallet_compte/"),
+            "${baseParPays(pays!)}api/core_banking/transfert_wallet_compte/"),
         headers: {"Authorization": "JWT $token"},
         body: jsonEncode({"id": id, "montant": montant, "note": note}),
       ).timeout(Duration(seconds: timeout));
@@ -2767,20 +2880,19 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<Response> searchTransaction(String code) async {
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
+    Response responseJson;
     // print(startDate);
     // print(endDate);
 
     try {
       final response = await post(
-              Uri.parse(baseParPays(pays!) +
-                  "api/transaction/filter/code_transaction/"),
+              Uri.parse("${baseParPays(pays!)}api/transaction/filter/code_transaction/"),
               headers: {
                 "Authorization": "JWT $token",
                 'Content-Type': 'application/json; charset=utf-8'
               },
               body: jsonEncode({"code_transaction": code}))
-          .timeout(Duration(seconds: 70));
+          .timeout(const Duration(seconds: 70));
       // print(response.statusCode);
       // print(response.body);
       responseJson = _responseAll(response);
@@ -2799,10 +2911,10 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
   Future<dynamic> listeBanques() async {
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
+    Response responseJson;
     try {
       final response = await get(
-        Uri.parse(baseParPays(pays!) + "api/func/client_digiPay/ins_list/"),
+        Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/ins_list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
       print(response.statusCode);
@@ -2825,9 +2937,8 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? token = await storage.read(key: "token");
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/func/client_digiPay/envoie-interoperable-outbound/");
+    Response responseJson;
+    var url = Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/envoie-interoperable-outbound/");
     try {
       var response = await post(
         url,
@@ -2864,9 +2975,8 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? token = await storage.read(key: "token");
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/func/client_digiPay/client_fast_retrait_outbound/");
+    Response responseJson;
+    var url = Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/client_fast_retrait_outbound/");
     try {
       var response = await post(
         url,
@@ -2904,9 +3014,8 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? token = await storage.read(key: "token");
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
-    var responseJson;
-    var url = Uri.parse(baseParPays(pays!) +
-        "api/func/client_digiPay/client_fast_payement_outbound/");
+    Response responseJson;
+    var url = Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/client_fast_payement_outbound/");
     try {
       var response = await post(
         url,

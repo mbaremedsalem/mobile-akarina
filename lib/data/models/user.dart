@@ -1,37 +1,37 @@
 class User {
   final int id;
-  final String nomComplet;
+  final String? nomComplet;
   final String email;
-  final String image;
+  final String? image;
   final String numeroTelephone;
-  final String nni;
+  final String? nni;
   final bool verificationStatus;
   final bool activationStatus;
-  final String preference;
+  final String? preference;
 
   User({
     required this.id,
-    required this.nomComplet,
+    this.nomComplet,
     required this.email,
-    required this.image,
+    this.image,
     required this.numeroTelephone,
-    required this.nni,
+    this.nni,
     required this.verificationStatus,
     required this.activationStatus,
-    required this.preference,
+    this.preference,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],
-      nomComplet: json['nom_complet'],
+      nomComplet: json['nom_complet'] ?? "", // Valeur par défaut vide si null
       email: json['email'],
-      image: json['image'],
-      numeroTelephone: json['numero_telephone'],
-      nni: json['nni'],
-      verificationStatus: json['verification_status'],
-      activationStatus: json['activation_status'],
-      preference: json['preference'],
+      image: json['image'], // Peut être null
+      numeroTelephone: json['numero_telephone'] ?? "",
+      nni: json['nni'], // Peut être null
+      verificationStatus: json['verification_status'] ?? false,
+      activationStatus: json['activation_status'] ?? false,
+      preference: json['preference'], // Peut être null
     );
   }
 }

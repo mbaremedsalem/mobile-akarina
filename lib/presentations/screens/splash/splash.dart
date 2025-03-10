@@ -5,6 +5,8 @@ import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../on_boarding/shoose.dart';
+
 class Splash extends StatefulWidget {
   const Splash({super.key});
 
@@ -17,11 +19,12 @@ class _SplashState extends State<Splash> {
   void initState() {
     super.initState();
     // Démarrer le timer pour rediriger après 3 secondes
-    Timer(const Duration(seconds: 3000), () {
+    Timer(const Duration(seconds: 3), () {
       // Naviguer vers l'écran d'onboarding
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const Onboarding()),
+        MaterialPageRoute(builder: (context) => const Choose()
+        ),
       );
     });
   }
