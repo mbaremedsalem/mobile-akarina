@@ -131,64 +131,157 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
 
 
-
+Widget _buildHeader({
+  required double? montant,
+  required double? loyerMensuel,
+  required String? periode,
+  required bool available,
+  required String typeOperation,
+}) {
+  return Container(
+    padding: EdgeInsets.symmetric(
+      horizontal: getProportionateScreenWidth(16.0),
+      vertical: getProportionateScreenHeight(8.0),
+    ),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(getProportionateScreenWidth(8.0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 4,
+          offset: Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Montant ou loyer mensuel
+        Text(
+          typeOperation == 'vendre'
+              ? '${montant?.toStringAsFixed(0)} ${getTranslated(context, "MRU") ?? "MRU"}'
+              : '${loyerMensuel?.toStringAsFixed(0)} ${getTranslated(context, "MRU") ?? "MRU"} / ${getTranslated(context, periode) ?? periode}',
+          style: TextStyle(
+            fontSize: getProportionateScreenWidth(16),
+            fontWeight: FontWeight.bold,
+            color: typeOperation == 'vendre' ? Colors.green : Colors.blue,
+          ),
+        ),
+        // Disponibilité
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: getProportionateScreenWidth(8.0),
+            vertical: getProportionateScreenHeight(4.0),
+          ),
+          decoration: BoxDecoration(
+            color: available ? Colors.green : Colors.red,
+            borderRadius: BorderRadius.circular(getProportionateScreenWidth(8.0)),
+          ),
+          child: Text(
+            available
+                ? getTranslated(context, "Disponible") ?? "Disponible"
+                : getTranslated(context, "Non disponible") ?? "Non disponible",
+            style: TextStyle(
+              fontSize: getProportionateScreenWidth(14),
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
   // Section pour afficher les images
   Widget _buildImageSection(List<dynamic> images) {
-    if (images.isEmpty) {
-      return const Text('Aucune image disponible.');
-    }
+  if (images.isEmpty) {
+    return Text(getTranslated(context, "Aucune image disponible.") ?? "Aucune image disponible.");
+  }
 
-    return Container(
-      height: getProportionateScreenHeight(280),
-      child: Column(
-        children: [
-          Row(
+  return FutureBuilder<Locale>(
+    future: getLocale(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return CircularProgressIndicator(); // Afficher un indicateur de chargement pendant le chargement de la langue
+      }
+
+      bool isArabic = snapshot.data?.languageCode == ARABIC;
+
+      return Directionality(
+        textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+        child: Container(
+          height: getProportionateScreenHeight(280), // Hauteur responsive
+          child: Column(
             children: [
-              // Grande image à gauche
-              if (images.isNotEmpty)
-                Expanded(
-                  flex: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4.0),
-                    child: _buildImage(images[0]['image'], 0, images),
-                  ),
-                ),
-              // Deux petites images à droite
-              if (images.length > 1)
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      if (images.length > 1)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4.0),
-                          child: _buildImage(images[1]['image'], 1, images),
+              // Première ligne : Grande image à gauche et deux petites images à droite
+              Expanded(
+                flex: 2, // Prend 2/3 de l'espace disponible
+                child: Row(
+                  children: [
+                    // Grande image à gauche
+                    if (images.isNotEmpty)
+                      Expanded(
+                        flex: 2, // Prend 2/3 de l'espace disponible
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: isArabic ? 0.0 : getProportionateScreenWidth(4.0), // Padding responsive
+                            left: isArabic ? getProportionateScreenWidth(4.0) : 0.0,
+                          ),
+                          child: _buildImage(images[0]['image'], 0, images),
                         ),
-                      if (images.length > 2)
-                        _buildImage(images[2]['image'], 2, images),
+                      ),
+                    // Deux petites images à droite
+                    if (images.length > 1)
+                      Expanded(
+                        flex: 1, // Prend 1/3 de l'espace disponible
+                        child: Column(
+                          children: [
+                            if (images.length > 1)
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: getProportionateScreenHeight(4.0)),
+                                  child: _buildImage(images[1]['image'], 1, images),
+                                ),
+                              ),
+                            if (images.length > 2)
+                              Expanded(
+                                child: _buildImage(images[2]['image'], 2, images),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // Espacement entre les lignes
+              SizedBox(height: getProportionateScreenHeight(4.0)),
+              // Deuxième ligne : Trois images en bas
+              if (images.length > 3)
+                Expanded(
+                  flex: 1, // Prend 1/3 de l'espace disponible
+                  child: Row(
+                    children: [
+                      for (int i = 3; i < 6 && i < images.length; i++)
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: getProportionateScreenWidth(2.0)),
+                            child: _buildImage(images[i]['image'], i, images),
+                          ),
+                        ),
                     ],
                   ),
                 ),
+              // Texte traduit
             ],
           ),
-          const SizedBox(height: 4.0),
-          // Trois images en bas
-          if (images.length > 3)
-            Row(
-              children: [
-                for (int i = 3; i < 6 && i < images.length; i++)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                      child: _buildImage(images[i]['image'], i, images),
-                    ),
-                  ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+    },
+  );
+}
+
+  
 bool isValidImageUrl(String? url) {
   return url != null && url.isNotEmpty && Uri.tryParse(url)?.hasAbsolutePath == true;
 }
@@ -237,84 +330,91 @@ Widget _buildUsersSection() {
         return SizedBox(
           height: getProportionateScreenHeight(90), // Adjust height for user circle and name
           child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              User user = snapshot.data![index];
-              
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0.0), // Adjust padding
-                child: InkWell(
-                                      onTap: () {
-                      // Naviguer vers la page de chat avec l'image et l'ID du participant
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatPage(
-                            participantId: user.id,
-                            participantImage: user.image!, // Passer l'image
-                            participantName: user.nomComplet!, // Passer le nom pour l'AppBar
-                          ),
-                        ),
-                      );
-                    },
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: pcolor,
-                            child: 
-                            CircleAvatar(
+          scrollDirection: Axis.horizontal,
+          itemCount: snapshot.data!.length,
+          itemBuilder: (context, index) {
+            User user = snapshot.data![index];
+            
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0.0), // Ajuster le padding
+              child: InkWell(
+                onTap: () {
+                  // Valeurs par défaut pour l'image et le nom
+                  final participantImage = user.image?.isNotEmpty == true
+                      ? user.image!
+                      : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png';
+
+                  final participantName = user.nomComplet?.isNotEmpty == true
+                      ? user.nomComplet!
+                      : getTranslated(context, "Utilisateur inconnu")!;
+
+                  // Naviguer vers la page de chat avec l'image et l'ID du participant
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                        participantId: user.id,
+                        participantImage: participantImage, // Utiliser la valeur par défaut si nécessaire
+                        participantName: participantName, // Utiliser la valeur par défaut si nécessaire
+                      ),
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor: pcolor,
+                          child: CircleAvatar(
                             radius: 30,
-                            backgroundImage: user.image != null && user.image!.isNotEmpty
-                                ? NetworkImage(user.image!)
-                                : const NetworkImage('https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png'),
+                            backgroundImage: NetworkImage(
+                              user.image?.isNotEmpty == true
+                                  ? user.image!
+                                  : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png',
                             ),
-                            
-                            // CircleAvatar(
-                            //   radius: 30,
-                            //   backgroundImage: NetworkImage(user.image!),
-                            // ),
-                          ),
-                          Positioned(
-                            bottom: 2, // Adjust position to fit the design
-                            right: 2,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.green, // Online status
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8), // Space between circle and name
-                      SizedBox(
-                        width: 70, // Adjust width to fit names
-                        child: Text(
-                          user.nomComplet!,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          textAlign: TextAlign.center, // Center align the name
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500, // Adjust font weight for emphasis
                           ),
                         ),
+                        Positioned(
+                          bottom: 2, // Ajuster la position pour correspondre au design
+                          right: 2,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.green, // Statut en ligne
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8), // Espace entre le cercle et le nom
+                    SizedBox(
+                      width: 70, // Ajuster la largeur pour les noms
+                      child: Text(
+                        user.nomComplet?.isNotEmpty == true
+                            ? user.nomComplet!
+                            : getTranslated(context, "Utilisateur inconnu")!,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        textAlign: TextAlign.center, // Centrer le nom
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500, // Ajuster le poids de la police pour l'emphase
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
+        ),
         );
       } else {
         return const SizedBox.shrink();
@@ -331,7 +431,7 @@ Widget _buildFeatureInfo() {
     {'image': 'assets/images/garage.jpeg', 'text': '${immobData?['nombre_de_garages']} ${getTranslated(context, "Garage")}'},
     {'image': 'assets/images/localisation.jpeg', 'text': '${immobData?['adresse']}'},
     {'image': 'assets/images/type_operation.jpeg', 'text': '${getTranslated(context, "${immobData?['type_operation']}")}'},
-    {'image': 'assets/images/type_operation.jpeg', 'text': '${immobData?['surface']}'},
+    {'image': 'assets/images/type_operation.jpeg', 'text': '${immobData?['surface']} ${getTranslated(context, "km")}'},
     {'image': 'assets/images/gardain.jpeg', 'text': immobData?['presence_de_jardin']?'${getTranslated(context, "avec")}':'${getTranslated(context, "sans")}'},
     {'image': 'assets/images/etage.jpeg', 'text': immobData?['nombre_d_etages'] != null?'${getTranslated(context, "avec")}':'${getTranslated(context, "sans")}'},
     {'image': 'assets/images/pisume.jpeg', 'text': immobData?['presence_de_pisime']?'${getTranslated(context, "avec")}':'${getTranslated(context, "sans")}'},

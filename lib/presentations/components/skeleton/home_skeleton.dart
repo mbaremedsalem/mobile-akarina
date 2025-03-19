@@ -161,7 +161,7 @@ class _CategorySkeletonState extends State<CategorySkeleton> {
         itemCount: widget.item ?? 8, 
         itemBuilder: (context, index) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 15,right: 10),
+            padding: const EdgeInsets.only(bottom: 15,right: 5),
             child: Shimmer.fromColors(
               baseColor: Colors.grey[300]!,
               highlightColor: Colors.white,
@@ -175,7 +175,7 @@ class _CategorySkeletonState extends State<CategorySkeleton> {
 
   Widget box() {
     return CircleAvatar(
-      radius: 30,
+      radius: 40,
       backgroundColor: Colors.grey[300], // Couleur pour simuler le chargement
     );
   }

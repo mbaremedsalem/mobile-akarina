@@ -4,14 +4,16 @@ import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/components/default_button.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
+import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class Appartement extends StatefulWidget {
-  final int count;
+  final String apiUrl; // URL de l'API
+  final int count; 
 
-  const Appartement({Key? key, required this.count}) : super(key: key);
+  const Appartement({super.key, required this.apiUrl, required this.count});
 
   @override
   _AppartementState createState() => _AppartementState();
@@ -37,55 +39,34 @@ class _AppartementState extends State<Appartement> {
     _loadApartments(); // Charger les appartements sans filtres au démarrage
     fetchCities(); // Charger la liste des villes
   }
-
-  // Méthode pour charger les appartements avec filtres
-Future<void> _loadApartments({
-  String? ville,
-  String? adresse,
-  bool? meubler,
-  String? operation,
-  double? prixMin,
-  double? prixMax,
-}) async {
-  setState(() {
-    isLoading = true; // Afficher l'indicateur de chargement
-  });
-// 46981937Bb@
-  try {
-    // Construire l'URL avec les paramètres de filtre
-    final Uri uri = Uri.parse('https://akarina.online/akareena/filter-residentiel/').replace(
-      queryParameters: {
-        if (ville != null) 'ville': ville,
-        if (adresse != null) 'adresse': adresse,
-        if (meubler != null) 'meubler': meubler.toString(),
-        if (operation != null) 'operation': operation,
-        if (prixMin != null) 'prix_min': prixMin.toString(),
-        if (prixMax != null) 'prix_max': prixMax.toString(),
-      },
-    );
-
-    // Appeler l'API
-    final response = await http.get(uri);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
-      setState(() {
-        apartments = data; // Mettre à jour la liste des appartements
-        isLoading = false; // Masquer l'indicateur de chargement
-      });
-    } else {
-      throw Exception('Erreur lors du chargement des données : ${response.statusCode}');
-    }
-  } catch (e) {
+  Future<void> _loadApartments() async {
     setState(() {
-      isLoading = false; // Masquer l'indicateur de chargement en cas d'erreur
+      isLoading = true; // Afficher l'indicateur de chargement
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erreur : $e')),
-    );
+
+    try {
+      // Appeler l'API avec l'URL passée en paramètre
+      final response = await http.get(Uri.parse(widget.apiUrl));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        setState(() {
+          apartments = data; // Mettre à jour la liste des appartements
+          isLoading = false; // Masquer l'indicateur de chargement
+        });
+      } else {
+        throw Exception('Erreur lors du chargement des données : ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false; // Masquer l'indicateur de chargement en cas d'erreur
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
   }
-}
-  // Méthode pour charger la liste des villes
+
   Future<void> fetchCities() async {
     try {
       final response = await http.get(
@@ -186,7 +167,7 @@ Future<void> _loadApartments({
                       child: TextField(
                         controller: minPriceController,
                         decoration: InputDecoration(
-                          hintText: 'De',
+                          hintText: getTranslated(context,"De"),
                           filled: true,
                           fillColor: Colors.grey[200],
                           border: const OutlineInputBorder(),
@@ -199,7 +180,7 @@ Future<void> _loadApartments({
                       child: TextField(
                         controller: maxPriceController,
                         decoration: InputDecoration(
-                          hintText: 'À',
+                          hintText: getTranslated(context,"À"),
                           filled: true,
                           fillColor: Colors.grey[200],
                           border: const OutlineInputBorder(),
@@ -221,7 +202,7 @@ Future<void> _loadApartments({
                         });
                       },
                     ),
-                    const Text('Meublé ?'),
+                     Text(getTranslated(context, "Meubler")!),
                   ],
                 ),
                 const SizedBox(height: 16.0),
@@ -229,18 +210,18 @@ Future<void> _loadApartments({
                 Defaultbutton(
                   onTap: () {
                     _loadApartments(
-                      ville: selectedVille,
-                      adresse: selectedQuarter,
-                      meubler: isFurnished,
-                      operation: 'vendre', // ou 'louer' selon le besoin
-                      prixMin: double.tryParse(minPriceController.text),
-                      prixMax: double.tryParse(maxPriceController.text),
+                      // ville: selectedVille,
+                      // adresse: selectedQuarter,
+                      // meubler: isFurnished,
+                      // operation: 'vendre', // ou 'louer' selon le besoin
+                      // prixMin: double.tryParse(minPriceController.text),
+                      // prixMax: double.tryParse(maxPriceController.text),
                     );
                     Navigator.pop(context); // Fermer la boîte de dialogue
                   },
                   color: pcolor,
                   textcolor: kWhiteColor,
-                  text: 'Filtrer',
+                  text: getTranslated(context, "Filtres")!,
                   borderRadius: getProportionateScreenWidth(5),
                   width: getProportionateScreenWidth(500),
                   height: getProportionateScreenHeight(45),
@@ -257,13 +238,17 @@ Future<void> _loadApartments({
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
-      leading: IconButton(
-        icon: const Icon(IconBroken.Arrow___Left_2),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-      ),
-      title: const Text('Recherche Appartements'),
+        leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      title:  Text(getTranslated(context, "Recherche Maison")!),
       backgroundColor: Colors.transparent,
       elevation: 0,
     ),
@@ -282,7 +267,7 @@ Widget build(BuildContext context) {
                     _showFilterDialog(context);
                   },
                   icon: const Icon(Icons.filter_list),
-                  label: const Text('Filtres'),
+                  label: Text(getTranslated(context, "Filtres")!),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: pcolor,
                     side: const BorderSide(color: pcolor),
@@ -305,7 +290,7 @@ Widget build(BuildContext context) {
                     _loadApartments(); // Recharger sans filtres
                   },
                   icon: const Icon(Icons.clear),
-                  label: const Text('Effacer les filtres'),
+                  label:  Text(getTranslated(context,"Effacer les filtres")!),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -315,7 +300,7 @@ Widget build(BuildContext context) {
                   ),
                 ),
                 SizedBox(width: getProportionateScreenWidth(8)),
-                Text('${apartments.length} résultats', style: const TextStyle(fontSize: 16)),
+                Text('${apartments.length} ${getTranslated(context,"résultats")}', style: const TextStyle(fontSize: 16)),
               ],
             ),
           ),
@@ -346,97 +331,109 @@ class ApartmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final residentiel = apartment['residentiel'];
-    return Card(
-      margin: const EdgeInsets.all(10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                child: Image.network(
-                  (apartment['images'] != null && apartment['images'].isNotEmpty)
-                      ? apartment['images'][0]['image']
-                      : 'https://via.placeholder.com/150',
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  color: pcolor,
-                  child: const Text(
-                    '7 days on Akareena',
-                    style: TextStyle(color: Colors.white),
+    return InkWell(
+      onTap: (){
+                  Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ImmobDetails(id: apartment['id']),
+            ),
+          );
+      },
+      child: Card(
+        margin: const EdgeInsets.all(10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                  child: Image.network(
+                    (apartment['images'] != null && apartment['images'].isNotEmpty)
+                        ? apartment['images'][0]['image']
+                        : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s',
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
                   ),
                 ),
-              ),
-              const Positioned(
-                top: 10,
-                right: 10,
-                child: Icon(
-                  Icons.favorite_border,
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  residentiel['montant'] != null
-                      ? '${residentiel['montant'].toStringAsFixed(2)}'
-                      : '0.0',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconInfo(icon: Icons.bed, value: residentiel['nombre_de_chambres'].toString()),
-                    IconInfo(icon: Icons.garage, value: residentiel['nombre_de_garages'].toString()),
-                    IconInfo(icon: Icons.kitchen, value: residentiel['nombre_de_salles_de_bain'].toString()),
-                    IconInfo(icon: Icons.square_foot, value: residentiel['surface']),
-                    IconInfo(icon: Icons.people, value: residentiel['nombre_d_etages'].toString()),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Colors.grey),
-                    Expanded(
-                      child: Text(
-                        residentiel['adresse'],
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    color:apartment['available']? pcolor:kredcolor,
+                    child:  Text(
+                      apartment['available']?getTranslated(context,"Available")!:getTranslated(context,"Unavailable")!,
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  ],
+                  ),
+                ),
+                const Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Icon(
+                    Icons.favorite_border,
+                    color: Colors.red,
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    apartment['montant'] != null
+                        ? '${apartment['montant'].toStringAsFixed(2)} ${getTranslated(context, "MRU") ?? "MRU"}'
+                        : '${apartment['loyer_mensuel']?.toStringAsFixed(2) ?? "N/A"} ${getTranslated(context, "MRU") ?? "MRU"} / ${getTranslated(context, apartment['periode'] ?? "Inconnu") ?? apartment['periode'] ?? "Inconnu"}',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconInfo(icon: Icons.bed, value: apartment['nombre_de_chambres']?.toString() ?? "N/A"),
+                      IconInfo(icon: Icons.garage, value: apartment['nombre_de_garages']?.toString() ?? "N/A"),
+                      IconInfo(icon: Icons.bathtub_outlined, value: apartment['nombre_de_salles_de_bain']?.toString() ?? "N/A"),
+                      IconInfo(icon: Icons.square_foot, value: apartment['surface']?.toString() ?? "N/A"),
+                      IconInfo(icon: Icons.account_balance_outlined, value: apartment['etage']?.toString() ?? "N/A"),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.grey),
+                      Expanded(
+                        child: Text(
+                          apartment['adresse'] ?? "Adresse inconnue",
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
 // Widget pour afficher une icône avec une valeur
 class IconInfo extends StatelessWidget {
   final IconData icon;
   final String value;
 
-  const IconInfo({Key? key, required this.icon, required this.value}) : super(key: key);
+  const IconInfo({super.key, required this.icon, required this.value});
 
   @override
   Widget build(BuildContext context) {

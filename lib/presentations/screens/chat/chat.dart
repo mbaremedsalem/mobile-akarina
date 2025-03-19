@@ -1,3 +1,4 @@
+import 'package:akarina/data/localization/language_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
@@ -49,8 +50,22 @@ class _ChatPageState extends State<ChatPage> {
   void _fetchMessages(int conversationId) async {
     try {
       List<dynamic> fetchedMessages = await NetworkService().fetchMessages(conversationId, context);
+      
+      // Transforme les messages pour s'assurer que l'image et le contenu sont bien définis
+      List<Map<String, dynamic>> processedMessages = fetchedMessages.map((message) {
+        return {
+          'id': message['id'],
+          'conversation': message['conversation'],
+          'sender': message['sender'],
+          'content': message['content'] ?? '',  // Assurer que le contenu textuel est bien géré
+          'image': message['image'] ?? '',  // Assurer que l'image est bien gérée
+          'timestamp': message['timestamp'],
+          'message_type': message['message_type'],
+        };
+      }).toList();
+
       setState(() {
-        messages = fetchedMessages.reversed.toList();
+        messages = processedMessages.reversed.toList(); // Afficher du plus ancien au plus récent
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +73,7 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
   }
+
 
   void _sendMessage(int conversationId) async {
     if (messageController.text.isNotEmpty) {
@@ -73,20 +89,32 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _sendImage(int conversationId) async {
-    final XFile? pickedFile = await imagePicker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      try {
-        File imageFile = File(pickedFile.path);
-        await NetworkService().sendImage(conversationId, imageFile, context);
-        _fetchMessages(conversationId);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'envoi de l\'image: $e')),
-        );
-      }
+void _sendImage(int conversationId) async {
+  final ImagePicker picker = ImagePicker();
+  final List<XFile>? pickedFiles = await picker.pickMultiImage(); // Permet la sélection multiple
+
+  if (pickedFiles != null && pickedFiles.isNotEmpty) {
+    List<File> images = pickedFiles.map((file) => File(file.path)).toList();
+
+    if (images.length > 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous ne pouvez envoyer que 5 images maximum')),
+      );
+      return;
+    }
+
+    try {
+      await NetworkService().sendImages(conversationId, images, context);
+      _fetchMessages(conversationId);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'envoi de l\'image: $e')),
+      );
     }
   }
+}
+
+
 
   void _sendVoice(int conversationId) async {
     // Add functionality to record and send voice messages
@@ -104,17 +132,25 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundImage: NetworkImage(widget.participantImage),
+    appBar: AppBar(
+      title: Row(
+        children: [
+          CircleAvatar(
+            backgroundImage: NetworkImage(
+              widget.participantImage.isNotEmpty == true
+                  ? widget.participantImage
+                  : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png',
             ),
-            const SizedBox(width: 10),
-            Text(widget.participantName),
-          ],
-        ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            widget.participantName.isNotEmpty == true
+                ? widget.participantName
+                : 'Utilisateur inconnu',
+          ),
+        ],
       ),
+    ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: futureConversation,
         builder: (context, snapshot) {
@@ -127,64 +163,79 @@ class _ChatPageState extends State<ChatPage> {
 
             return Column(
               children: [
-                Expanded(
-                  child: messages.isEmpty
-                      ? const Center(child: Text('Pas de messages pour cette conversation.'))
-                      : ListView.builder(
-                          reverse: true,
-                          itemCount: messages.length,
-                          itemBuilder: (context, index) {
-                            final message = messages[index];
-                            final isSender = message['sender'] == widget.participantId;
+               Expanded(
+                child: messages.isEmpty
+                    ? Center(child: Text(getTranslated(context, "Pas de messages pour cette conversation.")!))
+                    : ListView.builder(
+                        reverse: true,
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          final isSender = message['sender'] == widget.participantId;
 
-                            return Align(
-                              alignment: isSender ? Alignment.centerLeft : Alignment.centerRight,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: isSender ? Colors.grey[300] : Colors.blue[300],
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (message['type'] == 'image')
-                                      Image.network(
-                                        message['content'],
+                          return Align(
+                            alignment: isSender ? Alignment.centerLeft : Alignment.centerRight,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isSender ? Colors.grey[300] : Colors.blue[300],
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (message['message_type'] == 'image' && message['image'].isNotEmpty)
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => FullScreenImage(imageUrl: message['image']),
+                                          ),
+                                        );
+                                      },
+                                      child: Image.network(
+                                        message['image'],  // Affichage de l'image réduite
                                         width: 150,
                                         height: 150,
                                         fit: BoxFit.cover,
-                                      )
-                                    else
-                                      Text(
-                                        message['content'],
-                                        style: TextStyle(
-                                          color: isSender ? Colors.black : Colors.white,
-                                        ),
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                                        },
                                       ),
-                                    const SizedBox(height: 5),
+                                    )
+
+                                  else if (message['content'].isNotEmpty) // Afficher du texte si disponible
                                     Text(
-                                      _formatTimestamp(message['timestamp']),
+                                      message['content'],
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: isSender ? Colors.black54 : Colors.white70,
+                                        color: isSender ? Colors.black : Colors.white,
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    _formatTimestamp(message['timestamp']),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isSender ? Colors.black54 : Colors.white70,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                        ),
-                ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Row(
                     children: [
                       IconButton(
                         icon: const Icon(Icons.photo),
-                        onPressed: () => _sendImage(conversationId),
+                        onPressed: () =>  _sendImage(conversationId),
                       ),
                       IconButton(
                         icon: const Icon(Icons.mic),
@@ -194,7 +245,7 @@ class _ChatPageState extends State<ChatPage> {
                         child: TextField(
                           controller: messageController,
                           decoration: InputDecoration(
-                            labelText: 'Envoyer un message...',
+                            labelText: getTranslated(context, "Envoyer un message...")!,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -217,6 +268,38 @@ class _ChatPageState extends State<ChatPage> {
           }
           return const Center(child: Text('Aucune conversation trouvée.'));
         },
+      ),
+    );
+  }
+}
+
+
+class FullScreenImage extends StatelessWidget {
+  final String imageUrl;
+
+  const FullScreenImage({Key? key, required this.imageUrl}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: InteractiveViewer( // Permet de zoomer et déplacer l'image
+          panEnabled: true, 
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(Icons.broken_image, size: 100, color: Colors.white);
+            },
+          ),
+        ),
       ),
     );
   }

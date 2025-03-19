@@ -173,7 +173,7 @@ class _LoginState extends State<Login> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   spaceHeight(4),
-                                  Text(getTranslated(context, "Mot de passe")!,
+                                  Text(getTranslated(context, "code")!,
                                       textScaleFactor: 1.0,
                                       style: TextStyle(
                                           fontSize: getProportionateScreenWidth(12),
@@ -290,13 +290,9 @@ class _LoginState extends State<Login> {
                         child: 
                         Defaultbutton(
                           height: getProportionateScreenHeight(45),
-                          text: getTranslated(context, "Connexion"),
+                          text: getTranslated(context, "cnx"),
                           onTap: () async {
-                            // Navigator.push(
-                            // context,
-                            // MaterialPageRoute(builder: (context) => const Layout()),
-                            
-                          // );
+
                             FocusScope.of(context)
                                             .requestFocus(FocusNode());
                                         if (_formKey.currentState!.validate()) {
@@ -306,11 +302,6 @@ class _LoginState extends State<Login> {
                                           );
                                         }
                             
-                              
-                      
-
-                              // BlocProvider.of<LoginCubit>(context).login(
-                              //     telephonecontroller.text, password, uid, context);
                           
                           },
                           color: pcolor,
@@ -351,7 +342,7 @@ class _LoginState extends State<Login> {
                           });
                         },
                         child: Text(
-                          getTranslated(context, "Changer le pays (MR)")!,
+                          getTranslated(context, "Changer le pays")!,
                           textScaleFactor: 1.0,
                           style: TextStyle(
                             color: kgrey700,

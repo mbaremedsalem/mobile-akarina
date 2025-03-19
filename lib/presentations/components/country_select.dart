@@ -77,7 +77,7 @@ class _CountrySelectState extends State<CountrySelect> {
                               width: getProportionateScreenWidth(40),
                             ),
                             Text(
-                              getTranslated(context, "Mauritania")!,
+                              getTranslated(context, "Mauritanie")!,
                               textScaleFactor: 1.0,
                               style: TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -103,7 +103,7 @@ class _CountrySelectState extends State<CountrySelect> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      pays = 'Senegal';
+                      // pays = 'Senegal';
                     });
                   },
                   child: Container(
@@ -126,11 +126,11 @@ class _CountrySelectState extends State<CountrySelect> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Image.asset(
-                              'assets/images/senegal.png',
+                              'assets/images/arabe.png',
                               width: getProportionateScreenWidth(40),
                             ),
                             Text(
-                              getTranslated(context, "Senegal")!,
+                              getTranslated(context, "Saoudia")!,
                               textScaleFactor: 1.0,
                               style: TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -162,7 +162,7 @@ class _CountrySelectState extends State<CountrySelect> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      pays = 'Mali';
+                      // pays = 'Mali';
                     });
                   },
                   child: Container(
@@ -184,11 +184,11 @@ class _CountrySelectState extends State<CountrySelect> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Image.asset(
-                              'assets/images/mali.png',
+                              'assets/images/algerie.png',
                               width: getProportionateScreenWidth(40),
                             ),
                             Text(
-                              getTranslated(context, "Mali")!,
+                              getTranslated(context, "Algerie")!,
                               textScaleFactor: 1.0,
                               style: TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -215,7 +215,7 @@ class _CountrySelectState extends State<CountrySelect> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      pays = 'Guinee';
+                      // pays = 'Guinee';
                     });
                   },
                   child: Container(
@@ -238,11 +238,11 @@ class _CountrySelectState extends State<CountrySelect> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Image.asset(
-                              'assets/images/guinee.png',
+                              'assets/images/maroc.png',
                               width: getProportionateScreenWidth(40),
                             ),
                             Text(
-                              getTranslated(context, "Guinee")!,
+                              getTranslated(context, "Maroc")!,
                               textScaleFactor: 1.0,
                               style: TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -284,7 +284,7 @@ class _CountrySelectState extends State<CountrySelect> {
                     onTap: () {
                       Navigator.pop(context, '');
                     },
-                    text: getTranslated(context, 'Retour'),
+                    text: getTranslated(context, 'Retourner'),
                     width: getProportionateScreenWidth(110),
                   ),
                   spaceWidth(5),
@@ -296,7 +296,7 @@ class _CountrySelectState extends State<CountrySelect> {
                     width: getProportionateScreenWidth(240),
                     color: pcolor,
                     textcolor: kWhiteColor,
-                    text: getTranslated(context, "Confirmer"),
+                    text: getTranslated(context, "confirmer"),
                   )
                 ],
               ),

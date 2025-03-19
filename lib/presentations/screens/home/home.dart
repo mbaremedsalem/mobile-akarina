@@ -112,21 +112,36 @@ bool isLoadingCities = true;
     }
   }
 
-  Future<void> _loadResidenciel() async {
-    NetworkService networkService = NetworkService();
-    final fetchedresidence = await networkService.fetchResidence();
+  // Future<void> _loadResidenciel() async {
+  //   NetworkService networkService = NetworkService();
+  //   final fetchedresidence = await networkService.fetchResidence();
 
-    if (fetchedresidence != null) {
-      setState(() {
-        immobilierList = fetchedresidence;
-        isLoading = false;
-      });
-    } else {
-      setState(() {
-        isLoading = false;
-      });
-    }
+  //   if (fetchedresidence != null) {
+  //     setState(() {
+  //       immobilierList = fetchedresidence;
+  //       isLoading = false;
+  //     });
+  //   } else {
+  //     setState(() {
+  //       isLoading = false;
+  //     });
+  //   }
+  // }
+  Future<void> _loadResidenciel() async {
+  NetworkService networkService = NetworkService();
+  final fetchedResidence = await networkService.fetchResidence();
+
+  if (fetchedResidence != null) {
+    setState(() {
+      immobilierList = fetchedResidence;
+      isLoading = false;
+    });
+  } else {
+    setState(() {
+      isLoading = false;
+    });
   }
+}
 
   Future<void> _loadProximite() async {
     NetworkService networkService = NetworkService();
@@ -166,6 +181,7 @@ bool isLoadingCities = true;
 
   @override
   Widget build(BuildContext context) {
+    SizeConfig().init(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(10.0),
@@ -266,7 +282,8 @@ bool isLoadingCities = true;
               const SizedBox(height: 15),
               isLoading
               ?CategorySkeleton()
-              :SizedBox(
+              :
+              SizedBox(
               height: 150,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
@@ -279,10 +296,33 @@ bool isLoadingCities = true;
 
                   return InkWell(
                     onTap: () {
+                      // Déterminer l'URL de l'API en fonction de la catégorie
+                      String apiUrl;
+                      switch (categoryName.toLowerCase()) {
+                        case 'appartement':
+                          apiUrl = 'https://akarina.online/akareena/appartements/';
+                          break;
+                        case 'duplex':
+                          apiUrl = 'https://akarina.online/akareena/duplexes/';
+                          break;
+                        case 'commercial':
+                          apiUrl = 'https://akarina.online/akareena/commerciaux/';
+                          break;
+                        case 'terrain':
+                          apiUrl = 'https://akarina.online/akareena/terrains/';
+                          break;
+                        case 'residentiel':
+                          apiUrl = 'https://akarina.online/akareena/residentiels/';
+                          break;
+                        default:
+                          apiUrl = ''; // Gérer les cas non prévus
+                      }
+
+                      // Naviguer vers la page concernée avec l'URL de l'API
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => Appartement(count: categoryCount), // Passer le count
+                          builder: (context) => Appartement(apiUrl: apiUrl, count: categoryCount),
                         ),
                       );
                     },
@@ -294,6 +334,7 @@ bool isLoadingCities = true;
                 },
               ),
             ),
+              
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -307,168 +348,188 @@ bool isLoadingCities = true;
               ),
               const SizedBox(height: 15),
               isSearch
-                  ? filteredProperties.isNotEmpty
-                      ? _buildPropertyGrid(filteredProperties)
-                      : Center(
-                          child: Text(getTranslated(context, "Aucune propriété trouvée")!),
-                        )
-                  : isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _buildPropertyGrid(immobilierList),
+              ? filteredProperties.isNotEmpty
+                  ? _buildPropertyGrid(filteredProperties)
+                  : Center(
+                      child: Text(getTranslated(context, "Aucune propriété trouvée")!),
+                    )
+              : isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildPropertyGrid(immobilierList),
             ],
           ),
         ),
       ),
     );
   }
-  
-Widget _buildPropertyGrid(List<dynamic> properties) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: properties.length,
-      itemBuilder: (context, index) {
-        final property = properties[index];
-        String imageUrl = _resolveImageUrl(property['images']);
 
-        return InkWell(
-          onTap: (){
-                Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ImmobDetails(id: property['id']),
-                                ),
-                              );
-          },
-          child: Card(
-            elevation: 5,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  
-                  Stack(
+Widget _buildPropertyGrid(List<dynamic> properties) {
+  return ListView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: properties.length,
+    itemBuilder: (context, index) {
+      final property = properties[index];
+      String imageUrl = _resolveImageUrl(property['images']);
+
+      // Déterminer si c'est un terrain ou un résidentiel
+      final isTerrain = property['terrain'] != null;
+      final isResidentiel = property['residentiel'] != null;
+
+      // Récupérer les données spécifiques
+      final operationType = property['operation']['type'];
+      final ville = property['ville']['nom'];
+      final ratings = property['ratings'];
+      final adresse = property['adresse'];
+      final surface = property['surface'];
+
+      // Récupérer le montant ou le loyer mensuel
+      final montant = isTerrain
+          ? property['terrain']['montant']
+          : isResidentiel
+              ? property['residentiel']['montant']
+              : null;
+      final loyerMensuel = isResidentiel ? property['residentiel']['loyer_mensuel'] : null;
+      final periode = isResidentiel ? property['residentiel']['periode'] : null;
+
+      return InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ImmobDetails(id: property['id']),
+            ),
+          );
+        },
+        child: Card(
+          elevation: 5,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(10),
+                        topRight: Radius.circular(10),
+                      ),
+                      child: Image.network(
+                        imageUrl,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.broken_image, size: 150);
+                        },
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: operationType == 'alouer' ? Colors.green : Colors.red,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          getTranslated(context, operationType)!,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          topRight: Radius.circular(10),
-                        ),
-                        child: Image.network(
-                          imageUrl,
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.broken_image, size: 150);
-                          },
-                        ),
+                      Text(
+                        loyerMensuel != null
+                            ? '${loyerMensuel?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!} / ${getTranslated(context, periode)!}'
+                            : '${montant?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: property['type_operation'] == 'alouer'? Colors.green : Colors.red,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            getTranslated(context, property['type_operation'])!,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          property['loyer_mensuel'] !=null?
-                          '${property['loyer_mensuel']?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!} / ${getTranslated(context, property['periode'] )!}'
-                          :'${property['montant']?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!}' ,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            // const Icon(Icons.location_city, size: 16, color: Colors.grey),
-                            Image.asset(
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Image.asset(
                             'assets/images/localisation.jpeg',
                             width: 25,
                             height: 25,
                             fit: BoxFit.contain,
                           ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                property['nom_ville'] ?? 'Ville non spécifiée',
-                                style: const TextStyle(fontSize: 14, color: Colors.grey),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              ville ?? 'Ville non spécifiée',
+                              style: const TextStyle(fontSize: 14, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        Row(
-                          children: List.generate(5, (starIndex) {
-                            double rating = double.tryParse(property['ratings'] ?? '0.0') ?? 0.0;
-                            return Icon(
-                              Icons.star,
-                              color: starIndex < rating ? Colors.amber : Colors.grey.shade300,
-                              size: 16,
-                            );
-                          }),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // _buildFeatureIcon(image, property['nombre_de_chambres'], 'Chambres'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: List.generate(5, (starIndex) {
+                          double rating = double.tryParse(ratings ?? '0.0') ?? 0.0;
+                          return Icon(
+                            Icons.star,
+                            color: starIndex < rating ? Colors.amber : Colors.grey.shade300,
+                            size: 16,
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (isResidentiel)
                             _buildFeatureIcon(
-                            const AssetImage('assets/images/chambre.jpeg'), // Image pour l'icône
-                            property['nombre_de_chambres'], // Nombre de chambres
-                            'Chambres', // Info-bulle
-                          ),
-                          _buildFeatureIcon(
-                            const AssetImage('assets/images/douche.jpeg'), // Image pour l'icône
-                            property['nombre_de_salles_de_bain'], // Nombre de chambres
-                            'sall de bain', // Info-bulle
-                          ),
-                          _buildFeatureIcon(
-                            const AssetImage('assets/images/gardient.jpeg'), // Image pour l'icône
-                            property['chambre_a_coucher'], // Nombre de chambres
-                            'sall gardient', // Info-bulle
-                          ),
-                          
-                          _buildFeatureIcon(
-                            const AssetImage('assets/images/garage.jpeg'), // Image pour l'icône
-                            property['nombre_de_garages'], // Nombre de chambres
-                            'Grage', // Info-bulle
-                          ),
-                            
-                          ],
-                        ),
-                      ],
-                    ),
+                              const AssetImage('assets/images/chambre.jpeg'),
+                              property['residentiel']['nombre_de_chambres'],
+                              'Chambres',
+                            ),
+                          if (isResidentiel)
+                            _buildFeatureIcon(
+                              const AssetImage('assets/images/douche.jpeg'),
+                              property['residentiel']['nombre_de_salles_de_bain'],
+                              'Salle de bain',
+                            ),
+                          if (isResidentiel)
+                            _buildFeatureIcon(
+                              const AssetImage('assets/images/gardient.jpeg'),
+                              property['residentiel']['presence_chambre_gardient'] ? 1 : 0,
+                              'Chambre gardien',
+                            ),
+                          if (isResidentiel)
+                            _buildFeatureIcon(
+                              const AssetImage('assets/images/garage.jpeg'),
+                              property['residentiel']['nombre_de_garages'],
+                              'Garage',
+                            ),
+                          if (isTerrain)
+                            _buildFeatureIcon(
+                              const AssetImage('assets/images/landscape.png'),
+                              1, // Exemple pour un terrain
+                              'Terrain',
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
-                
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        );
-      
-      },
-    );
-  }
-
-
-
+        ),
+      );
+    },
+  );
+}
 
 Widget _buildFeatureIcon(AssetImage image, int? value, String tooltip) {
   return Row(
@@ -521,10 +582,10 @@ class CategoryCard extends StatelessWidget {
   final String imagePath; // Chemin de l'image
 
   const CategoryCard({
-    Key? key,
+    super.key,
     required this.name,
     required this.imagePath, // Changement pour utiliser une image
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

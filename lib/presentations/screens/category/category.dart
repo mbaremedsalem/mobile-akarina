@@ -127,8 +127,28 @@ class _CategoryState extends State<Category> {
                               children: [
                                 InkWell(
                                   onTap: (){
-                                                  
-                                  Navigator.push(context, MaterialPageRoute(builder: (context) =>  Appartement(count:categoryData['count'])));
+                                    // Déterminer l'URL de l'API en fonction de la catégorie
+                                    String apiUrl;
+                                    switch (categoryName.toLowerCase()) {
+                                      case 'appartement':
+                                        apiUrl = 'https://akarina.online/akareena/appartements/';
+                                        break;
+                                      case 'duplex':
+                                        apiUrl = 'https://akarina.online/akareena/duplexes/';
+                                        break;
+                                      case 'commercial':
+                                        apiUrl = 'https://akarina.online/akareena/commerciaux/';
+                                        break;
+                                      case 'terrain':
+                                        apiUrl = 'https://akarina.online/akareena/terrains/';
+                                        break;
+                                      case 'residentiel':
+                                        apiUrl = 'https://akarina.online/akareena/residentiels/';
+                                        break;
+                                      default:
+                                        apiUrl = ''; // Gérer les cas non prévus
+                                    }                
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) =>  Appartement(apiUrl: apiUrl,count:categoryData['count'])));
               
                                   },
                                   child: Container(

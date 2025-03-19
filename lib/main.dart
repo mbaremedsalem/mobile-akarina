@@ -1,3 +1,197 @@
+// import 'dart:ui';
+
+// import 'package:akarina/business_logic/cubits/cubit/check_token_cubit.dart';
+// import 'package:akarina/business_logic/cubits/cubit/login_cubit.dart';
+// import 'package:akarina/data/data_providers/network_service.dart';
+// import 'package:akarina/data/localization/language_constants.dart';
+// import 'package:akarina/data/localization/localization.dart';
+// import 'package:akarina/data/repositories/repository.dart';
+// import 'package:akarina/data/services.dart';
+// import 'package:akarina/firebase_options.dart';
+// import 'package:akarina/presentations/constants/constants.dart';
+// import 'package:akarina/presentations/layout/layout.dart';
+// // import 'package:akarina/presentations/screens/api/firebase_api.dart';
+// import 'package:akarina/presentations/screens/on_boarding/shoose.dart';
+// import 'package:akarina/presentations/screens/splash/splash.dart';
+// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// import 'package:akarina/router.dart';
+// import 'package:flutter/material.dart';
+// import 'package:quiver/async.dart';
+// import 'package:flutter_localizations/flutter_localizations.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:permission_handler/permission_handler.dart';
+// import 'package:firebase_core/firebase_core.dart';
+
+
+// void main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+//   // bool isFirstLaunch = await checkFirstLaunch();
+
+//   WidgetsFlutterBinding.ensureInitialized();
+//   await Firebase.initializeApp();
+
+//   // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); 
+//   // bool isFirstLaunch = await checkFirstLaunch();
+//   PlatformDispatcher.instance.onError = (error, stack) {
+//     print(error);
+//     print(stack);
+//     return true;
+//   };
+//   // await FirebaseApi().initNotifications();
+//   runApp(MyApp(
+//     appRouter: AppRouter(),
+//     // isFirstLaunch: isFirstLaunch, // Passer la valeur
+//   ));
+// }
+
+// Future<bool> checkFirstLaunch() async {
+//   final storage = FlutterSecureStorage();
+//   String? firstLaunch = await storage.read(key: 'isFirstLaunch');
+
+//   if (firstLaunch == null) {
+//     await storage.write(key: 'isFirstLaunch', value: 'false'); // Enregistrer qu'il a déjà été lancé
+//     return true; // C'est la première fois
+//   }
+//   return false; // Ce n'est pas la première fois
+// }
+
+// class MyApp extends StatefulWidget {
+//   final AppRouter? appRouter;
+//   // final bool isFirstLaunch; // Ajout du paramètre
+//   MyApp({this.appRouter});
+  
+//   static void setLocale(BuildContext context, Locale newLocale) {
+//     _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
+//     state.setLocale(newLocale);
+//   }
+
+//   @override
+//   State<MyApp> createState() => _MyAppState();
+// }
+
+// class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+//   CountdownTimer? _countdownTimer;
+//   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+//   Locale _locale = Locale(ARABIC, 'CA');
+
+//   @override
+//   void didChangeAppLifecycleState(AppLifecycleState state) async {
+//     super.didChangeAppLifecycleState(state);
+//     final storage = FlutterSecureStorage();
+//     String? token = await storage.read(key: 'token');
+//     String? refreshToken = await storage.read(key: 'refresh');
+//     String? timer = await storage.read(key: 'session_time');
+
+//     final isBackground = state == AppLifecycleState.paused;
+//     final isResumed = state == AppLifecycleState.resumed;
+
+//     if (isBackground) {
+//       _countdownTimer = CountdownTimer(
+//           Duration(seconds: int.parse(timer!)), Duration(seconds: 1));
+//     } else if (isResumed) {
+//       if (_countdownTimer != null && _countdownTimer!.remaining < Duration(seconds: 0)) {
+//         if (token != null) {
+//           Map body = {"refresh": refreshToken};
+//           try {
+//             await Repository(networkService: NetworkService()).logout(body);
+//             Services.logoutEndSession(navigatorKey);
+//           } catch (e) {
+//             Services.logoutEndSession(navigatorKey);
+//           }
+//         }
+//         _countdownTimer!.cancel();
+//       }
+//     }
+//   }
+
+//   setLocale(Locale locale) {
+//     setState(() {
+//       _locale = locale;
+//     });
+//   }
+
+//   @override
+//   void didChangeDependencies() {
+//     getLocale().then((locale) {
+//       setState(() {
+//         this._locale = locale;
+//       });
+//     });
+//     super.didChangeDependencies();
+//   }
+
+//   @override
+//   void dispose() {
+//     WidgetsBinding.instance.removeObserver(this);
+//     super.dispose();
+//   }
+//   @override
+//   void initState() {
+//     super.initState();
+//     WidgetsBinding.instance.addObserver(this);
+//     _requestLocationPermission();  // Demande de la permission ici
+//   }
+//     Future<void> _requestLocationPermission() async {
+//     // Demande d'autorisation de localisation
+//     var status = await Permission.location.status;
+//     if (!status.isGranted) {
+//       // Si la permission n'est pas accordée, on la demande
+//       await Permission.location.request();
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return MultiBlocProvider(
+//       providers: [
+//         BlocProvider<CheckTokenCubit>(
+//           create: (context) => CheckTokenCubit(repository: Repository(networkService: NetworkService())),
+//         ),
+//         BlocProvider<LoginCubit>(
+//           create: (context) => LoginCubit(repository: Repository(networkService: NetworkService())),
+//         ),
+//         // Add other cubits here as needed
+//       ],
+//       child: MaterialApp(
+//         navigatorKey: navigatorKey,
+//         debugShowCheckedModeBanner: false,
+//         theme: ThemeData(
+//         fontFamily: 'Changa', // Applique la police
+//         ),
+//         locale: _locale,
+//         supportedLocales: const [
+//           Locale("ar", "SA"),
+//           Locale("fr", "CA"),
+//           Locale("en", "US"),
+//         ],
+//         localizationsDelegates: const [
+//           Localization.delegate,
+//           GlobalMaterialLocalizations.delegate,
+//           GlobalWidgetsLocalizations.delegate,
+//           GlobalCupertinoLocalizations.delegate,
+//         ],
+//         localeResolutionCallback: (locale, supportedLocales) {
+//           for (var supportedLocale in supportedLocales) {
+//             if (supportedLocale.languageCode == locale!.languageCode &&
+//                 supportedLocale.countryCode == locale.countryCode) {
+//               return supportedLocale;
+//             }
+//           }
+//           return supportedLocales.first;
+//         },
+//         onGenerateRoute: widget.appRouter!.generateRoute,
+//         home: const Splash(),
+//         // const Layout(),
+
+//       ),
+//     );
+//   }
+// }
+
+
+
 import 'dart:ui';
 
 import 'package:akarina/business_logic/cubits/cubit/check_token_cubit.dart';
@@ -9,7 +203,7 @@ import 'package:akarina/data/repositories/repository.dart';
 import 'package:akarina/data/services.dart';
 import 'package:akarina/firebase_options.dart';
 import 'package:akarina/presentations/constants/constants.dart';
-// import 'package:akarina/presentations/screens/api/firebase_api.dart';
+import 'package:akarina/presentations/layout/layout.dart';
 import 'package:akarina/presentations/screens/on_boarding/shoose.dart';
 import 'package:akarina/presentations/screens/splash/splash.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -21,27 +215,40 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); 
+  bool isFirstLaunch = await checkFirstLaunch();
+
   PlatformDispatcher.instance.onError = (error, stack) {
     print(error);
     print(stack);
     return true;
   };
-  // await FirebaseApi().initNotifications();
+
   runApp(MyApp(
     appRouter: AppRouter(),
+    isFirstLaunch: isFirstLaunch, // Passer la valeur
   ));
+}
+
+Future<bool> checkFirstLaunch() async {
+  final storage = FlutterSecureStorage();
+  String? firstLaunch = await storage.read(key: 'isFirstLaunch');
+
+  if (firstLaunch == null) {
+    await storage.write(key: 'isFirstLaunch', value: 'false'); // Enregistrer qu'il a déjà été lancé
+    return true; // C'est la première fois
+  }
+  return false; // Ce n'est pas la première fois
 }
 
 class MyApp extends StatefulWidget {
   final AppRouter? appRouter;
-  MyApp({this.appRouter});
-  
+  final bool isFirstLaunch; // Ajout du paramètre
+  MyApp({this.appRouter, required this.isFirstLaunch});
+
   static void setLocale(BuildContext context, Locale newLocale) {
     _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
     state.setLocale(newLocale);
@@ -107,13 +314,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _requestLocationPermission();  // Demande de la permission ici
   }
-    Future<void> _requestLocationPermission() async {
+
+  Future<void> _requestLocationPermission() async {
     // Demande d'autorisation de localisation
     var status = await Permission.location.status;
     if (!status.isGranted) {
@@ -137,13 +346,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       child: MaterialApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
-        // theme: ThemeData(
-        //   fontFamily: 'arial',
-        //   primaryColor: kmaincolor,
-        //   canvasColor: kWhiteColor,
-        // ),
         theme: ThemeData(
-        fontFamily: 'Changa', // Applique la police
+          fontFamily: 'Changa', // Applique la police
         ),
         locale: _locale,
         supportedLocales: const [
@@ -167,172 +371,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return supportedLocales.first;
         },
         onGenerateRoute: widget.appRouter!.generateRoute,
-        home: const Splash(),
-        // const Choose(),
-        
+        home: widget.isFirstLaunch ? const Splash() : const Layout(),
       ),
     );
   }
 }
-
-
-// import 'package:akarina/business_logic/cubits/cubit/check_token_cubit.dart';
-// import 'package:akarina/business_logic/cubits/cubit/login_cubit.dart';
-// import 'package:akarina/data/data_providers/network_service.dart';
-// import 'package:akarina/data/localization/language_constants.dart';
-// import 'package:akarina/data/localization/localization.dart';
-// import 'package:akarina/data/repositories/repository.dart';
-// import 'package:akarina/data/services.dart';
-// import 'package:akarina/firebase_options.dart';
-// import 'package:akarina/presentations/constants/constants.dart';
-// import 'package:akarina/presentations/screens/on_boarding/shoose.dart';
-// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-// import 'package:akarina/router.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_localizations/flutter_localizations.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:permission_handler/permission_handler.dart';
-// import 'package:firebase_core/firebase_core.dart';
-// import 'package:flutter/services.dart';
-// import 'package:quiver/async.dart';
-
-// void main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//   SystemChrome.setPreferredOrientations(
-//       [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-//   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-//   runApp(MyApp(appRouter: AppRouter()));
-// }
-
-// class MyApp extends StatefulWidget {
-//   final AppRouter? appRouter;
-
-//   const MyApp({Key? key, this.appRouter}) : super(key: key);
-
-//   static void setLocale(BuildContext context, Locale newLocale) {
-//     final _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
-//     state.setLocale(newLocale);
-//   }
-
-//   @override
-//   State<MyApp> createState() => _MyAppState();
-// }
-
-// class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-//   CountdownTimer? _countdownTimer;
-//   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-//   Locale _locale = const Locale("fr", "CA");
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     WidgetsBinding.instance.addObserver(this);
-//     _requestLocationPermission();
-//   }
-
-//   Future<void> _requestLocationPermission() async {
-//     var status = await Permission.location.status;
-//     if (!status.isGranted) {
-//       await Permission.location.request();
-//     }
-//   }
-
-//   @override
-//   void didChangeAppLifecycleState(AppLifecycleState state) async {
-//     super.didChangeAppLifecycleState(state);
-//     final storage = FlutterSecureStorage();
-//     final token = await storage.read(key: 'token');
-//     final refreshToken = await storage.read(key: 'refresh');
-//     final timer = await storage.read(key: 'session_time');
-
-//     if (state == AppLifecycleState.paused && timer != null) {
-//       _countdownTimer = CountdownTimer(
-//           Duration(seconds: int.parse(timer)), const Duration(seconds: 1));
-//     } else if (state == AppLifecycleState.resumed && _countdownTimer != null) {
-//       if (_countdownTimer!.remaining < const Duration(seconds: 0)) {
-//         if (token != null) {
-//           try {
-//             await Repository(networkService: NetworkService())
-//                 .logout({"refresh": refreshToken});
-//             Services.logoutEndSession(navigatorKey);
-//           } catch (e) {
-//             Services.logoutEndSession(navigatorKey);
-//           }
-//         }
-//         _countdownTimer!.cancel();
-//       }
-//     }
-//   }
-
-//   @override
-//   void didChangeDependencies() {
-//     super.didChangeDependencies();
-//     getLocale().then((locale) {
-//       setState(() {
-//         _locale = locale;
-//       });
-//     });
-//   }
-
-//   @override
-//   void dispose() {
-//     WidgetsBinding.instance.removeObserver(this);
-//     _countdownTimer?.cancel();
-//     super.dispose();
-//   }
-
-//   void setLocale(Locale locale) {
-//     setState(() {
-//       _locale = locale;
-//     });
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return MultiBlocProvider(
-//       providers: [
-//         BlocProvider<CheckTokenCubit>(
-//           create: (_) =>
-//               CheckTokenCubit(repository: Repository(networkService: NetworkService())),
-//         ),
-//         // BlocProvider<LoginCubit>(
-//         //   create: (_) =>
-//         //       LoginCubit(repository: Repository(networkService: NetworkService())),
-//         // ),
-//       ],
-//       child: MaterialApp(
-//         navigatorKey: navigatorKey,
-//         debugShowCheckedModeBanner: false,
-//         theme: ThemeData(
-//           fontFamily: 'arial',
-//           primaryColor: kmaincolor,
-//           canvasColor: kWhiteColor,
-//         ),
-//         locale: _locale,
-//         supportedLocales: const [
-//           Locale("ar", "SA"),
-//           Locale("fr", "CA"),
-//           Locale("en", "US"),
-//         ],
-//         localizationsDelegates: const [
-//           Localization.delegate,
-//           GlobalMaterialLocalizations.delegate,
-//           GlobalWidgetsLocalizations.delegate,
-//           GlobalCupertinoLocalizations.delegate,
-//         ],
-//         localeResolutionCallback: (locale, supportedLocales) {
-//           for (var supportedLocale in supportedLocales) {
-//             if (supportedLocale.languageCode == locale!.languageCode &&
-//                 supportedLocale.countryCode == locale.countryCode) {
-//               return supportedLocale;
-//             }
-//           }
-//           return supportedLocales.first;
-//         },
-//         onGenerateRoute: widget.appRouter!.generateRoute,
-//         home: const Choose(),
-//       ),
-//     );
-//   }
-// }

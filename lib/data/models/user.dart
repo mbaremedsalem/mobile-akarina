@@ -1,9 +1,47 @@
+// class User {
+//   final int id;
+//   final String? nomComplet;
+//   final String email;
+//   final String? image;
+//   final String numeroTelephone;
+//   final String? nni;
+//   final bool verificationStatus;
+//   final bool activationStatus;
+//   final String? preference;
+
+//   User({
+//     required this.id,
+//     this.nomComplet,
+//     required this.email,
+//     this.image,
+//     required this.numeroTelephone,
+//     this.nni,
+//     required this.verificationStatus,
+//     required this.activationStatus,
+//     this.preference,
+//   });
+
+//   factory User.fromJson(Map<String, dynamic> json) {
+//     return User(
+//       id: json['id'],
+//       nomComplet: json['nom_complet'] ?? "", // Valeur par défaut vide si null
+//       email: json['email'],
+//       image: json['image'], // Peut être null
+//       numeroTelephone: json['numero_telephone'] ?? "",
+//       nni: json['nni'], // Peut être null
+//       verificationStatus: json['verification_status'] ?? false,
+//       activationStatus: json['activation_status'] ?? false,
+//       preference: json['preference'], // Peut être null
+//     );
+//   }
+// }
+// Modèle User
 class User {
   final int id;
   final String? nomComplet;
-  final String email;
+  final String? email;
   final String? image;
-  final String numeroTelephone;
+  final String? numeroTelephone;
   final String? nni;
   final bool verificationStatus;
   final bool activationStatus;
@@ -12,9 +50,9 @@ class User {
   User({
     required this.id,
     this.nomComplet,
-    required this.email,
+    this.email,
     this.image,
-    required this.numeroTelephone,
+    this.numeroTelephone,
     this.nni,
     required this.verificationStatus,
     required this.activationStatus,
@@ -24,14 +62,14 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],
-      nomComplet: json['nom_complet'] ?? "", // Valeur par défaut vide si null
+      nomComplet: json['nom_complet'],
       email: json['email'],
-      image: json['image'], // Peut être null
-      numeroTelephone: json['numero_telephone'] ?? "",
-      nni: json['nni'], // Peut être null
-      verificationStatus: json['verification_status'] ?? false,
-      activationStatus: json['activation_status'] ?? false,
-      preference: json['preference'], // Peut être null
+      image: json['image'],
+      numeroTelephone: json['numero_telephone'],
+      nni: json['nni'],
+      verificationStatus: json['verification_status'],
+      activationStatus: json['activation_status'],
+      preference: json['preference'],
     );
   }
 }

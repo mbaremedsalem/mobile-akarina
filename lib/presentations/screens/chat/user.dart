@@ -84,6 +84,7 @@
 // }
 
 import 'package:akarina/data/data_providers/network_service.dart';
+import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/models/user.dart';
 import 'package:akarina/presentations/screens/chat/chat.dart';
 import 'package:flutter/material.dart';
@@ -106,7 +107,7 @@ class _UserListPageState extends State<UserListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Liste des utilisateurs'),
+        title: Text(getTranslated(context, "Liste des utilisateurs")!),
       ),
       body: FutureBuilder<List<User>>(
         future: futureUsers,
@@ -116,7 +117,7 @@ class _UserListPageState extends State<UserListPage> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Erreur: ${snapshot.error}'));
           } else if (snapshot.hasData && snapshot.data!.isEmpty) {
-            return const Center(child: Text('Aucun utilisateur trouvé.'));
+            return  Center(child: Text(getTranslated(context, "Aucun utilisateur trouvé.")!));
           } else if (snapshot.hasData) {
             List<User> users = snapshot.data!;
 
@@ -124,32 +125,50 @@ class _UserListPageState extends State<UserListPage> {
               itemCount: users.length,
               itemBuilder: (context, index) {
                 User user = users[index];
-                return Card(
-                  margin: const EdgeInsets.all(8.0),
-                  child: ListTile(
-
-                    leading: CircleAvatar(
-                    backgroundImage: user.image != null && user.image!.isNotEmpty
-                        ? NetworkImage(user.image!)
-                        : const NetworkImage('https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png'),
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      user.image?.isNotEmpty == true
+                          ? user.image!
+                          : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png',
                     ),
-                    title: Text(user.nomComplet!),
-                    subtitle: Text(user.email),
-                    onTap: () {
-                      // Naviguer vers la page de chat avec l'image et l'ID du participant
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatPage(
-                            participantId: user.id,
-                            participantImage: user.image!, // Passer l'image
-                            participantName: user.nomComplet!, // Passer le nom pour l'AppBar
-                          ),
-                        ),
-                      );
-                    },
                   ),
-                );
+                  title: Text(
+                    user.nomComplet?.isNotEmpty == true
+                        ? user.nomComplet!
+                        : 'Utilisateur inconnu',
+                  ),
+                  subtitle: Text(
+                    user.email?.isNotEmpty == true
+                        ? user.email!
+                        : 'Email non disponible',
+                  ),
+                  onTap: () {
+                    // Valeurs par défaut pour l'image et le nom
+                    final participantImage = user.image?.isNotEmpty == true
+                        ? user.image!
+                        : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png';
+
+                    final participantName = user.nomComplet?.isNotEmpty == true
+                        ? user.nomComplet!
+                        : 'Utilisateur inconnu';
+
+                    // Naviguer vers la page de chat avec l'image et l'ID du participant
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatPage(
+                          participantId: user.id,
+                          participantImage: participantImage, // Utiliser la valeur par défaut si nécessaire
+                          participantName: participantName, // Utiliser la valeur par défaut si nécessaire
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
               },
             );
           }

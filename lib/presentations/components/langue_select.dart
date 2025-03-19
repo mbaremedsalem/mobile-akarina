@@ -32,7 +32,7 @@ class _LangueSelectState extends State<LangueSelect> {
           children: [
             spaceHeight(40),
             Text(
-              getTranslated(context, "Choisir la langue")!,
+              getTranslated(context, "lang")!,
               textScaleFactor: 1.0,
               style: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -45,9 +45,9 @@ class _LangueSelectState extends State<LangueSelect> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    // _changeLanguage(
-                    //   Language(2, "🇸🇦", "اَلْعَرَبِيَّةُ‎", "ar"),
-                    // );
+                    _changeLanguage(
+                      Language(2, "🇸🇦", "اَلْعَرَبِيَّةُ‎", "ar"),
+                    );
                   },
                   child: Container(
                     height: getProportionateScreenWidth(110),
@@ -165,9 +165,9 @@ class _LangueSelectState extends State<LangueSelect> {
                 ),
                 GestureDetector(
                   onTap: () {
-                    // _changeLanguage(
-                    //   Language(3, "en", "English", "en"),
-                    // );
+                    _changeLanguage(
+                      Language(3, "en", "English", "en"),
+                    );
                   },
                   child: Container(
                     height: getProportionateScreenWidth(110),

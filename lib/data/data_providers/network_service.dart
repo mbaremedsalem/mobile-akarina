@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 // import 'package:bcipay/data/services.dart';
 import 'package:akarina/data/data_providers/exception.dart';
+import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/models/user.dart';
 import 'package:akarina/data/services.dart';
 import 'package:akarina/presentations/screens/login/login.dart';
@@ -110,7 +111,7 @@ Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
       return null;
     }
   }
-    Future<dynamic> fetchResidence() async {
+    Future<dynamic> fetchResidence1() async {
     var url = Uri.parse("${baseUrl}akareena/residentiels/");
     try {
       var response = await get(
@@ -132,6 +133,28 @@ Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
       return null;
     }
   }
+  Future<dynamic> fetchResidence() async {
+  var url = Uri.parse("${baseUrl}akareena/imobiers/");
+  try {
+    var response = await get(
+      url,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
+      },
+    ).timeout(Duration(seconds: timeout));
+
+    if (response.statusCode == 200) {
+      print("#########${response.body}");
+      var data = jsonDecode(response.body);
+      return data['results']; // Retourne uniquement la liste des résultats
+    } else {
+      throw Exception('Failed to load properties: ${response.body}');
+    }
+  } catch (e) {
+    print('Erreur lors de la récupération des propriétés: $e');
+    return null;
+  }
+}
 
     Future<dynamic> fetchProximite() async {
     var url = Uri.parse("${baseUrl}akareena/residentiel/recommendation/proximite/?x=2.294351&y=48.858844");
@@ -193,42 +216,73 @@ Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
 //   );
 // }
 
+Future<void> sendImages(int conversationId, List<File> images, BuildContext context) async {
+  final uri = Uri.parse(baseUrl+'user/conversations/$conversationId/images/');
+  debugPrint("URI: $uri"); // Vérifie si l'URL est correcte
 
-  Future<void> sendImage(int conversationId, File imageFile, BuildContext context) async {
-    final uri = Uri.parse('$baseUrl/conversations/$conversationId/messages/');
-    final request = http.MultipartRequest('POST', uri)
-      ..fields['type'] = 'image'
-      ..files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+  String? token = await storage.read(key: "access");
+  debugPrint("Token récupéré: $token");
 
-    // Include headers or authentication tokens if necessary
-    // request.headers['Authorization'] = 'Bearer YOUR_TOKEN';
-
-    try {
-      final response = await request.send();
-      if (response.statusCode != 201) {
-        throw Exception('Failed to send image. Status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error sending image: $e');
-    }
+  if (token == null) {
+    debugPrint("Erreur: Le token est NULL");
+    return;
   }
+
+  final request = http.MultipartRequest('POST', uri);
+  request.headers['Authorization'] = 'Bearer $token';
+
+  debugPrint("Ajout des images...");
+  for (var imageFile in images) {
+    debugPrint("Ajout de l'image: ${imageFile.path}");
+    request.files.add(
+      await http.MultipartFile.fromPath('image', imageFile.path),
+    );
+  }
+
+  try {
+    debugPrint("Envoi de la requête...");
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+
+    debugPrint("Statut HTTP: ${response.statusCode}");
+    debugPrint("Réponse: $responseBody");
+
+    if (response.statusCode == 201) {
+      debugPrint("✅ Images envoyées avec succès: $responseBody");
+    } else {
+      debugPrint("❌ Échec de l'envoi des images. Code: ${response.statusCode}, Réponse: $responseBody");
+    }
+  } catch (e) {
+    debugPrint("❌ Erreur lors de l'envoi des images: $e");
+  }
+}
+
 
 
 // --------- chat  
 // Fonction pour vérifier si le token est valide ou expiré
+
+
+// Vérifier si le token est valide
+
+
+// Afficher une alerte si l'utilisateur n'est pas connecté ou si le token est expiré
+// Vérifier si le token est valide
 Future<bool> isTokenValid(String? token) async {
   if (token == null || token.isEmpty) return false;
   return !JwtDecoder.isExpired(token); // Retourne false si le token est expiré
 }
 
-// Afficher une alerte si le token est invalide ou expiré
-void _showInvalidTokenAlert(BuildContext context) {
+// Afficher une alerte si l'utilisateur n'est pas connecté ou si le token est expiré
+void _showTokenAlert(BuildContext context, {bool isExpired = false}) {
   showDialog(
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
-        title: const Text("Session Expirée"),
-        content: const Text("Votre session a expiré. Veuillez vous reconnecter."),
+        title: Text(isExpired ?getTranslated(context, "Session Expirée")! :getTranslated(context, "Non Connecté")!),
+        content: Text(isExpired
+            ?getTranslated(context, "Votre session a expiré. Veuillez vous reconnecter.")!
+            :getTranslated(context, "Vous devez vous connecter pour accéder à cette fonctionnalité.")!),
         actions: [
           TextButton(
             onPressed: () {
@@ -237,7 +291,7 @@ void _showInvalidTokenAlert(BuildContext context) {
                 MaterialPageRoute(builder: (context) => const IndexLogin()),
               );
             },
-            child: const Text("OK"),
+            child:  Text(getTranslated(context, "cnx")!),
           ),
         ],
       );
@@ -246,17 +300,25 @@ void _showInvalidTokenAlert(BuildContext context) {
 }
 
 // Fonction pour récupérer les utilisateurs
+
+
+// Fonction pour récupérer les utilisateurs
 Future<List<User>> fetchUsers(BuildContext context) async {
   final url = Uri.parse('https://akarina.online/user/clients/');
   String? token = await storage.read(key: "access");
-  
-  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
-  if (token == null || token.isEmpty || await isTokenValid(token)) {
-    _showInvalidTokenAlert(context);
 
-    // Attendre que l'alerte soit affichée avant de lever une exception
+  // Vérifier si l'utilisateur est connecté
+  if (token == null || token.isEmpty) {
+    _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-    // throw Exception("Token invalide ou expiré");
+    throw Exception(getTranslated(context, "Non Connecté"));
+  }
+
+  // Vérifier si le token est expiré
+  if (await isTokenValid(token)) {
+    _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    throw Exception(getTranslated(context, "Session Expirée"));
   }
 
   try {
@@ -276,23 +338,70 @@ Future<List<User>> fetchUsers(BuildContext context) async {
       // Si le token est invalide ou expiré (401 Unauthorized)
       final responseBody = jsonDecode(response.body);
       if (responseBody['code'] == "token_not_valid") {
-        _showInvalidTokenAlert(context);
-
-        // Attendre que l'alerte soit affichée avant de lever une exception
+        _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
         await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-        throw Exception("Le token est invalide ou expiré.");
+        throw Exception(getTranslated(context, "Session Expirée"));
       }
     }
 
     // Gérer les autres erreurs
     print('Erreur API : ${response.body}');
-    throw Exception('Échec du chargement des utilisateurs : ${response.body}');
-  } 
-  catch (e) {
+    throw Exception('${getTranslated(context, "Échec du chargement des utilisateurs ")}: ${response.body}');
+  } catch (e) {
     print('Erreur : $e');
     rethrow;
   }
 }
+
+// Future<List<User>> fetchUsers(BuildContext context) async {
+//   final url = Uri.parse('https://akarina.online/user/clients/');
+//   String? token = await storage.read(key: "access");
+
+//   // Vérifier si l'utilisateur est connecté
+//   if (token == null || token.isEmpty) {
+//     _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
+//     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+//     throw Exception("Utilisateur non connecté");
+//   }
+
+//   // Vérifier si le token est expiré
+//   if (await isTokenValid(token)) {
+//     _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
+//     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+//     throw Exception("Token expiré");
+//   }
+
+//   try {
+//     final response = await http.get(
+//       url,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': 'Bearer $token',
+//       },
+//     );
+
+//     if (response.statusCode == 200) {
+//       // Si la requête réussit, on parse la réponse
+//       List<dynamic> data = jsonDecode(response.body);
+//       return data.map((json) => User.fromJson(json)).toList();
+//     } else if (response.statusCode == 401) {
+//       // Si le token est invalide ou expiré (401 Unauthorized)
+//       final responseBody = jsonDecode(response.body);
+//       if (responseBody['code'] == "token_not_valid") {
+//         _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
+//         await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+//         throw Exception("Le token est invalide ou expiré.");
+//       }
+//     }
+
+//     // Gérer les autres erreurs
+//     print('Erreur API : ${response.body}');
+//     throw Exception('Échec du chargement des utilisateurs : ${response.body}');
+//   } catch (e) {
+//     print('Erreur : $e');
+//     rethrow;
+//   }
+// }
 
 // Fonction pour créer ou récupérer une conversation
 Future<Map<String, dynamic>> getConversation(int participantId, BuildContext context) async {
@@ -302,104 +411,131 @@ Future<Map<String, dynamic>> getConversation(int participantId, BuildContext con
 
   int? id = idString != null ? int.tryParse(idString) : null;
 
-  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
-  if (token == null || token.isEmpty || await isTokenValid(token)) {
-    _showInvalidTokenAlert(context);
-
-    // Attendre que l'alerte soit affichée avant de lever une exception
+  // Vérifier si l'utilisateur est connecté
+  if (token == null || token.isEmpty) {
+    _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-    // throw Exception("Token invalide ou expiré");
+    throw Exception(getTranslated(context, "Non Connecté"));
   }
 
-  final response = await http.post(
-    url,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    },
-    body: jsonEncode({
-      "participants": [participantId, id],  // Inclure le participant et l'utilisateur actuel
-    }),
-  );
+  // Vérifier si le token est expiré
+  if (await isTokenValid(token)) {
+    _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    throw Exception(getTranslated(context, "Session Expirée"));
+  }
 
-  if (response.statusCode == 201) {
-    // Nouvelle conversation créée
-    return jsonDecode(response.body);
-  } else if (response.statusCode == 400) {
-    var errorResponse = jsonDecode(response.body);
-    if (errorResponse['message'] == "Une conversation avec ces participants existe déjà.") {
-      // La conversation existe déjà, retourner son ID
-      return {"id": errorResponse["id"], "participants": [participantId, id]};
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        "participants": [participantId, id], // Inclure le participant et l'utilisateur actuel
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      // Nouvelle conversation créée
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 400) {
+      var errorResponse = jsonDecode(response.body);
+      if (errorResponse['message'] == "Une conversation avec ces participants existe déjà.") {
+        // La conversation existe déjà, retourner son ID
+        return {"id": errorResponse["id"], "participants": [participantId, id]};
+      } else {
+        throw Exception('Erreur: ${errorResponse["message"]}');
+      }
     } else {
-      throw Exception('Erreur: ${errorResponse["message"]}');
+      throw Exception('Impossible de récupérer la conversation: ${response.body}');
     }
-  } else {
-    throw Exception('Impossible de récupérer la conversation: ${response.body}');
+  } catch (e) {
+    print('Erreur : $e');
+    rethrow;
   }
 }
-
 
 // Fonction pour envoyer un message
 Future<void> sendMessage(int conversationId, String content, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/messages/');
   String? token = await storage.read(key: "access");
 
-  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
-  if (token == null || token.isEmpty || await isTokenValid(token)) {
-    _showInvalidTokenAlert(context);
-
-    // Attendre que l'alerte soit affichée avant de lever une exception
+  // Vérifier si l'utilisateur est connecté
+  if (token == null || token.isEmpty) {
+    _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-    // throw Exception("Token invalide ou expiré");
+    throw Exception("Utilisateur non connecté");
   }
 
-  final response = await http.post(
-    url,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    },
-    body: jsonEncode({
-      "conversation": conversationId,
-      "content": content,
-    }),
-  );
+  // Vérifier si le token est expiré
+  if (await isTokenValid(token)) {
+    _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    throw Exception("Token expiré");
+  }
 
-  if (response.statusCode != 201) {
-    throw Exception('Échec de l\'envoi du message: ${response.body}');
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        "conversation": conversationId,
+        "content": content,
+      }),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Échec de l\'envoi du message: ${response.body}');
+    }
+  } catch (e) {
+    print('Erreur : $e');
+    rethrow;
   }
 }
 
 // Fonction pour récupérer les messages d'une conversation
-
-
 Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/$conversationId/messages/');
   String? token = await storage.read(key: "access");
 
-  // Vérifier si le token est invalide ou expiré avant d'envoyer la requête
-  if (token == null || token.isEmpty || await isTokenValid(token)) {
-    _showInvalidTokenAlert(context);
-
-    // Attendre que l'alerte soit affichée avant de lever une exception
+  // Vérifier si l'utilisateur est connecté
+  if (token == null || token.isEmpty) {
+    _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-    // throw Exception("Token invalide ou expiré");
+    throw Exception("Utilisateur non connecté");
   }
 
-  final response = await http.get(
-    url,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
-      'Authorization': 'Bearer $token'
-    },
-  );
+  // Vérifier si le token est expiré
+  if (await isTokenValid(token)) {
+    _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
+    await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
+    throw Exception("Token expiré");
+  }
 
-  if (response.statusCode == 200) {
-    // Décoder le corps en UTF-8 pour garantir que les caractères spéciaux sont correctement interprétés
-    final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-    return decodedBody;
-  } else {
-    throw Exception('Échec de la récupération des messages: ${response.body}');
+  try {
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      // Décoder le corps en UTF-8 pour garantir que les caractères spéciaux sont correctement interprétés
+      final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
+      return decodedBody;
+    } else {
+      throw Exception('Échec de la récupération des messages: ${response.body}');
+    }
+  } catch (e) {
+    print('Erreur : $e');
+    rethrow;
   }
 }
 
