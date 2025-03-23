@@ -247,7 +247,7 @@ Future<bool> checkFirstLaunch() async {
 class MyApp extends StatefulWidget {
   final AppRouter? appRouter;
   final bool isFirstLaunch; // Ajout du paramètre
-  MyApp({this.appRouter, required this.isFirstLaunch});
+  const MyApp({super.key, this.appRouter, required this.isFirstLaunch});
 
   static void setLocale(BuildContext context, Locale newLocale) {
     _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
@@ -303,7 +303,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeDependencies() {
     getLocale().then((locale) {
       setState(() {
-        this._locale = locale;
+        _locale = locale;
       });
     });
     super.didChangeDependencies();
@@ -348,6 +348,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           fontFamily: 'Changa', // Applique la police
+          useMaterial3: false,
+          appBarTheme:AppBarTheme(color: kWhiteColor,elevation: 0.0)
         ),
         locale: _locale,
         supportedLocales: const [

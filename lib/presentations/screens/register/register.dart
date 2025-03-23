@@ -21,7 +21,7 @@ class Register extends StatefulWidget {
   State<Register> createState() => _RegisterState();
 }
 
-class _RegisterState extends State<Register> {
+class _RegisterState extends State<Register> with TickerProviderStateMixin {
   int fiftenyears = 5475;
   int _currentStep = 0;
   StepperType stepperType = StepperType.vertical;
@@ -50,8 +50,8 @@ class _RegisterState extends State<Register> {
   String? validatepassword(String value) {
     String pattern =
         r'^(?!(.)\1{3})(?!0123|1234|2345|3456|4567|5678|6789|7890|0987|9876|8765|7654|6543|5432|4321|3210)\d{4}$';
-    RegExp regExp = new RegExp(pattern);
-    if (value.length == 0) {
+    RegExp regExp = RegExp(pattern);
+    if (value.isEmpty) {
       return getTranslated(context, "pay2");
     } else if (!regExp.hasMatch(value)) {
       return getTranslated(context, 'mdp faible');
@@ -59,12 +59,20 @@ class _RegisterState extends State<Register> {
     return null;
   }
 
-  final CustomTimerController _controller = CustomTimerController();
-  int _duration = 5;
+   late CustomTimerController _controller ;
 
+   @override
+  void initState() {
+   _controller= CustomTimerController( vsync:this , begin: Duration(
+                                                        minutes: 5),
+                                                    end: const Duration(),);
+    // TODO: implement initState
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
+      SizeConfig().init(context);
     return   Scaffold(
       body: Container(
         child: SingleChildScrollView(
@@ -236,7 +244,7 @@ class _RegisterState extends State<Register> {
                                               validator: (value) {
                                                 String pattern = r'^[0-9]*$';
                                                 RegExp regExp =
-                                                    new RegExp(pattern);
+                                                    RegExp(pattern);
 
                                                 if (value!.isEmpty) {
                                                   return getTranslated(context,
@@ -549,9 +557,7 @@ class _RegisterState extends State<Register> {
                                           ),
                                         ],
                                       ),
-                                      Defaultbutton(
-                                          height:
-                                              getProportionateScreenHeight(20), onTap: () {  },),
+                                      
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
@@ -574,9 +580,7 @@ class _RegisterState extends State<Register> {
                                           ),
                                         ],
                                       ),
-                                      Defaultbutton(
-                                          height:
-                                              getProportionateScreenHeight(20), onTap: () {  },),
+                                     
                                       SizedBox(
                                         height:
                                             getProportionateScreenHeight(18),
@@ -605,7 +609,7 @@ class _RegisterState extends State<Register> {
                                               validator: (value) {
                                                 String pattern = r'^[0-9]*$';
                                                 RegExp regExp =
-                                                    new RegExp(pattern);
+                                                    RegExp(pattern);
 
                                                 if (value!.isEmpty) {
                                                   return getTranslated(context,
@@ -817,10 +821,8 @@ class _RegisterState extends State<Register> {
                                                                 10))),
                                                 child: CustomTimer(
                                                     controller: _controller,
-                                                    begin: Duration(
-                                                        minutes: _duration),
-                                                    end: const Duration(),
-                                                    builder: (time) {
+                                                  
+                                                    builder: (t, time) {
                                                       return Text(
                                                           "${time.minutes}:${time.seconds}",
                                                           textScaleFactor: 1.0,
@@ -834,32 +836,34 @@ class _RegisterState extends State<Register> {
                                                               color:
                                                                   pdarkcolor));
                                                     },
-                                                    stateBuilder:
-                                                        (time, state) {
-                                                      // If null is returned, "builder" is displayed.
-                                                      return null;
-                                                    },
-                                                    animationBuilder: (child) {
-                                                      return AnimatedSwitcher(
-                                                        duration: const Duration(
-                                                            milliseconds: 250),
-                                                        child: child,
-                                                      );
-                                                    },
-                                                    onChangeState: (state) {
-                                                      if (state ==
-                                                          CustomTimerState
-                                                              .finished) {
-                                                        setState(() {
-                                                          codeinvalid = true;
-                                                        });
-                                                      }
-                                                      if (state ==
-                                                          CustomTimerState
-                                                              .reset) {
-                                                        _controller.start();
-                                                      }
-                                                    })),
+                                                    // stateBuilder:
+                                                    //     (time, state) {
+                                                    //   // If null is returned, "builder" is displayed.
+                                                    //   return null;
+                                                    // },
+                                                    // animationBuilder: (child) {
+                                                    //   return AnimatedSwitcher(
+                                                    //     duration: const Duration(
+                                                    //         milliseconds: 250),
+                                                    //     child: child,
+                                                    //   );
+                                                    // },
+                                                    // onChangeState: (state) {
+                                                    //   if (state ==
+                                                    //       CustomTimerState
+                                                    //           .finished) {
+                                                    //     setState(() {
+                                                    //       codeinvalid = true;
+                                                    //     });
+                                                    //   }
+                                                    //   if (state ==
+                                                    //       CustomTimerState
+                                                    //           .reset) {
+                                                    //     _controller.start();
+                                                    //   }
+                                                    // }
+                                                    )
+                                                    ),
                                           ],
                                         ),
                                         SizedBox(
@@ -1403,7 +1407,7 @@ class _RegisterState extends State<Register> {
         _controller.pause();
         try {
           var u = Uri.parse(
-              NetworkService().baseUrl + "api/user/otp/verify/$phone/");
+              "${NetworkService().baseUrl}api/user/otp/verify/$phone/");
 
           var respone = await http.post(u,
               headers: {'Content-Type': 'application/json; charset=utf-8'},

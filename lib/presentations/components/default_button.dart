@@ -16,8 +16,8 @@ class Defaultbutton extends StatelessWidget {
     this.borderColor,
     this.borderRadius,
     this.hasIcon,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   final void Function()? onTap;
 
@@ -56,7 +56,7 @@ class Defaultbutton extends StatelessWidget {
             children: [
               (hasIcon ?? false) ? spaceWidth(25) : Container(),
               Text(
-                text!,
+                text??'',
                 textScaleFactor: 1.0,
                 style: maintextstyle.copyWith(
                     color: textcolor ?? kBlackColor,

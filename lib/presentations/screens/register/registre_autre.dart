@@ -26,7 +26,7 @@ class RegisterAutres extends StatefulWidget {
   _RegisterAutresState createState() => _RegisterAutresState();
 }
 
-class _RegisterAutresState extends State<RegisterAutres> {
+class _RegisterAutresState extends State<RegisterAutres> with TickerProviderStateMixin {
   int fiftenyears = 5475;
   int _currentStep = 0;
   StepperType stepperType = StepperType.vertical;
@@ -70,9 +70,18 @@ class _RegisterAutresState extends State<RegisterAutres> {
     return null;
   }
 
-  final CustomTimerController _controller = CustomTimerController();
+  
   final int _duration = 5;
+   late CustomTimerController _controller ;
 
+   @override
+  void initState() {
+   _controller= CustomTimerController( vsync:this , begin: Duration(
+                                                        minutes: 5),
+                                                    end: const Duration(),);
+    // TODO: implement initState
+    super.initState();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -236,10 +245,10 @@ class _RegisterAutresState extends State<RegisterAutres> {
                                                     await openCamera();
       
                                                 if (pickedFile
-                                                    .path.isNotEmpty) {
+                                                    ?.path.isNotEmpty??false) {
                                                   setState(() {
                                                     photoVisage =
-                                                        File(pickedFile.path);
+                                                        File(pickedFile!.path);
                                                     isPhotoVisage = true;
                                                   });
                                                   print(photoVisage.path);
@@ -337,10 +346,10 @@ class _RegisterAutresState extends State<RegisterAutres> {
                                                     await openCamera();
       
                                                 if (pickedFile
-                                                    .path.isNotEmpty) {
+                                                    ?.path.isNotEmpty ?? false) {
                                                   setState(() {
                                                     photoIdentite =
-                                                        File(pickedFile.path);
+                                                        File(pickedFile!.path);
                                                     isPhotoIdentite = true;
                                                   });
                                                   print(photoIdentite.path);
@@ -1269,61 +1278,50 @@ class _RegisterAutresState extends State<RegisterAutres> {
                                                                   20),
                                                         ),
                                                         child:
-                                                         CustomTimer(
-                                                            controller:
-                                                                _controller,
-                                                            begin: Duration(
-                                                                minutes:
-                                                                    _duration),
-                                                            end: const Duration(),
-                                                            builder: (time) {
-                                                              return Text(
-                                                                  "${time.minutes}:${time.seconds}",
-                                                                  textScaleFactor:
-                                                                      1.0,
-                                                                  style: maintextstyle.copyWith(
-                                                                      fontSize:
-                                                                          getProportionateScreenWidth(
-                                                                              40),
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w500,
-                                                                      color:
-                                                                          kBlackColor));
-                                                            },
-                                                            stateBuilder:
-                                                                (time,
-                                                                    state) {
-                                                              // If null is returned, "builder" is displayed.
-                                                              return null;
-                                                            },
-                                                            animationBuilder:
-                                                                (child) {
-                                                              return AnimatedSwitcher(
-                                                                duration: const Duration(
-                                                                    milliseconds:
-                                                                        250),
-                                                                child: child,
-                                                              );
-                                                            },
-                                                            onChangeState:
-                                                                (state) {
-                                                              if (state ==
-                                                                  CustomTimerState
-                                                                      .finished) {
-                                                                setState(() {
-                                                                  codeinvalid =
-                                                                      true;
-                                                                });
-                                                              }
-                                                              if (state ==
-                                                                  CustomTimerState
-                                                                      .reset) {
-                                                                _controller
-                                                                    .start();
-                                                              }
-                                                            }
-                                                            )
+                      CustomTimer(
+                                                    controller: _controller,
+                                                  
+                                                    builder: (t, time) {
+                                                      return Text(
+                                                          "${time.minutes}:${time.seconds}",
+                                                          textScaleFactor: 1.0,
+                                                          style: maintextstyle.copyWith(
+                                                              fontSize:
+                                                                  getProportionateScreenWidth(
+                                                                      30),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w400,
+                                                              color:
+                                                                  pdarkcolor));
+                                                    },
+                                                    // stateBuilder:
+                                                    //     (time, state) {
+                                                    //   // If null is returned, "builder" is displayed.
+                                                    //   return null;
+                                                    // },
+                                                    // animationBuilder: (child) {
+                                                    //   return AnimatedSwitcher(
+                                                    //     duration: const Duration(
+                                                    //         milliseconds: 250),
+                                                    //     child: child,
+                                                    //   );
+                                                    // },
+                                                    // onChangeState: (state) {
+                                                    //   if (state ==
+                                                    //       CustomTimerState
+                                                    //           .finished) {
+                                                    //     setState(() {
+                                                    //       codeinvalid = true;
+                                                    //     });
+                                                    //   }
+                                                    //   if (state ==
+                                                    //       CustomTimerState
+                                                    //           .reset) {
+                                                    //     _controller.start();
+                                                    //   }
+                                                    // }
+                                                    )
                                                             ),
                                                   ],
                                                 ),

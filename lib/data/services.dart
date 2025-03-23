@@ -176,20 +176,20 @@ class StoragePermission {
 
 
 
-Future<PickedFile> openCamera({bool? rear}) async {
+Future<XFile?> openCamera({bool? rear}) async {
   final picker = ImagePicker();
   // ignore: deprecated_member_use
-  final pickedFile = await picker.getImage(
+  final pickedFile = await picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice:
           (rear ?? false) ? CameraDevice.rear : CameraDevice.front);
-  return pickedFile ?? PickedFile('');
+  return pickedFile ;
 }
 
 String? validatorInputNumber(
     BuildContext context, String? value, String? pays) {
   String pattern = r'^[0-9]*$';
-  RegExp regExp = new RegExp(pattern);
+  RegExp regExp = RegExp(pattern);
 
   if (value!.isEmpty) {
     return getTranslated(context, "telobligatoire");
