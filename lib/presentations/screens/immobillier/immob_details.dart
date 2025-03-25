@@ -22,7 +22,7 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 class ImmobDetails extends StatefulWidget {
   final int id;
 
-  const ImmobDetails({Key? key, required this.id}) : super(key: key);
+  const ImmobDetails({super.key, required this.id});
 
   @override
   State<ImmobDetails> createState() => _ImmobDetailsState();
@@ -65,7 +65,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-                  leading: IconButton(
+        leading: IconButton(
           icon: Icon(
             Localizations.localeOf(context).languageCode == 'ar' 
               ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
@@ -89,8 +89,11 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildPriceStatusAndContacts(),
+                          
+                          _contact(),
+                          SizedBox(height: getProportionateScreenHeight(5)),
                            _buildPriceAndStatusHeader(),
+                           SizedBox(height: getProportionateScreenHeight(5)),
                           // Section pour les images
                           _buildImageSection(immobData?['images'] ?? []),
                           // Removed or reduced the SizedBox height to reduce space
@@ -208,247 +211,123 @@ Widget _buildHeader({
     ),
   );
 }
+// Fonction pour le bouton WhatsApp
+  void _launchWhatsApp() async {
+    const phoneNumber = '1234567890'; // Remplacez par votre numéro
+    const message = 'Bonjour, je vous contacte depuis l\'application';
+    final url = Uri.parse('https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}');
+    
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      throw 'Impossible d\'ouvrir WhatsApp';
+    }
+  }
 
-Widget _buildPriceStatusAndContacts() {
-  // Récupération des données
-  final typeOperation = immobData?['type_operation'] ?? 'vendre';
-  final montant = double.tryParse(immobData?['montant']?.toString() ?? '0');
-  final loyerMensuel = double.tryParse(immobData?['loyer_mensuel']?.toString() ?? '0');
-  final periode = immobData?['periode'] ?? 'mois';
-  final isAvailable = immobData?['disponible'] ?? false;
-  final phoneNumber = immobData?['contact_phone'] ?? '+22200000000';
-  final whatsappNumber = immobData?['contact_whatsapp'] ?? phoneNumber;
+  // Fonction pour le bouton Téléphone
+  void _launchPhone() async {
+    const phoneNumber = '20203000'; // Remplacez par votre numéro
+    final url = Uri.parse('tel:$phoneNumber');
+    
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      throw 'Impossible de passer un appel';
+    }
+  }
 
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final bool isSmallScreen = constraints.maxWidth < 400;
-      
-      return Container(
-        margin: EdgeInsets.symmetric(
-          vertical: getProportionateScreenHeight(12),
-          horizontal: getProportionateScreenWidth(16),
-        ),
-        padding: EdgeInsets.all(getProportionateScreenWidth(16)),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(getProportionateScreenWidth(12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: getProportionateScreenWidth(10),
-              spreadRadius: getProportionateScreenWidth(3),
-              offset: Offset(0, getProportionateScreenHeight(4)),
-            ),
-          ],
-          border: Border.all(
-            color: Colors.grey.shade200,
-            width: 1,
+  Widget _contact() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
-        ),
-        child: Column(
-          children: [
-            // Première ligne : Prix et Statut
-            Flex(
-              direction: isSmallScreen ? Axis.vertical : Axis.horizontal,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Partie Prix
-                Flexible(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        typeOperation == 'vendre' 
-                            ? getTranslated(context, 'À Vendre')!
-                            : getTranslated(context, 'À Louer')!,
-                        style: TextStyle(
-                          fontSize: getProportionateScreenWidth(14),
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      SizedBox(height: getProportionateScreenHeight(4)),
-                      Text(
-                        typeOperation == 'vendre'
-                            ? '${montant?.toStringAsFixed(0)} MRU'
-                            : '${loyerMensuel?.toStringAsFixed(0)} MRU/${getTranslated(context, periode)}',
-                        style: TextStyle(
-                          fontSize: getProportionateScreenWidth(22),
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Espacement conditionnel
-                if (!isSmallScreen) 
-                  SizedBox(width: getProportionateScreenWidth(16)),
-
-                // Partie Disponibilité
-                Flexible(
-                  flex: 1,
+        ],
+      ),
+      child: Column(
+        children: [
+           Text(
+            getTranslated(context, "message")!,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              // Bouton WhatsApp
+              Expanded(
+                child: InkWell(
+                  onTap: _launchWhatsApp,
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    margin: isSmallScreen 
-                        ? EdgeInsets.only(top: getProportionateScreenHeight(12))
-                        : EdgeInsets.zero,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: getProportionateScreenWidth(12),
-                      vertical: getProportionateScreenHeight(6),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: isAvailable ? Colors.green.shade50 : Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
-                      border: Border.all(
-                        color: isAvailable ? Colors.green.shade200 : Colors.red.shade200,
-                        width: 1.5,
-                      ),
+                      color: const Color(0xFF25D366),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child:  Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: getProportionateScreenWidth(10),
-                          height: getProportionateScreenWidth(10),
-                          decoration: BoxDecoration(
-                            color: isAvailable ? Colors.green : Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        SizedBox(width: getProportionateScreenWidth(8)),
-                        Flexible(
-                          child: Text(
-                            isAvailable 
-                                ? getTranslated(context, 'Disponible')!
-                                : getTranslated(context, 'Non disponible')!,
-                            style: TextStyle(
-                              fontSize: getProportionateScreenWidth(14),
-                              fontWeight: FontWeight.w600,
-                              color: isAvailable ? Colors.green.shade800 : Colors.red.shade800,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Icon(Icons.chat_outlined, color: Colors.white, size: 24),
+                        SizedBox(width: 8),
+                        Text(
+                          getTranslated(context, "WhatsApp")!,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-
-            // Deuxième ligne : Icônes de contact
-            Padding(
-              padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Bouton WhatsApp
-                  _buildContactButton(
-                    icon: Image.asset(
-                      'assets/icons/whatsapp.png',
-                      width: getProportionateScreenWidth(24),
-                      height: getProportionateScreenWidth(24),
-                    ),
-                    label: 'WhatsApp',
-                    onPressed: () => _launchWhatsApp(whatsappNumber),
-                    color: const Color(0xFF25D366),
-                  ),
-
-                  SizedBox(width: getProportionateScreenWidth(20)),
-
-                  // Bouton Appel
-                  _buildContactButton(
-                    icon: Icon(
-                      Icons.phone,
-                      size: getProportionateScreenWidth(24),
-                      color: Colors.white,
-                    ),
-                    label: getTranslated(context, 'Appeler')!,
-                    onPressed: () => _launchPhoneCall(phoneNumber),
-                    color: Colors.blue,
-                  ),
-                ],
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-Widget _buildContactButton({
-  required Widget icon,
-  required String label,
-  required VoidCallback onPressed,
-  required Color color,
-}) {
-  return InkWell(
-    onTap: onPressed,
-    borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
-    child: Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: getProportionateScreenWidth(16),
-        vertical: getProportionateScreenHeight(8),
-      ),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 6,
-            spreadRadius: 1,
-            offset: const Offset(0, 2),
+              const SizedBox(width: 16),
+              // Bouton Téléphone
+              Expanded(
+                child: InkWell(
+                  onTap: _launchPhone,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF34B7F1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child:  Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.phone, color: Colors.white, size: 24),
+                        SizedBox(width: 8),
+                        Text(getTranslated(context, "Contact")!
+                          ,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          icon,
-          SizedBox(width: getProportionateScreenWidth(8)),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: getProportionateScreenWidth(14),
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-// Fonction pour lancer WhatsApp
-Future<void> _launchWhatsApp(String number) async {
-  final url = 'https://wa.me/$number';
-  if (await canLaunchUrl(Uri.parse(url))) {
-    await launchUrl(Uri.parse(url));
-  } else {
-    throw 'Impossible d\'ouvrir WhatsApp';
+    );
   }
-}
-
-// Fonction pour lancer l'appel téléphonique
-Future<void> _launchPhoneCall(String number) async {
-  final url = 'tel:$number';
-  if (await canLaunchUrl(Uri.parse(url))) {
-    await launchUrl(Uri.parse(url));
-  } else {
-    throw 'Impossible d\'effectuer l\'appel';
-  }
-}
-
+// head price 
 Widget _buildPriceAndStatusHeader() {
   // Récupération des données
   final typeOperation = immobData?['type_operation'] ?? 'vendre';
@@ -608,7 +487,7 @@ Widget _buildPriceAndStatusHeader() {
 
       return Directionality(
         textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-        child: Container(
+        child: SizedBox(
           height: getProportionateScreenHeight(280), // Hauteur responsive
           child: Column(
             children: [
@@ -1266,10 +1145,10 @@ class FullScreenImageView extends StatelessWidget {
   final int initialIndex;
 
   const FullScreenImageView({
-    Key? key,
+    super.key,
     required this.imageUrls,
     this.initialIndex = 0,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1299,7 +1178,7 @@ Widget _buildDescriptionSection(String description) {
 class _DescriptionSection extends StatefulWidget {
   final String description;
 
-  const _DescriptionSection({Key? key, required this.description}) : super(key: key);
+  const _DescriptionSection({super.key, required this.description});
 
   @override
   __DescriptionSectionState createState() => __DescriptionSectionState();
@@ -1410,11 +1289,11 @@ class PaymentWebView extends StatefulWidget {
   final Function? onPaymentError; // Callback pour erreur
 
   const PaymentWebView({
-    Key? key,
+    super.key,
     required this.paymentUrl,
     this.onPaymentSuccess,
     this.onPaymentError,
-  }) : super(key: key);
+  });
 
   @override
   State<PaymentWebView> createState() => _PaymentWebViewState();

@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/presentations/constants/constants.dart';
+import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -88,7 +91,18 @@ class _LocationState extends State<Location> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Carte des résidences'),
+                leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: Text(getTranslated(context, "Localisation du maison")!,style: TextStyle(color: kBlackColor,),),
       ),
       body: FutureBuilder<List<dynamic>>(
         future: futureResidences,
