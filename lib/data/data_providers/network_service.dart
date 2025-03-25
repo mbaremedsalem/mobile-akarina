@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 // import 'package:bcipay/data/services.dart';
 import 'package:akarina/data/data_providers/exception.dart';
+import 'package:akarina/data/global.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/models/user.dart';
 import 'package:akarina/data/services.dart';
@@ -305,17 +306,18 @@ void _showTokenAlert(BuildContext context, {bool isExpired = false}) {
 // Fonction pour récupérer les utilisateurs
 Future<List<User>> fetchUsers(BuildContext context) async {
   final url = Uri.parse('https://akarina.online/user/clients/');
-  String? token = await storage.read(key: "access");
+  keySetion = await storage.read(key: "access");
 
   // Vérifier si l'utilisateur est connecté
-  if (token == null || token.isEmpty) {
+ bool isEmpty= keySetion?.isEmpty??false;
+  if (keySetion == null ||isEmpty ) {
     _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception(getTranslated(context, "Non Connecté"));
   }
 
   // Vérifier si le token est expiré
-  if (await isTokenValid(token)) {
+  if (await isTokenValid(keySetion)) {
     _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception(getTranslated(context, "Session Expirée"));
@@ -326,7 +328,7 @@ Future<List<User>> fetchUsers(BuildContext context) async {
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
+        'Authorization': 'Bearer $keySetion',
       },
     );
 
@@ -406,20 +408,21 @@ Future<List<User>> fetchUsers(BuildContext context) async {
 // Fonction pour créer ou récupérer une conversation
 Future<Map<String, dynamic>> getConversation(int participantId, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/conversations/');
-  String? token = await storage.read(key: "access");
+  keySetion = await storage.read(key: "access");
+  // String? token = await storage.read(key: "access");
   String? idString = await storage.read(key: "id");
 
   int? id = idString != null ? int.tryParse(idString) : null;
-
+  bool isEmpty= keySetion?.isEmpty??false;
   // Vérifier si l'utilisateur est connecté
-  if (token == null || token.isEmpty) {
+  if (keySetion == null || isEmpty) {
     _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception(getTranslated(context, "Non Connecté"));
   }
 
   // Vérifier si le token est expiré
-  if (await isTokenValid(token)) {
+  if (await isTokenValid(keySetion)) {
     _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception(getTranslated(context, "Session Expirée"));
@@ -430,7 +433,7 @@ Future<Map<String, dynamic>> getConversation(int participantId, BuildContext con
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
+        'Authorization': 'Bearer $keySetion',
       },
       body: jsonEncode({
         "participants": [participantId, id], // Inclure le participant et l'utilisateur actuel
@@ -460,17 +463,23 @@ Future<Map<String, dynamic>> getConversation(int participantId, BuildContext con
 // Fonction pour envoyer un message
 Future<void> sendMessage(int conversationId, String content, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/messages/');
-  String? token = await storage.read(key: "access");
+  // String? token = await storage.read(key: "access");
+  
+
+  keySetion = await storage.read(key: "access");
+  // String? token = await storage.read(key: "access");
+
+  bool isEmpty= keySetion?.isEmpty??false;
 
   // Vérifier si l'utilisateur est connecté
-  if (token == null || token.isEmpty) {
+  if (keySetion == null || isEmpty) {
     _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception("Utilisateur non connecté");
   }
 
   // Vérifier si le token est expiré
-  if (await isTokenValid(token)) {
+  if (await isTokenValid(keySetion)) {
     _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception("Token expiré");
@@ -481,7 +490,7 @@ Future<void> sendMessage(int conversationId, String content, BuildContext contex
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
+        'Authorization': 'Bearer $keySetion',
       },
       body: jsonEncode({
         "conversation": conversationId,
@@ -501,17 +510,20 @@ Future<void> sendMessage(int conversationId, String content, BuildContext contex
 // Fonction pour récupérer les messages d'une conversation
 Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) async {
   final url = Uri.parse('${baseUrl}user/$conversationId/messages/');
-  String? token = await storage.read(key: "access");
+  // String? token = await storage.read(key: "access");
 
+  keySetion = await storage.read(key: "access");
+
+  bool isEmpty= keySetion?.isEmpty??false;
   // Vérifier si l'utilisateur est connecté
-  if (token == null || token.isEmpty) {
+  if (keySetion == null || isEmpty) {
     _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception("Utilisateur non connecté");
   }
 
   // Vérifier si le token est expiré
-  if (await isTokenValid(token)) {
+  if (await isTokenValid(keySetion)) {
     _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
     throw Exception("Token expiré");
@@ -522,7 +534,7 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
       url,
       headers: {
         'Content-Type': 'application/json; charset=utf-8', // Spécifiez UTF-8 ici
-        'Authorization': 'Bearer $token',
+        'Authorization': 'Bearer $keySetion',
       },
     );
 
@@ -543,6 +555,8 @@ Future<List<dynamic>> fetchMessages(int conversationId, BuildContext context) as
     String? token = await storage.read(key: "token");
     String? id = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
+
+
 
     var responseJson;
     try {

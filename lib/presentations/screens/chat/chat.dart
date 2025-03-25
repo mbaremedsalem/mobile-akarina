@@ -1,4 +1,6 @@
 import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/presentations/constants/constants.dart';
+import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
@@ -133,6 +135,17 @@ void _sendImage(int conversationId) async {
   Widget build(BuildContext context) {
     return Scaffold(
     appBar: AppBar(
+          leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
       title: Row(
         children: [
           CircleAvatar(
@@ -146,7 +159,7 @@ void _sendImage(int conversationId) async {
           Text(
             widget.participantName.isNotEmpty == true
                 ? widget.participantName
-                : 'Utilisateur inconnu',
+                : 'Utilisateur inconnu',style: TextStyle(color: kBlackColor),
           ),
         ],
       ),

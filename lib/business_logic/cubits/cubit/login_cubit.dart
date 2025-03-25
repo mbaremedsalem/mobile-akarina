@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:akarina/data/global.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -113,6 +114,7 @@ class LoginCubit extends Cubit<LoginStates> {
 
         if (data.containsKey('access') && data.containsKey('refresh') && data.containsKey('id')) {
           await storage.write(key: "access", value: data["access"]);
+          keySetion=data["access"];
           await storage.write(key: "refresh", value: data["refresh"]);
           await storage.write(key: "id", value: data["id"].toString());
 

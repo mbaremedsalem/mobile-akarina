@@ -1,5 +1,6 @@
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/constants/constants.dart';
+import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/chat/chat.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,6 +10,7 @@ import 'package:akarina/data/models/user.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 
@@ -63,7 +65,18 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:  Text(getTranslated(context, "Détails de l'immobilier")!),
+                  leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title:  Text(getTranslated(context, "Détails de l'immobilier")!,style: TextStyle(color: kBlackColor),),
       ),
       body: SafeArea(
         child: isLoading
@@ -76,6 +89,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          _buildPriceStatusAndContacts(),
+                           _buildPriceAndStatusHeader(),
                           // Section pour les images
                           _buildImageSection(immobData?['images'] ?? []),
                           // Removed or reduced the SizedBox height to reduce space
@@ -193,10 +208,393 @@ Widget _buildHeader({
     ),
   );
 }
+
+Widget _buildPriceStatusAndContacts() {
+  // Récupération des données
+  final typeOperation = immobData?['type_operation'] ?? 'vendre';
+  final montant = double.tryParse(immobData?['montant']?.toString() ?? '0');
+  final loyerMensuel = double.tryParse(immobData?['loyer_mensuel']?.toString() ?? '0');
+  final periode = immobData?['periode'] ?? 'mois';
+  final isAvailable = immobData?['disponible'] ?? false;
+  final phoneNumber = immobData?['contact_phone'] ?? '+22200000000';
+  final whatsappNumber = immobData?['contact_whatsapp'] ?? phoneNumber;
+
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final bool isSmallScreen = constraints.maxWidth < 400;
+      
+      return Container(
+        margin: EdgeInsets.symmetric(
+          vertical: getProportionateScreenHeight(12),
+          horizontal: getProportionateScreenWidth(16),
+        ),
+        padding: EdgeInsets.all(getProportionateScreenWidth(16)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(getProportionateScreenWidth(12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: getProportionateScreenWidth(10),
+              spreadRadius: getProportionateScreenWidth(3),
+              offset: Offset(0, getProportionateScreenHeight(4)),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            // Première ligne : Prix et Statut
+            Flex(
+              direction: isSmallScreen ? Axis.vertical : Axis.horizontal,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Partie Prix
+                Flexible(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        typeOperation == 'vendre' 
+                            ? getTranslated(context, 'À Vendre')!
+                            : getTranslated(context, 'À Louer')!,
+                        style: TextStyle(
+                          fontSize: getProportionateScreenWidth(14),
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      SizedBox(height: getProportionateScreenHeight(4)),
+                      Text(
+                        typeOperation == 'vendre'
+                            ? '${montant?.toStringAsFixed(0)} MRU'
+                            : '${loyerMensuel?.toStringAsFixed(0)} MRU/${getTranslated(context, periode)}',
+                        style: TextStyle(
+                          fontSize: getProportionateScreenWidth(22),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Espacement conditionnel
+                if (!isSmallScreen) 
+                  SizedBox(width: getProportionateScreenWidth(16)),
+
+                // Partie Disponibilité
+                Flexible(
+                  flex: 1,
+                  child: Container(
+                    margin: isSmallScreen 
+                        ? EdgeInsets.only(top: getProportionateScreenHeight(12))
+                        : EdgeInsets.zero,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: getProportionateScreenWidth(12),
+                      vertical: getProportionateScreenHeight(6),
+                    ),
+                    decoration: BoxDecoration(
+                      color: isAvailable ? Colors.green.shade50 : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
+                      border: Border.all(
+                        color: isAvailable ? Colors.green.shade200 : Colors.red.shade200,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: getProportionateScreenWidth(10),
+                          height: getProportionateScreenWidth(10),
+                          decoration: BoxDecoration(
+                            color: isAvailable ? Colors.green : Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: getProportionateScreenWidth(8)),
+                        Flexible(
+                          child: Text(
+                            isAvailable 
+                                ? getTranslated(context, 'Disponible')!
+                                : getTranslated(context, 'Non disponible')!,
+                            style: TextStyle(
+                              fontSize: getProportionateScreenWidth(14),
+                              fontWeight: FontWeight.w600,
+                              color: isAvailable ? Colors.green.shade800 : Colors.red.shade800,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Deuxième ligne : Icônes de contact
+            Padding(
+              padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Bouton WhatsApp
+                  _buildContactButton(
+                    icon: Image.asset(
+                      'assets/icons/whatsapp.png',
+                      width: getProportionateScreenWidth(24),
+                      height: getProportionateScreenWidth(24),
+                    ),
+                    label: 'WhatsApp',
+                    onPressed: () => _launchWhatsApp(whatsappNumber),
+                    color: const Color(0xFF25D366),
+                  ),
+
+                  SizedBox(width: getProportionateScreenWidth(20)),
+
+                  // Bouton Appel
+                  _buildContactButton(
+                    icon: Icon(
+                      Icons.phone,
+                      size: getProportionateScreenWidth(24),
+                      color: Colors.white,
+                    ),
+                    label: getTranslated(context, 'Appeler')!,
+                    onPressed: () => _launchPhoneCall(phoneNumber),
+                    color: Colors.blue,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Widget _buildContactButton({
+  required Widget icon,
+  required String label,
+  required VoidCallback onPressed,
+  required Color color,
+}) {
+  return InkWell(
+    onTap: onPressed,
+    borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
+    child: Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: getProportionateScreenWidth(16),
+        vertical: getProportionateScreenHeight(8),
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 6,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          SizedBox(width: getProportionateScreenWidth(8)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: getProportionateScreenWidth(14),
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Fonction pour lancer WhatsApp
+Future<void> _launchWhatsApp(String number) async {
+  final url = 'https://wa.me/$number';
+  if (await canLaunchUrl(Uri.parse(url))) {
+    await launchUrl(Uri.parse(url));
+  } else {
+    throw 'Impossible d\'ouvrir WhatsApp';
+  }
+}
+
+// Fonction pour lancer l'appel téléphonique
+Future<void> _launchPhoneCall(String number) async {
+  final url = 'tel:$number';
+  if (await canLaunchUrl(Uri.parse(url))) {
+    await launchUrl(Uri.parse(url));
+  } else {
+    throw 'Impossible d\'effectuer l\'appel';
+  }
+}
+
+Widget _buildPriceAndStatusHeader() {
+  // Récupération des données
+  final typeOperation = immobData?['type_operation'] ?? 'vendre';
+  final montant = double.tryParse(immobData?['montant']?.toString() ?? '0');
+  final loyerMensuel = double.tryParse(immobData?['loyer_mensuel']?.toString() ?? '0');
+  final periode = immobData?['periode'] ?? 'mois';
+  final isAvailable = immobData?['available'] ?? false;
+
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final bool isSmallScreen = constraints.maxWidth < 350;
+      
+      return Container(
+        margin: EdgeInsets.symmetric(
+       
+        ),
+        padding: EdgeInsets.all(getProportionateScreenWidth(16)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(getProportionateScreenWidth(10)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: getProportionateScreenWidth(10),
+              spreadRadius: getProportionateScreenWidth(3),
+              offset: Offset(0, getProportionateScreenHeight(4)),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+        child: Flex(
+          direction: isSmallScreen ? Axis.vertical : Axis.horizontal,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Partie Prix - Adapte la taille en fonction de l'écran
+            Flexible(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    typeOperation == 'vendre' 
+                        ? getTranslated(context, 'vendre')!
+                        : getTranslated(context, 'alouer')!,
+                    style: TextStyle(
+                      fontSize: getProportionateScreenWidth(14),
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  SizedBox(height: getProportionateScreenHeight(4)),
+                  Text(
+                    typeOperation == 'vendre'
+                        ? '${montant?.toStringAsFixed(0)} MRU'
+                        : '${loyerMensuel?.toStringAsFixed(0)} MRU/${getTranslated(context, periode)}',
+                    style: TextStyle(
+                      fontSize: getProportionateScreenWidth(22),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (typeOperation == 'louer')
+                    Padding(
+                      padding: EdgeInsets.only(top: getProportionateScreenHeight(4)),
+                      child: Text(
+                        getTranslated(context, 'Prix mensuel')!,
+                        style: TextStyle(
+                          fontSize: getProportionateScreenWidth(12),
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Espacement conditionnel
+            if (!isSmallScreen) 
+              SizedBox(width: getProportionateScreenWidth(16)),
+
+            // Partie Disponibilité - S'adapte à la largeur disponible
+            Flexible(
+              flex: 1,
+              child: Container(
+                margin: isSmallScreen 
+                    ? EdgeInsets.only(top: getProportionateScreenHeight(12))
+                    : EdgeInsets.zero,
+                padding: EdgeInsets.symmetric(
+                  horizontal: getProportionateScreenWidth(16),
+                  vertical: getProportionateScreenHeight(8),
+                ),
+                decoration: BoxDecoration(
+                  color: isAvailable ? Colors.green.shade50 : Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
+                  border: Border.all(
+                    color: isAvailable ? Colors.green.shade200 : Colors.red.shade200,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: getProportionateScreenWidth(10),
+                      height: getProportionateScreenWidth(10),
+                      decoration: BoxDecoration(
+                        color: isAvailable ? Colors.green : Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: getProportionateScreenWidth(8)),
+                    Flexible(
+                      child: Text(
+                        isAvailable 
+                            ? getTranslated(context, 'Available')!
+                            : getTranslated(context, 'Unavailable')!,
+                        style: TextStyle(
+                          fontSize: getProportionateScreenWidth(14),
+                          fontWeight: FontWeight.w600,
+                          color: isAvailable ? Colors.green.shade800 : Colors.red.shade800,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
   // Section pour afficher les images
   Widget _buildImageSection(List<dynamic> images) {
   if (images.isEmpty) {
-    return Text(getTranslated(context, "Aucune image disponible.") ?? "Aucune image disponible.");
+    return Text(getTranslated(context, "Aucune image disponible.") ?? getTranslated(context, "Aucune image disponible.")!);
   }
 
   return FutureBuilder<Locale>(

@@ -86,6 +86,8 @@
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/models/user.dart';
+import 'package:akarina/presentations/constants/constants.dart';
+import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/chat/chat.dart';
 import 'package:flutter/material.dart';
 
@@ -107,7 +109,18 @@ class _UserListPageState extends State<UserListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(getTranslated(context, "Liste des utilisateurs")!),
+                leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: Text(getTranslated(context, "Liste des utilisateurs")!,style: TextStyle(color: kBlackColor),),
       ),
       body: FutureBuilder<List<User>>(
         future: futureUsers,

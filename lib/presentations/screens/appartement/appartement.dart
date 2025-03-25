@@ -243,12 +243,13 @@ Widget build(BuildContext context) {
             Localizations.localeOf(context).languageCode == 'ar' 
               ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
               : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
           ),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-      title:  Text(getTranslated(context, "Recherche Maison")!),
+      title:  Text(getTranslated(context, "Recherche Maison")!,style: TextStyle(color: kBlackColor),),
       backgroundColor: Colors.transparent,
       elevation: 0,
     ),
