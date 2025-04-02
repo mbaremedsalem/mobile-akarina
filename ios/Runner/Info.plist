@@ -45,5 +45,16 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Autorisations de localisation -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Cette application utilise votre position pour afficher des cartes pertinentes</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Cette application nécessite un accès continu à votre position pour certaines fonctionnalités</string>
+
+	<!-- Configuration Google Maps -->
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<key>GoogleMapsAPIKey</key>
+	<string>AIzaSyCcTubNsHkaESRHsEh9Y2h11sYpWIM1shU</string> <!-- Même clé que Android -->
 </dict>
 </plist>
