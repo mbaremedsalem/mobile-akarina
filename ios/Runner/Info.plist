@@ -56,5 +56,12 @@
 	<true/>
 	<key>GoogleMapsAPIKey</key>
 	<string>AIzaSyCcTubNsHkaESRHsEh9Y2h11sYpWIM1shU</string> <!-- Même clé que Android -->
+	
+
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Cette application a besoin d'accéder à votre position pour remplir automatiquement les coordonnées</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Cette application a besoin d'accéder à votre position en permanence pour certaines fonctionnalités</string>
+	
 </dict>
 </plist>

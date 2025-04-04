@@ -85,8 +85,8 @@ void _showSessionExpiredDialog() {
     barrierDismissible: false, // Empêche la fermeture en cliquant en dehors
     builder: (BuildContext context) {
       return AlertDialog(
-        title: const Text("Session expirée"),
-        content: const Text("Votre session a expiré. Veuillez vous reconnecter."),
+        title: Text(getTranslated(context, "Session Expirée")!),
+        content:  Text(getTranslated(context, "Votre session a expiré. Veuillez vous reconnecter.")!),
         actions: [
           TextButton(
             onPressed: () {
@@ -96,7 +96,7 @@ void _showSessionExpiredDialog() {
                 MaterialPageRoute(builder: (context) => const IndexLogin()),
               );// Déconnexion et redirection
             },
-            child: const Text("Se reconnecter"),
+            child: Text(getTranslated(context, "Se reconnecter")!),
           ),
         ],
       );
@@ -105,12 +105,6 @@ void _showSessionExpiredDialog() {
 }
 
 // Fonction pour supprimer le token et rediriger vers la page de connexion
-void _logoutAndRedirect() async {
-  await storage.delete(key: "access"); // Supprime le token stocké
-  Navigator.pushReplacementNamed(context, "/login"); // Redirige vers la page de connexion
-}
-
-
 Future<void> deleteAccount() async {
   try {
     final String? token = await storage.read(key: "access");
@@ -131,7 +125,7 @@ Future<void> deleteAccount() async {
     if (response.statusCode == 200) {
       final responseData = jsonDecode(response.body);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(responseData['message'] ?? "Compte supprimé")),
+        SnackBar(content: Text(responseData['message'] ?? getTranslated(context, "Compte supprimé")!)),
       );
       // Rediriger vers la page de connexion ou une autre page après suppression
         Navigator.pushReplacement(

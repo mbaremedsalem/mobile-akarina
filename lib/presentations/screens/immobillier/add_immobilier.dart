@@ -440,6 +440,9 @@ import 'package:path/path.dart' as path;
 
 import 'dart:ui' as ui;
 
+import 'package:permission_handler/permission_handler.dart';
+
+import 'package:geolocator/geolocator.dart';
 
 
 class PostAnnonceScreen extends StatefulWidget {
@@ -500,7 +503,138 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
       );
     }
   }
+  
+  // Nouvelle méthode pour récupérer la position
+  // Future<void> _getCurrentLocation() async {
+  //   setState(() {
+  //     isLoaded = true;
+  //   });
 
+  //   try {
+  //     // Vérifiez les permissions
+  //     final status = await Permission.location.request();
+  //     if (!status.isGranted) {
+  //       throw Exception('Permission de localisation refusée');
+  //     }
+
+  //     // Récupérez la position
+  //     final position = await Geolocator.getCurrentPosition(
+  //       desiredAccuracy: LocationAccuracy.high,
+  //     );
+
+  //     // Mettez à jour les champs x et y
+  //     setState(() {
+  //       xCoordController.text = position.longitude.toString();
+  //       yCoordController.text = position.latitude.toString();
+  //     });
+
+  //   } catch (e) {
+  //     showToast(
+  //       'Erreur lors de la récupération de la position: $e',
+  //       context: context,
+  //       backgroundColor: Colors.red,
+  //       duration: const Duration(seconds: 4),
+  //     );
+  //   } finally {
+  //     setState(() {
+  //       isLoaded = false;
+  //     });
+  //   }
+  // }
+
+Future<void> _getCurrentLocation() async {
+  setState(() => isLoaded = true);
+
+  try {
+    // Vérifiez si le service est activé
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      await _showLocationServiceDisabledAlert();
+      return;
+    }
+
+    // Demande de permission avec gestion fine
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.deniedForever) {
+      await _showPermissionPermanentlyDeniedAlert();
+      return;
+    }
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.whileInUse && 
+          permission != LocationPermission.always) {
+        return;
+      }
+    }
+
+    // Récupération de la position
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.best,
+    );
+
+    setState(() {
+      xCoordController.text = position.longitude.toStringAsFixed(6);
+      yCoordController.text = position.latitude.toStringAsFixed(6);
+    });
+
+  } catch (e) {
+    showToast(
+      'Erreur: ${e.toString()}',
+      context: context,
+      backgroundColor: Colors.red,
+      duration: const Duration(seconds: 4),
+    );
+  } finally {
+    setState(() => isLoaded = false);
+  }
+}
+
+Future<void> _showLocationServiceDisabledAlert() async {
+  return showDialog(
+    context: context,
+    builder: (BuildContext context) => AlertDialog(
+      title: Text(getTranslated(context, "Service de localisation désactivé")!),
+      content: Text(getTranslated(context, "Veuillez activer la localisation dans les paramètres de votre appareil")!),
+      actions: <Widget>[
+        TextButton(
+          child: Text(getTranslated(context, "Annuler")!),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TextButton(
+          child: Text(getTranslated(context, "Paramètres")!),
+          onPressed: () {
+            Geolocator.openLocationSettings();
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showPermissionPermanentlyDeniedAlert() async {
+  return showDialog(
+    context: context,
+    builder: (BuildContext context) => AlertDialog(
+      title: Text(getTranslated(context, "Permission refusée définitivement")!),
+      content: Text(getTranslated(context, "Veuillez autoriser l'accès à la localisation dans les paramètres de l'application")!),
+      actions: <Widget>[
+        TextButton(
+          child: Text(getTranslated(context, "Annuler")!),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TextButton(
+          child: Text(getTranslated(context, "Paramètres")!),
+          onPressed: () {
+            openAppSettings(); // Du package permission_handler
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    ),
+  );
+}
 
 Future<void> submitResidentiel() async {
   try {
@@ -776,7 +910,7 @@ Future<void> submitResidentiel() async {
         DropdownButtonFormField<String>(
           value: selectedImmoType,
           decoration: InputDecoration(
-            labelText: getTranslated(context, "Type d'immobilier"),
+            labelText: getTranslated(context, "Type d'immobilier")!,
             border: const OutlineInputBorder(),
           ),
           items: immoTypes.map((type) {
@@ -808,7 +942,7 @@ Future<void> submitResidentiel() async {
         TextField(
           controller: descriptionArController,
           decoration: InputDecoration(
-            labelText: getTranslated(context, "Description (Arabe)"),
+            labelText: getTranslated(context, "Description"),
             border: const OutlineInputBorder(),
           ),
           maxLines: 3,
@@ -839,27 +973,65 @@ Future<void> submitResidentiel() async {
         const SizedBox(height: 16),
         
         // Coordonnées X
-        TextField(
-          controller: xCoordController,
-          decoration: InputDecoration(
-            labelText: "Coordonnée X (Longitude)",
-            border: const OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-        ),
-        const SizedBox(height: 16),
+        // TextField(
+        //   controller: xCoordController,
+        //   decoration: InputDecoration(
+        //     labelText: "Coordonnée X (Longitude)",
+        //     border: const OutlineInputBorder(),
+        //   ),
+        //   keyboardType: TextInputType.numberWithOptions(decimal: true),
+        // ),
+        // const SizedBox(height: 16),
         
-        // Coordonnées Y
-        TextField(
-          controller: yCoordController,
-          decoration: InputDecoration(
-            labelText: "Coordonnée Y (Latitude)",
-            border: const OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
+        // // Coordonnées Y
+        // TextField(
+        //   controller: yCoordController,
+        //   decoration: InputDecoration(
+        //     labelText: "Coordonnée Y (Latitude)",
+        //     border: const OutlineInputBorder(),
+        //   ),
+        //   keyboardType: TextInputType.numberWithOptions(decimal: true),
+        // ),
+        // const SizedBox(height: 16),
+        // Remplacez les TextField existants pour x et y par ceci :
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: xCoordController,
+                decoration: InputDecoration(
+                  labelText: "Longitude (X)",
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                readOnly: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: yCoordController,
+                decoration: InputDecoration(
+                  labelText: "Latitude (Y)",
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                readOnly: true,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        
+        const SizedBox(height: 10),
+        Defaultbutton(
+          onTap: _getCurrentLocation,
+          color: Colors.blue,
+          textcolor: Colors.white,
+          text: "Utiliser ma position actuelle",
+          borderRadius: getProportionateScreenWidth(5),
+          width: double.infinity,
+          height: getProportionateScreenHeight(45),
+        ),
+        const SizedBox(height: 10),
         // Nombre de chambres
         TextField(
           controller: roomsController,

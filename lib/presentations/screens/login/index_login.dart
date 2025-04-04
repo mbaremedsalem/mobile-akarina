@@ -210,8 +210,8 @@ class _IndexLoginState extends State<IndexLogin> {
                           child: currentState == 0
                               ? const Login()
                               : pays == 'Mauritania'
-                                  ? const Register()
-                                  : const Register())
+                                  ?  Register()
+                                  :  Register())
                     ],
                   ),
                 ),

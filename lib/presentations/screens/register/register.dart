@@ -1,1396 +1,287 @@
 import 'dart:convert';
-
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
-import 'package:akarina/presentations/components/default_button.dart';
-import 'package:akarina/presentations/components/spiner.dart';
-import 'package:akarina/presentations/constants/constants.dart';
-import 'package:akarina/size_config.dart';
-import 'package:custom_timer/custom_timer.dart';
+import 'package:akarina/presentations/screens/login/index_login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_styled_toast/flutter_styled_toast.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_svg/flutter_svg.dart';
+
 class Register extends StatefulWidget {
-  const Register({super.key});
+  Register({Key? key}) : super(key: key);
 
   @override
-  State<Register> createState() => _RegisterState();
+  _RegisterState createState() => _RegisterState();
 }
 
-class _RegisterState extends State<Register> with TickerProviderStateMixin {
-  int fiftenyears = 5475;
+class _RegisterState extends State<Register> {
   int _currentStep = 0;
-  StepperType stepperType = StepperType.vertical;
   final _formKey = GlobalKey<FormState>();
   final _formKey2 = GlobalKey<FormState>();
-  final _formKey3 = GlobalKey<FormState>();
-  final _formKekotp = GlobalKey<FormState>();
-  String? prenom;
-  String? nom;
-  String? nni;
-  String? newpassword;
-  bool loading = false;
-  bool obscure1 = true;
-  bool obscure2 = true;
-  String? msg;
-  String phone = '';
   final storage = FlutterSecureStorage();
 
-  bool codeinvalid = false;
+  // Données du formulaire
+  String? prenom;
+  String? nom;
+  String? email;
+  String? nni;
+  String phone = '';
+  String? password;
+  String? confirmPassword;
+  bool loading = false;
+  bool obscurePassword = true;
+  bool obscureConfirmPassword = true;
 
+  // Validation des étapes
   bool nniValid = false;
-  bool phoneValid = false;
-  bool otpValid = false;
+  bool personalInfoValid = false;
   bool passwordValid = false;
 
-  String? validatepassword(String value) {
-    String pattern =
-        r'^(?!(.)\1{3})(?!0123|1234|2345|3456|4567|5678|6789|7890|0987|9876|8765|7654|6543|5432|4321|3210)\d{4}$';
-    RegExp regExp = RegExp(pattern);
-    if (value.isEmpty) {
-      return getTranslated(context, "pay2");
-    } else if (!regExp.hasMatch(value)) {
-      return getTranslated(context, 'mdp faible');
+  Future<void> registerUser() async {
+    setState(() {
+      loading = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('${NetworkService().baseUrl}user/register/'),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          'email': email,
+          'nom_complet': '$prenom $nom',
+          'numero_telephone': '+222$phone',
+          'nni': nni,
+          'password': password,
+          'confirm_password': confirmPassword,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        showToast(
+          'Inscription réussie!',
+          context: context,
+          backgroundColor: Colors.green,
+        );
+                Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const IndexLogin()
+        ),
+      );
+         
+      } else {
+        final error = jsonDecode(response.body);
+        
+        showToast(
+          error['message'] ?? 'Erreur lors de l\'inscription',
+          context: context,
+          backgroundColor: Colors.red,
+        );
+      }
+    } catch (e) {
+      
+      
+      showToast(
+        'Erreur de connexion${e.toString()}',
+        context: context,
+        backgroundColor: Colors.red,
+      );
+    } finally {
+      setState(() {
+        loading = false;
+      });
     }
-    return null;
-  }
-
-   late CustomTimerController _controller ;
-
-   @override
-  void initState() {
-   _controller= CustomTimerController( vsync:this , begin: Duration(
-                                                        minutes: 5),
-                                                    end: const Duration(),);
-    // TODO: implement initState
-    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-      SizeConfig().init(context);
-    return   Scaffold(
-      body: Container(
-        child: SingleChildScrollView(
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                // margin: EdgeInsets.symmetric(
-                //     horizontal: getProportionateScreenWidth(20)),
-                padding: EdgeInsets.symmetric(
-                    horizontal: getProportionateScreenWidth(20),
-                    vertical: getProportionateScreenHeight(25)),
-                decoration: const BoxDecoration(),
-                //----------------- NNI ---------------------
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _currentStep == 0 && nniValid == false
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(
-                                        getProportionateScreenWidth(4)),
-                                    decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: kBlackColor),
-                                    child: SvgPicture.asset(
-                                      "assets/icons/profile_plus.svg",
-                                      colorFilter: const ColorFilter.mode(
-                                          kWhiteColor, BlendMode.srcIn),
-                                      width: getProportionateScreenWidth(22),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: getProportionateScreenWidth(10),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(getTranslated(context, "ÉTAPE 1")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      10),
-                                              fontWeight: FontWeight.w600,
-                                              color: kgrey400)),
-                                      Text(
-                                          getTranslated(context,
-                                              "Informations personnelles")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      14),
-                                              fontWeight: FontWeight.w400,
-                                              color: kBlackColor)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              SizedBox(
-                                height: getProportionateScreenHeight(5),
-                              ),
-                              Form(
-                                key: _formKey,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    spaceWidth(5),
-                                    SizedBox(
-                                      height: getProportionateScreenHeight(220),
-                                      width: getProportionateScreenWidth(20),
-                                      child: VerticalDivider(
-                                        color: kgrey300,
-                                        width: getProportionateScreenWidth(11),
-                                        thickness: 2,
-                                      ),
-                                    ),
-                                    spaceWidth(10),
-                                    SizedBox(
-                                      width: getProportionateScreenWidth(300),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Container(
-                                            padding: EdgeInsets.all(
-                                                getProportionateScreenWidth(3)),
-                                            decoration: BoxDecoration(
-                                                border:
-                                                    Border.all(color: kgrey300),
-                                                borderRadius: BorderRadius.circular(
-                                                    getProportionateScreenWidth(
-                                                        12))),
-                                            child: TextFormField(
-                                              maxLength: 10,
-                                              inputFormatters: <
-                                                  TextInputFormatter>[
-                                                FilteringTextInputFormatter
-                                                    .allow(RegExp('[0-9]')),
-                                              ],
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              decoration:
-                                                  textformdecoration.copyWith(
-                                                      prefixIcon: Padding(
-                                                        padding: EdgeInsets.symmetric(
-                                                            vertical:
-                                                                getProportionateScreenHeight(
-                                                                    10),
-                                                            horizontal:
-                                                                getProportionateScreenWidth(
-                                                                    6)),
-                                                        child: SvgPicture.asset(
-                                                          "assets/icons/card_id.svg",
-                                                          colorFilter:
-                                                               ColorFilter.mode(
-                                                                  kgrey800,
-                                                                  BlendMode
-                                                                      .srcIn),
-                                                        ),
-                                                      ),
-                                                      labelText: getTranslated(
-                                                          context,
-                                                          "Numéro national d'identification")!),
-                                              validator: (v) {
-                                                if (v!.isEmpty) {
-                                                  return getTranslated(
-                                                      context, "nnicourt");
-                                                } else {
-                                                  if (v.length == 10) {
-                                                    return null;
-                                                  }
-                                                  return getTranslated(
-                                                      context, "nnicourt");
-                                                }
-                                              },
-                                              onChanged: (v) {
-                                                setState(() {
-                                                  nni = v;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          spaceHeight(15),
-                                          Container(
-                                            padding: EdgeInsets.all(
-                                                getProportionateScreenWidth(3)),
-                                            decoration: BoxDecoration(
-                                                border:
-                                                    Border.all(color: kgrey300),
-                                                borderRadius: BorderRadius.circular(
-                                                    getProportionateScreenWidth(
-                                                        12))),
-                                            child: TextFormField(
-                                              maxLength: 8,
-                                              inputFormatters: <
-                                                  TextInputFormatter>[
-                                                FilteringTextInputFormatter
-                                                    .allow(RegExp('[0-9]')),
-                                              ],
-                                              validator: (value) {
-                                                String pattern = r'^[0-9]*$';
-                                                RegExp regExp =
-                                                    RegExp(pattern);
+              // Étape 1: NNI
+              _buildStep(
+                stepNumber: 1,
+                title: getTranslated(context, "Informations d'identification")!,
+                isActive: _currentStep >= 0,
+                isCompleted: nniValid,
+                content: _currentStep == 0 && !nniValid
+                    ? Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            _buildTextField(
+                              label: getTranslated(context, "Numéro national d'identification")!,
+                              icon: Icons.credit_card,
+                              maxLength: 10,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              validator: (v) {
+                                if (v!.isEmpty) return getTranslated(context, "videerror")!;
+                                if (v.length != 10) return getTranslated(context, "nnicourt")!;
+                                return null;
+                              },
+                              onChanged: (v) => nni = v,
+                            ),
+                            const SizedBox(height: 20),
+                            _buildNextButton(
+                              onPressed: () {
+                                if (_formKey.currentState!.validate()) {
+                                  setState(() {
+                                    nniValid = true;
+                                    _currentStep += 1;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
+              ),
 
-                                                if (value!.isEmpty) {
-                                                  return getTranslated(context,
-                                                      "telobligatoire");
-                                                } else {
-                                                  if (value.startsWith('2') ||
-                                                      value.startsWith('3') ||
-                                                      value.startsWith('4')) {
-                                                    if (value.length == 8) {
-                                                      if (regExp
-                                                          .hasMatch(value)) {
-                                                        return null;
-                                                      } else {
-                                                        return getTranslated(
-                                                            context,
-                                                            "telnonvalide");
-                                                      }
-                                                    } else {
-                                                      return getTranslated(
-                                                          context,
-                                                          "telnonvalide");
-                                                    }
-                                                  } else {
-                                                    return getTranslated(
-                                                        context,
-                                                        "telnonvalide");
-                                                  }
-                                                }
-                                              },
-                                              decoration:
-                                                  textformdecoration.copyWith(
-                                                      prefixIcon: Padding(
-                                                        padding: EdgeInsets.symmetric(
-                                                            vertical:
-                                                                getProportionateScreenHeight(
-                                                                    10),
-                                                            horizontal:
-                                                                getProportionateScreenWidth(
-                                                                    6)),
-                                                        child: SvgPicture.asset(
-                                                          "assets/icons/phone.svg",
-                                                          colorFilter:
-                                                               ColorFilter.mode(
-                                                                  kgrey800,
-                                                                  BlendMode
-                                                                      .srcIn),
-                                                          height: 8,
-                                                        ),
-                                                      ),
-                                                      labelText: getTranslated(
-                                                          context,
-                                                          "Numéro de Téléphone")!),
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              onChanged: (v) {
-                                                setState(() {
-                                                  phone = v;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            height:
-                                                getProportionateScreenHeight(
-                                                    10),
-                                          ),
-                                           loading
-                                              ? spiner()
-                                              : Defaultbutton(
-                                                  height:
-                                                      getProportionateScreenHeight(
-                                                          50),
-                                                  text: getTranslated(
-                                                      context, "suivant"),
-                                                  onTap: () async {
-                                                    setState(() {
-                                                      nniValid = true;
-                                                      _currentStep += 1;
-                                                    });
-                                                    if (_formKey.currentState!
-                                                        .validate()) {
-                                                      // continued();
-                                                    }
-                                                  },
-                                                  color: pcolor,
-                                                  textcolor: kWhiteColor,
-                                                ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+              // Étape 2: Informations personnelles
+              _buildStep(
+                stepNumber: 2,
+                title: getTranslated(context, "Informations personnelles")!,
+                isActive: _currentStep >= 1,
+                isCompleted: personalInfoValid,
+                content: _currentStep == 1 && !personalInfoValid
+                    ? Form(
+                        key: _formKey2,
+                        child: Column(
+                          children: [
+                            _buildTextField(
+                              label: getTranslated(context, "prenom")!,
+                              icon: Icons.person,
+                              validator: (v) => v!.isEmpty ? getTranslated(context, "videerror")! : null,
+                              onChanged: (v) => prenom = v,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: getTranslated(context, "Nom")!,
+                              icon: Icons.person_outline,
+                              validator: (v) => v!.isEmpty ? getTranslated(context, "videerror")! : null,
+                              onChanged: (v) => nom = v,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: getTranslated(context, "Email")!,
+                              icon: Icons.mail_outlined,
+                              validator: (v) => v!.isEmpty ? getTranslated(context, "videerror")! : null,
+                              onChanged: (v) => email = v,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: getTranslated(context, "Numéro de Téléphone")!,
+                              icon: Icons.phone,
+                              maxLength: 8,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              validator: (v) {
+                                if (v!.isEmpty) return getTranslated(context, "videerror")!;
+                                if (v.length != 8) return getTranslated(context, "Le numéro doit avoir 8 chiffres")!;
+                                return null;
+                              },
+                              onChanged: (v) => phone = v,
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildBackButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _currentStep -= 1;
+                                      nniValid = false;
+                                    });
+                                  },
                                 ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                                _buildNextButton(
+                                  onPressed: () {
+                                    if (_formKey2.currentState!.validate()) {
+                                      setState(() {
+                                        personalInfoValid = true;
+                                        _currentStep += 1;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
+              ),
+
+              // Étape 3: Mot de passe
+              _buildStep(
+                stepNumber: 3,
+                title: getTranslated(context, "Création du mot de passe")!,
+                isActive: _currentStep >= 2,
+                isCompleted: passwordValid,
+                content: _currentStep == 2
+                    ? Column(
+                        children: [
+                          _buildPasswordField(
+                            label: getTranslated(context, "code")!,
+                            obscureText: obscurePassword,
+                            maxLength: 4,
+                            validator: (v) {
+                              if (v!.isEmpty) return getTranslated(context, "videerror")!;
+                              if (v.length != 4) return getTranslated(context, "doit etre  4 caractères");
+                              return null;
+                            },
+                            onChanged: (v) => password = v,
+                            onToggleVisibility: () {
+                              setState(() {
+                                obscurePassword = !obscurePassword;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPasswordField(
+                            label: getTranslated(context, "Confirmer le mot de passe")!,
+                            obscureText: obscureConfirmPassword,
+                            maxLength: 4,
+                            validator: (v) {
+                              if (v!.isEmpty) return getTranslated(context, "videerror")!;
+                              if (v != password) return getTranslated(context, "mots de passe non identiques")!;
+                              return null;
+                            },
+                            onChanged: (v) => confirmPassword = v,
+                            onToggleVisibility: () {
+                              setState(() {
+                                obscureConfirmPassword = !obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                      backgroundColor: secondcolor,
-                                      maxRadius:
-                                          getProportionateScreenWidth(16),
-                                      child: Icon(
-                                        Icons.check,
-                                        color: kWhiteColor,
-                                        size: getProportionateScreenWidth(22),
-                                      )),
-                                  SizedBox(
-                                    width: getProportionateScreenWidth(10),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(getTranslated(context, "ÉTAPE 1")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      10),
-                                              fontWeight: FontWeight.w600,
-                                              color: kgrey400)),
-                                      Text(
-                                          getTranslated(context,
-                                              "Informations personnelles")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      14),
-                                              fontWeight: FontWeight.w400,
-                                              color: kBlackColor)),
-                                    ],
-                                  ),
-                                ],
+                              _buildBackButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _currentStep -= 1;
+                                    personalInfoValid = false;
+                                  });
+                                },
                               ),
-                              Container(
-                                padding: EdgeInsets.only(
-                                    left: getProportionateScreenWidth(16),
-                                    right: getProportionateScreenWidth(16),
-                                    top: getProportionateScreenHeight(5)),
-                                height: getProportionateScreenHeight(30),
-                                width: getProportionateScreenWidth(20),
-                                child: VerticalDivider(
-                                  color: secondcolor,
-                                  width: getProportionateScreenWidth(11),
-                                  thickness: 2,
-                                ),
-                              ),
+                              loading
+                                  ? const CircularProgressIndicator()
+                                  : _buildConfirmButton(
+                                      onPressed: registerUser,
+                                    ),
                             ],
                           ),
-                    spaceHeight(5),
-                    //-------------- Telephone ---------------
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _currentStep != 1 && phoneValid == false
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: EdgeInsets.all(
-                                            getProportionateScreenWidth(6)),
-                                        decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: kgrey300, width: 1.2),
-                                            shape: BoxShape.circle),
-                                        child: Text('#',
-                                            textScaleFactor: 1.0,
-                                            style: TextStyle(
-                                                fontSize:
-                                                    getProportionateScreenWidth(
-                                                        20),
-                                                fontWeight: FontWeight.w400,
-                                                color: colorBorder)),
-                                      ),
-                                      SizedBox(
-                                        width: getProportionateScreenWidth(10),
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                              getTranslated(
-                                                  context, "ÉTAPE 2")!,
-                                              textScaleFactor: 1.0,
-                                              style: TextStyle(
-                                                  fontSize:
-                                                      getProportionateScreenWidth(
-                                                          10),
-                                                  fontWeight: FontWeight.w600,
-                                                  color: colorTextMuted)),
-                                          Text(
-                                              getTranslated(context,
-                                                  "Confirmation numéro de téléphone")!,
-                                              textScaleFactor: 1.0,
-                                              style: TextStyle(
-                                                  fontSize:
-                                                      getProportionateScreenWidth(
-                                                          14),
-                                                  fontWeight: FontWeight.w400,
-                                                  color: colorTextMuted)),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    padding: EdgeInsets.only(
-                                        left: getProportionateScreenWidth(13),
-                                        right: getProportionateScreenWidth(13),
-                                        top: getProportionateScreenHeight(5)),
-                                    height: getProportionateScreenHeight(20),
-                                    width: getProportionateScreenWidth(20),
-                                    child: VerticalDivider(
-                                      color: colorBorder,
-                                      width: getProportionateScreenWidth(11),
-                                      thickness: 2,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : _currentStep == 1 && phoneValid == false
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        children: [
-                                          CircleAvatar(
-                                            backgroundColor: kBlackColor,
-                                            maxRadius:
-                                                getProportionateScreenWidth(16),
-                                            child: Text(
-                                              '#',
-                                              style: TextStyle(
-                                                color: kWhiteColor,
-                                                fontSize:
-                                                    getProportionateScreenWidth(
-                                                        18),
-                                                fontWeight: FontWeight.w400,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width:
-                                                getProportionateScreenWidth(10),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                  getTranslated(
-                                                      context, "ÉTAPE 2")!,
-                                                  textScaleFactor: 1.0,
-                                                  style: TextStyle(
-                                                      fontSize:
-                                                          getProportionateScreenWidth(
-                                                              10),
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: colorTextMuted)),
-                                              Text(
-                                                  getTranslated(context,
-                                                      "Confirmation numéro de téléphone")!,
-                                                  textScaleFactor: 1.0,
-                                                  style: TextStyle(
-                                                      fontSize:
-                                                          getProportionateScreenWidth(
-                                                              14),
-                                                      fontWeight:
-                                                          FontWeight.w400,
-                                                      color: kBlackColor)),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(
-                                        height:
-                                            getProportionateScreenHeight(15),
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            getTranslated(context, "prenom")!,
-                                            textScaleFactor: 1.0,
-                                            style: const TextStyle(
-                                                color: kBlackColor),
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              prenom ?? "",
-                                              textScaleFactor: 1.0,
-                                              textAlign: TextAlign.end,
-                                              style: const TextStyle(
-                                                  color: kBlackColor,
-                                                  fontWeight: FontWeight.w500),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            getTranslated(context, "nom")!,
-                                            textScaleFactor: 1.0,
-                                            style: const TextStyle(
-                                                color: kBlackColor),
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              nom ?? "",
-                                              textScaleFactor: 1.0,
-                                              textAlign: TextAlign.end,
-                                              style: const TextStyle(
-                                                  color: kBlackColor,
-                                                  fontWeight: FontWeight.w500),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                     
-                                      SizedBox(
-                                        height:
-                                            getProportionateScreenHeight(18),
-                                      ),
-                                      Text(getTranslated(context, "tel")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                            color: kBlackColor,
-                                            fontSize:
-                                                getProportionateScreenWidth(16),
-                                          )),
-                                      SizedBox(
-                                        height: getProportionateScreenHeight(8),
-                                      ),
-                                      Form(
-                                        key: _formKey2,
-                                        child: Column(
-                                          children: [
-                                            TextFormField(
-                                              maxLength: 8,
-                                              inputFormatters: <
-                                                  TextInputFormatter>[
-                                                FilteringTextInputFormatter
-                                                    .allow(RegExp('[0-9]')),
-                                              ],
-                                              validator: (value) {
-                                                String pattern = r'^[0-9]*$';
-                                                RegExp regExp =
-                                                    RegExp(pattern);
-
-                                                if (value!.isEmpty) {
-                                                  return getTranslated(context,
-                                                      "telobligatoire");
-                                                } else {
-                                                  if (value.startsWith('2') ||
-                                                      value.startsWith('3') ||
-                                                      value.startsWith('4')) {
-                                                    if (value.length == 8) {
-                                                      if (regExp
-                                                          .hasMatch(value)) {
-                                                        return null;
-                                                      } else {
-                                                        return getTranslated(
-                                                            context,
-                                                            "telnonvalide");
-                                                      }
-                                                    } else {
-                                                      return getTranslated(
-                                                          context,
-                                                          "telnonvalide");
-                                                    }
-                                                  } else {
-                                                    return getTranslated(
-                                                        context,
-                                                        "telnonvalide");
-                                                  }
-                                                }
-                                              },
-                                              decoration:
-                                                  textformdecoration.copyWith(
-                                                      errorStyle: TextStyle
-                                                          (
-                                                              fontSize:
-                                                                  getProportionateScreenWidth(
-                                                                      12),
-                                                              color:
-                                                                  pdarkcolor)),
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              onChanged: (v) {
-                                                setState(() {
-                                                  phone = v;
-                                                });
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height:
-                                            getProportionateScreenHeight(20),
-                                      ),
-                                      loading
-                                          ? spiner()
-                                          : Defaultbutton(
-                                              height:
-                                                  getProportionateScreenHeight(
-                                                      50),
-                                              text: getTranslated(
-                                                  context, "suivant"),
-                                              onTap: () async {
-                                                if (_formKey2.currentState!
-                                                    .validate()) {
-                                                  // telValidate();
-                                                }
-                                              },
-                                              color: pcolor,
-                                              textcolor: kWhiteColor,
-                                            ),
-                                    ],
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      CircleAvatar(
-                                          backgroundColor: pcolor,
-                                          maxRadius:
-                                              getProportionateScreenWidth(10),
-                                          child: Icon(
-                                            Icons.check,
-                                            color: kWhiteColor,
-                                            size:
-                                                getProportionateScreenWidth(15),
-                                          )),
-                                      SizedBox(
-                                        width: getProportionateScreenWidth(10),
-                                      ),
-                                      Text(getTranslated(context, "tel")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      14),
-                                              fontWeight: FontWeight.w700,
-                                              color: pcolor)),
-                                    ],
-                                  ),
-                      ],
-                    ),
-
-                    // -------------- Otp ----------------
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _currentStep != 2 && otpValid == false
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: getProportionateScreenWidth(20),
-                                    decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color: pdarkcolor, width: 1.2)),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      '3',
-                                      style: maintextstyle.copyWith(
-                                        color: pdarkcolor,
-                                        fontSize:
-                                            getProportionateScreenWidth(12),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: getProportionateScreenWidth(10),
-                                  ),
-                                  Text(getTranslated(context, "smsconfirme")!,
-                                      textScaleFactor: 1.0,
-                                      style: maintextstyle.copyWith(
-                                          fontSize:
-                                              getProportionateScreenWidth(14),
-                                          fontWeight: FontWeight.w700,
-                                          color: pdarkcolor)),
-                                ],
-                              )
-                            : _currentStep == 2 && otpValid == false
-                                ? Directionality(
-                                    textDirection: TextDirection.ltr,
-                                    child: Column(
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                          children: [
-                                            CircleAvatar(
-                                              backgroundColor: pdarkcolor,
-                                              maxRadius:
-                                                  getProportionateScreenWidth(
-                                                      10),
-                                              child: Text(
-                                                '3',
-                                                style: maintextstyle.copyWith(
-                                                  color: kWhiteColor,
-                                                  fontSize:
-                                                      getProportionateScreenWidth(
-                                                          12),
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width:
-                                                  getProportionateScreenWidth(
-                                                      10),
-                                            ),
-                                            Text(
-                                                getTranslated(
-                                                    context, "smsconfirme")!,
-                                                textScaleFactor: 1.0,
-                                                style: maintextstyle.copyWith(
-                                                    fontSize:
-                                                        getProportionateScreenWidth(
-                                                            14),
-                                                    fontWeight: FontWeight.w700,
-                                                    color: pdarkcolor)),
-                                          ],
-                                        ),
-                                        SizedBox(
-                                          height:
-                                              getProportionateScreenHeight(25),
-                                        ),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                                height:
-                                                    getProportionateScreenHeight(
-                                                        60),
-                                                width:
-                                                    getProportionateScreenWidth(
-                                                        140),
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal:
-                                                      getProportionateScreenWidth(
-                                                          20),
-                                                ),
-                                                decoration: BoxDecoration(
-                                                    border: Border.all(
-                                                        color: kBlackColor,
-                                                        width: 1.2),
-                                                    color: plightcolor,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            getProportionateScreenHeight(
-                                                                10))),
-                                                child: CustomTimer(
-                                                    controller: _controller,
-                                                  
-                                                    builder: (t, time) {
-                                                      return Text(
-                                                          "${time.minutes}:${time.seconds}",
-                                                          textScaleFactor: 1.0,
-                                                          style: maintextstyle.copyWith(
-                                                              fontSize:
-                                                                  getProportionateScreenWidth(
-                                                                      30),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w400,
-                                                              color:
-                                                                  pdarkcolor));
-                                                    },
-                                                    // stateBuilder:
-                                                    //     (time, state) {
-                                                    //   // If null is returned, "builder" is displayed.
-                                                    //   return null;
-                                                    // },
-                                                    // animationBuilder: (child) {
-                                                    //   return AnimatedSwitcher(
-                                                    //     duration: const Duration(
-                                                    //         milliseconds: 250),
-                                                    //     child: child,
-                                                    //   );
-                                                    // },
-                                                    // onChangeState: (state) {
-                                                    //   if (state ==
-                                                    //       CustomTimerState
-                                                    //           .finished) {
-                                                    //     setState(() {
-                                                    //       codeinvalid = true;
-                                                    //     });
-                                                    //   }
-                                                    //   if (state ==
-                                                    //       CustomTimerState
-                                                    //           .reset) {
-                                                    //     _controller.start();
-                                                    //   }
-                                                    // }
-                                                    )
-                                                    ),
-                                          ],
-                                        ),
-                                        SizedBox(
-                                          height:
-                                              getProportionateScreenHeight(15),
-                                        ),
-                                        codeinvalid
-                                            ? Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
-                                                children: <Widget>[
-                                                  Text(
-                                                    getTranslated(context,
-                                                        "le code n'est plus valide")!,
-                                                    textScaleFactor: 1.0,
-                                                    style:
-                                                        maintextstyle.copyWith(
-                                                            color: kredcolor),
-                                                  ),
-                                                  GestureDetector(
-                                                      onTap: () async {
-                                                        setState(() {
-                                                          codeinvalid = false;
-                                                        });
-                                                        _controller.reset();
-                                                        var u = Uri.parse(
-                                                            "${NetworkService()
-                                                                    .baseUrl}api/user/otp/verify/$phone/");
-
-                                                        await http.get(u, headers: {
-                                                          'Content-Type':
-                                                              'application/json; charset=utf-8'
-                                                        });
-                                                        // print(respone.statusCode);
-                                                      },
-                                                      child: Text(
-                                                        getTranslated(context,
-                                                            "Ressayer")!,
-                                                        textScaleFactor: 1.0,
-                                                        style: maintextstyle
-                                                            .copyWith(
-                                                                color:
-                                                                    pdarkcolor,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                fontSize:
-                                                                    getProportionateScreenWidth(
-                                                                        18)),
-                                                      )),
-                                                ],
-                                              )
-                                            : Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Align(
-                                                    alignment:
-                                                        Alignment.topLeft,
-                                                    child: Text("SMS code",
-                                                        textScaleFactor: 1.0,
-                                                        style: maintextstyle
-                                                            .copyWith(
-                                                          color: kBlackColor,
-                                                          fontSize:
-                                                              getProportionateScreenWidth(
-                                                                  14),
-                                                        )),
-                                                  ),
-                                                  SizedBox(
-                                                    height:
-                                                        getProportionateScreenHeight(
-                                                            5),
-                                                  ),
-                                                  Form(
-                                                    key: _formKekotp,
-                                                    child: Column(
-                                                      children: [
-                                                        TextFormField(
-                                                          maxLength: 6,
-                                                          inputFormatters: <
-                                                              TextInputFormatter>[
-                                                            FilteringTextInputFormatter
-                                                                .allow(RegExp(
-                                                                    '[0-9]')),
-                                                          ],
-                                                          validator: (v) {
-                                                            if (v!.isEmpty) {
-                                                              return getTranslated(
-                                                                  context,
-                                                                  "pay2");
-                                                            } else {
-                                                              if (v.length ==
-                                                                  6) {
-                                                                return null;
-                                                              }
-                                                              return "";
-                                                            }
-                                                          },
-                                                          decoration: textformdecoration.copyWith(
-                                                              errorStyle: maintextstyle.copyWith(
-                                                                  fontSize:
-                                                                      getProportionateScreenWidth(
-                                                                          12),
-                                                                  color:
-                                                                      kredcolor)),
-                                                          keyboardType:
-                                                              TextInputType
-                                                                  .number,
-                                                          onChanged: (v) {
-                                                            setState(() {
-                                                              msg = v;
-                                                            });
-                                                          },
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    height:
-                                                        getProportionateScreenHeight(
-                                                            10),
-                                                  ),
-                                                  loading
-                                                      ? spiner()
-                                                      : Defaultbutton(
-                                                          height:
-                                                              getProportionateScreenHeight(
-                                                                  50),
-                                                          text: getTranslated(
-                                                              context,
-                                                              "suivant"),
-                                                          onTap: () async {
-                                                            if (_formKekotp
-                                                                .currentState!
-                                                                .validate()) {
-                                                              otpValidate();
-                                                            }
-                                                          },
-                                                          color: pdarkcolor,
-                                                          textcolor:
-                                                              kWhiteColor,
-                                                        ),
-                                                ],
-                                              ),
-                                      ],
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      CircleAvatar(
-                                          backgroundColor: pcolor,
-                                          maxRadius:
-                                              getProportionateScreenWidth(10),
-                                          child: Icon(
-                                            Icons.check,
-                                            color: kWhiteColor,
-                                            size:
-                                                getProportionateScreenWidth(15),
-                                          )),
-                                      SizedBox(
-                                        width: getProportionateScreenWidth(10),
-                                      ),
-                                      Text(
-                                          getTranslated(
-                                              context, "smsconfirme")!,
-                                          textScaleFactor: 1.0,
-                                          style: maintextstyle.copyWith(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      14),
-                                              fontWeight: FontWeight.w700,
-                                              color: pcolor)),
-                                    ],
-                                  ),
-                      ],
-                    ),
-                    SizedBox(
-                      height: getProportionateScreenHeight(30),
-                    ),
-
-                    //-------------- Code ---------------
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _currentStep != 3 && passwordValid == false
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(
-                                        getProportionateScreenWidth(6)),
-                                    decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: kgrey300, width: 1.2),
-                                        shape: BoxShape.circle),
-                                    child: Text('#',
-                                        textScaleFactor: 1.0,
-                                        style: TextStyle(
-                                            fontSize:
-                                                getProportionateScreenWidth(20),
-                                            fontWeight: FontWeight.w400,
-                                            color: colorBorder)),
-                                  ),
-                                  SizedBox(
-                                    width: getProportionateScreenWidth(10),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(getTranslated(context, "ÉTAPE 3")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      10),
-                                              fontWeight: FontWeight.w600,
-                                              color: colorTextMuted)),
-                                      Text(
-                                          getTranslated(context,
-                                              "Création mot de passe")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      14),
-                                              fontWeight: FontWeight.w400,
-                                              color: colorTextMuted)),
-                                    ],
-                                  ),
-                                ],
-                              )
-                            : _currentStep == 3 && passwordValid == false
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        children: [
-                                          CircleAvatar(
-                                            backgroundColor: plightcolor,
-                                            maxRadius:
-                                                getProportionateScreenWidth(10),
-                                            child: Text(
-                                              '4',
-                                              style: TextStyle(
-                                                color: kWhiteColor,
-                                                fontSize:
-                                                    getProportionateScreenWidth(
-                                                        12),
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width:
-                                                getProportionateScreenWidth(10),
-                                          ),
-                                          Text(getTranslated(context, "code")!,
-                                              textScaleFactor: 1.0,
-                                              style: TextStyle(
-                                                  fontSize:
-                                                      getProportionateScreenWidth(
-                                                          14),
-                                                  fontWeight: FontWeight.w700,
-                                                  color: plightcolor)),
-                                        ],
-                                      ),
-                                      SizedBox(
-                                        height:
-                                            getProportionateScreenHeight(25),
-                                      ),
-                                      Form(
-                                        key: _formKey3,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                          children: <Widget>[
-                                            Align(
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                  getTranslated(
-                                                      context, 'codeerror')!,
-                                                  textScaleFactor: 1.0,
-                                                  style: TextStyle(
-                                                      color: kBlackColor,
-                                                      fontSize:
-                                                          getProportionateScreenWidth(
-                                                              14),
-                                                      fontWeight:
-                                                          FontWeight.w400)),
-                                            ),
-                                            SizedBox(
-                                              height:
-                                                  getProportionateScreenHeight(
-                                                      20),
-                                            ),
-                                            Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal:
-                                                      getProportionateScreenWidth(
-                                                          30)),
-                                              child: Directionality(
-                                                textDirection:
-                                                    TextDirection.ltr,
-                                                child: PinCodeTextField(
-                                                  enablePinAutofill: false,
-                                                  cursorHeight:
-                                                      getProportionateScreenWidth(
-                                                          24),
-                                                  appContext: context,
-                                                  pastedTextStyle: const TextStyle(
-                                                    color: kGreyColor,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                  length: 4,
-                                                  animationType:
-                                                      AnimationType.fade,
-                                                  validator: (v) =>
-                                                      validatepassword(v!),
-                                                  pinTheme: PinTheme(
-                                                    borderWidth: 1,
-                                                    selectedColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                    selectedFillColor:
-                                                        kGreyColor
-                                                            .withOpacity(0.2),
-                                                    inactiveFillColor:
-                                                        kGreyColor
-                                                            .withOpacity(0.2),
-                                                    inactiveColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                    shape:
-                                                        PinCodeFieldShape.box,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            getProportionateScreenWidth(
-                                                                10)),
-                                                    fieldHeight:
-                                                        getProportionateScreenHeight(
-                                                            65),
-                                                    fieldWidth:
-                                                        getProportionateScreenWidth(
-                                                            48),
-                                                    activeFillColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                    activeColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                  ),
-                                                  obscuringWidget: Icon(
-                                                    Icons.circle,
-                                                    color: kBlackColor,
-                                                    size:
-                                                        getProportionateScreenWidth(
-                                                            25),
-                                                  ),
-                                                  cursorColor: kBlackColor,
-                                                  enableActiveFill: true,
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  onChanged: (value) {
-                                                    setState(() {
-                                                      newpassword = value;
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              height:
-                                                  getProportionateScreenHeight(
-                                                      16),
-                                            ),
-                                            Align(
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                  getTranslated(
-                                                      context, 'confirme')!,
-                                                  textScaleFactor: 1.0,
-                                                  style: TextStyle(
-                                                      color: kBlackColor,
-                                                      fontSize:
-                                                          getProportionateScreenWidth(
-                                                              14),
-                                                      fontWeight:
-                                                          FontWeight.w400)),
-                                            ),
-                                            SizedBox(
-                                              height:
-                                                  getProportionateScreenHeight(
-                                                      20),
-                                            ),
-                                            Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal:
-                                                      getProportionateScreenWidth(
-                                                          30)),
-                                              child: Directionality(
-                                                textDirection:
-                                                    TextDirection.ltr,
-                                                child: PinCodeTextField(
-                                                  enablePinAutofill: false,
-                                                  cursorHeight:
-                                                      getProportionateScreenWidth(
-                                                          24),
-                                                  appContext: context,
-                                                  pastedTextStyle: const TextStyle(
-                                                    color: kGreyColor,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                  length: 4,
-                                                  animationType:
-                                                      AnimationType.fade,
-                                                  pinTheme: PinTheme(
-                                                    borderWidth: 1,
-                                                    selectedColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                    selectedFillColor:
-                                                        kGreyColor
-                                                            .withOpacity(0.2),
-                                                    inactiveFillColor:
-                                                        kGreyColor
-                                                            .withOpacity(0.2),
-                                                    inactiveColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                    shape:
-                                                        PinCodeFieldShape.box,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            getProportionateScreenWidth(
-                                                                10)),
-                                                    fieldHeight:
-                                                        getProportionateScreenHeight(
-                                                            65),
-                                                    fieldWidth:
-                                                        getProportionateScreenWidth(
-                                                            48),
-                                                    activeFillColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                    activeColor: kGreyColor
-                                                        .withOpacity(0.2),
-                                                  ),
-                                                  obscuringWidget: Icon(
-                                                    Icons.circle,
-                                                    color: kBlackColor,
-                                                    size:
-                                                        getProportionateScreenWidth(
-                                                            25),
-                                                  ),
-                                                  cursorColor: kBlackColor,
-                                                  enableActiveFill: true,
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  validator: (v) =>
-                                                      v != newpassword
-                                                          ? getTranslated(
-                                                              context,
-                                                              "identiquemot")
-                                                          : null,
-                                                  onChanged: (value) {},
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height:
-                                            getProportionateScreenHeight(10),
-                                      ),
-                                      loading
-                                          ? spiner()
-                                          : Defaultbutton(
-                                              height:
-                                                  getProportionateScreenHeight(
-                                                      50),
-                                              text: getTranslated(
-                                                  context, "confirmer"),
-                                              onTap: () async {
-                                                if (_formKey3.currentState!
-                                                    .validate()) {
-                                                  // continued();
-                                                }
-                                              },
-                                              color: pcolor,
-                                              textcolor: kWhiteColor,
-                                            ),
-                                    ],
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      CircleAvatar(
-                                          backgroundColor: pcolor,
-                                          maxRadius:
-                                              getProportionateScreenWidth(10),
-                                          child: Icon(
-                                            Icons.check,
-                                            color: kWhiteColor,
-                                            size:
-                                                getProportionateScreenWidth(15),
-                                          )),
-                                      SizedBox(
-                                        width: getProportionateScreenWidth(10),
-                                      ),
-                                      Text(getTranslated(context, "code")!,
-                                          textScaleFactor: 1.0,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  getProportionateScreenWidth(
-                                                      14),
-                                              fontWeight: FontWeight.w700,
-                                              color: pcolor)),
-                                    ],
-                                  ),
-                      ],
-                    ),
-
-                    //-----------------------------------
-                  ],
-                ),
-              )
+                        ],
+                      )
+                    : null,
+              ),
             ],
           ),
         ),
@@ -1398,83 +289,526 @@ class _RegisterState extends State<Register> with TickerProviderStateMixin {
     );
   }
 
-  void otpValidate() async {
-    if (_currentStep == 2) {
-      if (_formKekotp.currentState!.validate()) {
-        setState(() {
-          loading = true;
-        });
-        _controller.pause();
-        try {
-          var u = Uri.parse(
-              "${NetworkService().baseUrl}api/user/otp/verify/$phone/");
-
-          var respone = await http.post(u,
-              headers: {'Content-Type': 'application/json; charset=utf-8'},
-              body: jsonEncode({
-                'otp': msg,
-              }));
-          // print(respone.statusCode);
-          if (respone.statusCode == 200) {
-            setState(() {
-              loading = false;
-              _currentStep += 1;
-              otpValid = true;
-            });
-          } else {
-            setState(() {
-              loading = false;
-            });
-            _controller.start();
-
-            showToast(
-              getTranslated(context, "Code OTP invalid"),
-              textPadding: EdgeInsets.only(
-                  right: getProportionateScreenWidth(4),
-                  left: getProportionateScreenWidth(4)),
-              context: context,
-              position: StyledToastPosition.top,
-              textStyle: maintextstyle.copyWith(
-                fontSize: getProportionateScreenWidth(16),
+  Widget _buildStep({
+    required int stepNumber,
+    required String title,
+    required bool isActive,
+    required bool isCompleted,
+    Widget? content,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCompleted 
+                  ? Colors.green
+                  : isActive 
+                    ? Colors.black 
+                    : Colors.grey[300],
               ),
-              backgroundColor: Colors.red,
-              animation: StyledToastAnimation.slideFromRight,
-              reverseAnimation: StyledToastAnimation.slideFromRight,
-              duration: Duration(seconds: 7),
-              animDuration: Duration(milliseconds: 350),
-              fullWidth: false,
-              isHideKeyboard: false,
-            );
-          }
-        } catch (e) {
-          setState(() {
-            loading = false;
-          });
-          _controller.start();
-
-          showToast(
-            getTranslated(context, "Code OTP invalid"),
-            textPadding: EdgeInsets.only(
-                right: getProportionateScreenWidth(4),
-                left: getProportionateScreenWidth(4)),
-            context: context,
-            position: StyledToastPosition.top,
-            textStyle: maintextstyle.copyWith(
-              fontSize: getProportionateScreenWidth(16),
+              child: isCompleted
+                  ? const Icon(Icons.check, color: Colors.white, size: 20)
+                  : Text(
+                      '$stepNumber',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
-            backgroundColor: Colors.red,
-            animation: StyledToastAnimation.slideFromRight,
-            reverseAnimation: StyledToastAnimation.slideFromRight,
-            duration: Duration(seconds: 7),
-            animDuration: Duration(milliseconds: 350),
-            fullWidth: false,
-            isHideKeyboard: false,
-          );
-        }
-      }
-    }
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${getTranslated(context, "ÉTAPE $stepNumber")} ",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    color: isActive ? Colors.black : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 21),
+          child: Container(
+            height: content != null ? 40 : 20,
+            width: 2,
+            color: isCompleted ? Colors.green : Colors.grey[300],
+          ),
+        ),
+        if (content != null) content,
+      ],
+    );
   }
 
+  Widget _buildTextField({
+    required String label,
+    required IconData icon,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+    void Function(String)? onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TextFormField(
+        maxLength: maxLength,
+        inputFormatters: inputFormatters,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: InputBorder.none,
+          counterText: '',
+        ),
+        validator: validator,
+        onChanged: onChanged,
+      ),
+    );
+  }
 
+  Widget _buildPasswordField({
+    required String label,
+    required bool obscureText,
+    int? maxLength,
+    required String? Function(String?)? validator,
+    required void Function(String) onChanged,
+    required VoidCallback onToggleVisibility,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TextFormField(
+        maxLength: maxLength,
+        obscureText: obscureText,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.lock),
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscureText ? Icons.visibility : Icons.visibility_off,
+            ),
+            onPressed: onToggleVisibility,
+          ),
+          border: InputBorder.none,
+        ),
+        validator: validator,
+        onChanged: onChanged,
+      ),
+    );
+  }
 
+  Widget _buildNextButton({required VoidCallback onPressed}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      ),
+      child:  Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(getTranslated(context, "suivant")!),
+          SizedBox(width: 8),
+          Icon(Icons.arrow_forward, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackButton({required VoidCallback onPressed}) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Colors.grey),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      ),
+      child:  Text(getTranslated(context, "Retourner")!),
+    );
+  }
+
+  Widget _buildConfirmButton({required VoidCallback onPressed}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      ),
+      child: Text(getTranslated(context, "confirmer")!),
+    );
+  }
 }
+
+
+
+
+
+// import 'dart:async';
+// import 'dart:convert';
+// import 'package:akarina/size_config.dart';
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+// import 'package:http/http.dart' as http;
+// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// import 'package:flutter_styled_toast/flutter_styled_toast.dart';
+
+// class Register extends StatefulWidget {
+//   const Register({Key? key}) : super(key: key);
+
+//   @override
+//   _RegisterState createState() => _RegisterState();
+// }
+
+// class _RegisterState extends State<Register> {
+//   final _formKey = GlobalKey<FormState>();
+//   final storage = FlutterSecureStorage();
+  
+//   int _currentStep = 0;
+//   bool loading = false;
+//   bool _step1Validated = false;
+//   bool _step2Validated = false;
+  
+//   // Données du formulaire
+//   String? firstName;
+//   String? lastName;
+//   String? email;
+//   String? documentType = 'NNI';
+//   String? documentNumber;
+//   String? phoneNumber;
+//   String? password;
+//   String? confirmPassword;
+  
+//   final List<String> documentTypes = ['NNI', 'NIF', 'RC'];
+  
+//   @override
+//   Widget build(BuildContext context) {
+//     SizeConfig().init(context);
+//     return Scaffold(
+
+//       body: SingleChildScrollView(
+//         child: Column(
+//           children: [
+//             Stepper(
+//               currentStep: _currentStep,
+//               onStepContinue: _continue,
+//               onStepCancel: _cancel,
+//               onStepTapped: (step) => setState(() => _currentStep = step),
+//               steps: [
+//                 _buildPersonalInfoStep(),
+//                 _buildContactStep(),
+//                 _buildSecurityStep(),
+//               ],
+//             ),
+//             if (loading) CircularProgressIndicator(),
+//           SizedBox(height: 20,),
+
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+
+//   Step _buildPersonalInfoStep() {
+//     return Step(
+//       title: Text('Informations personnelles'),
+//       content: Form(
+//         key: _formKey,
+//         child: Column(
+//           children: [
+//             TextFormField(
+//               decoration: InputDecoration(labelText: 'Prénom*'),
+//               validator: (value) => value?.isEmpty ?? true ? 'Ce champ est obligatoire' : null,
+//               onChanged: (value) => firstName = value,
+//             ),
+//             SizedBox(height: 16),
+//             TextFormField(
+//               decoration: InputDecoration(labelText: 'Nom*'),
+//               validator: (value) => value?.isEmpty ?? true ? 'Ce champ est obligatoire' : null,
+//               onChanged: (value) => lastName = value,
+//             ),
+//             SizedBox(height: 16),
+//             TextFormField(
+//               decoration: InputDecoration(labelText: 'Email*'),
+//               keyboardType: TextInputType.emailAddress,
+//               validator: (value) {
+//                 if (value?.isEmpty ?? true) return 'Ce champ est obligatoire';
+//                 if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+//                   return 'Email invalide';
+//                 }
+//                 return null;
+//               },
+//               onChanged: (value) => email = value,
+//             ),
+//             SizedBox(height: 16),
+//             DropdownButtonFormField<String>(
+//               value: documentType,
+//               decoration: InputDecoration(labelText: 'Type de document*'),
+//               items: documentTypes.map((type) {
+//                 return DropdownMenuItem(
+//                   value: type,
+//                   child: Text(type),
+//                 );
+//               }).toList(),
+//               validator: (value) => value == null ? 'Sélectionnez un type de document' : null,
+//               onChanged: (value) => setState(() => documentType = value),
+//             ),
+//             SizedBox(height: 16),
+//             TextFormField(
+//               decoration: InputDecoration(
+//                 labelText: 'Numéro de document*',
+//                 hintText: documentType == 'NNI' ? '10 chiffres' : documentType == 'NIF' ? '13 chiffres' : 'RCXXXXX'
+//               ),
+//               validator: (value) {
+//                 if (value?.isEmpty ?? true) return 'Ce champ est obligatoire';
+//                 if (documentType == 'NNI' && value!.length != 10) {
+//                   return 'Le NNI doit avoir 10 chiffres';
+//                 }
+//                 if (documentType == 'NIF' && value!.length != 13) {
+//                   return 'Le NIF doit avoir 13 chiffres';
+//                 }
+//                 return null;
+//               },
+//               onChanged: (value) => documentNumber = value,
+//               keyboardType: TextInputType.number,
+//               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+//             ),
+//           ],
+//         ),
+//       ),
+//       isActive: _currentStep >= 0,
+//       state: _step1Validated ? StepState.complete : 
+//             (_currentStep > 0 ? StepState.indexed : StepState.editing),
+//     );
+//   }
+
+//   Step _buildContactStep() {
+//     return Step(
+//       title: Text('Contact'),
+//       content: Column(
+//         children: [
+//           TextFormField(
+//             decoration: InputDecoration(
+//               labelText: 'Numéro de téléphone*',
+//               hintText: 'Ex: 31234567',
+//               prefixText: '+221 '
+//             ),
+//             keyboardType: TextInputType.phone,
+//             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+//             validator: (value) {
+//               if (value?.isEmpty ?? true) return 'Ce champ est obligatoire';
+//               if (value!.length != 8) return 'Doit avoir 8 chiffres';
+//               if (!value.startsWith('2') && !value.startsWith('3') && !value.startsWith('4')) {
+//                 return 'Doit commencer par 2, 3 ou 4';
+//               }
+//               return null;
+//             },
+//             onChanged: (value) => phoneNumber = value,
+//           ),
+//         ],
+//       ),
+//       isActive: _currentStep >= 1,
+//       state: _step2Validated ? StepState.complete : 
+//             (_currentStep > 1 ? StepState.indexed : StepState.editing),
+//     );
+//   }
+
+//   Step _buildSecurityStep() {
+//     return Step(
+//       title: Text('Sécurité'),
+//       content: Column(
+//         children: [
+//           TextFormField(
+//             decoration: InputDecoration(labelText: 'Mot de passe*'),
+//             obscureText: true,
+//             validator: (value) {
+//               if (value?.isEmpty ?? true) return 'Ce champ est obligatoire';
+//               if (value!.length < 6) return 'Minimum 6 caractères';
+//               return null;
+//             },
+//             onChanged: (value) => password = value,
+//           ),
+//           SizedBox(height: 16),
+//           TextFormField(
+//             decoration: InputDecoration(labelText: 'Confirmer le mot de passe*'),
+//             obscureText: true,
+//             validator: (value) {
+//               if (value != password) return 'Les mots de passe ne correspondent pas';
+//               return null;
+//             },
+//             onChanged: (value) => confirmPassword = value,
+//           ),
+//         ],
+//       ),
+//       isActive: _currentStep >= 2,
+//       state: StepState.editing,
+//     );
+//   }
+
+//   void _continue() {
+//     if (_currentStep == 0) {
+//       if (_formKey.currentState!.validate()) {
+//         setState(() {
+//           _step1Validated = true;
+//           _currentStep += 1;
+//         });
+//       }
+//     } 
+//     else if (_currentStep == 1) {
+//       if (phoneNumber?.isNotEmpty ?? false && phoneNumber!.length == 8 && 
+//           (phoneNumber!.startsWith('2') || phoneNumber!.startsWith('3') || phoneNumber!.startsWith('4'))) {
+//         setState(() {
+//           _step2Validated = true;
+//           _currentStep += 1;
+//         });
+//       } else {
+//         showToast(
+//           'Numéro de téléphone invalide',
+//           context: context,
+//           position: StyledToastPosition.top,
+//           duration: Duration(seconds: 3),
+//         );
+//       }
+//     }
+//     else if (_currentStep == 2) {
+//       if (password?.isNotEmpty ?? false && password == confirmPassword) {
+//         _submitRegistration();
+//       } else {
+//         showToast(
+//           'Veuillez vérifier votre mot de passe',
+//           context: context,
+//           position: StyledToastPosition.top,
+//           duration: Duration(seconds: 3),
+//         );
+//       }
+//     }
+//   }
+
+//   void _cancel() {
+//     if (_currentStep > 0) {
+//       setState(() => _currentStep -= 1);
+//     } else {
+//       Navigator.of(context).pop();
+//     }
+//   }
+
+//   Future<void> _submitRegistration() async {
+//     setState(() => loading = true);
+    
+//     try {
+//       final Map<String, dynamic> registrationData = {
+//         'email': email,
+//         'nom_complet': '$firstName $lastName',
+//         'numero_telephone': phoneNumber,
+//         'nni': documentType == 'NNI' ? documentNumber : null,
+//         'nif': documentType == 'NIF' ? documentNumber : null,
+//         'rc': documentType == 'RC' ? documentNumber : null,
+//         'password': password,
+//         'confirm_password': confirmPassword,
+//       };
+
+//       registrationData.removeWhere((key, value) => value == null);
+      
+//       final response = await http.post(
+//         Uri.parse('https://akarina.online/user/register/'),
+//         headers: {
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//         },
+//         body: jsonEncode(registrationData),
+//       ).timeout(Duration(seconds: 30));
+
+//       final responseData = jsonDecode(response.body);
+
+//       if (response.statusCode == 201) {
+//         showToast(
+//           'Compte créé avec succès!',
+//           context: context,
+//           position: StyledToastPosition.top,
+//           duration: Duration(seconds: 3),
+//         );
+        
+//         Future.delayed(Duration(seconds: 3), () {
+//           Navigator.pushReplacementNamed(context, '/login');
+//         });
+//       } else {
+//         String errorMessage = 'Erreur lors de la création du compte';
+//         if (responseData.containsKey('errors')) {
+//           if (responseData['errors'] is Map) {
+//             errorMessage = responseData['errors'].values.join('\n');
+//           } else if (responseData['errors'] is String) {
+//             errorMessage = responseData['errors'];
+//           }
+//         } else if (responseData.containsKey('message')) {
+//           errorMessage = responseData['message'];
+//         }
+        
+//         showToast(
+//           errorMessage,
+//           context: context,
+//           position: StyledToastPosition.top,
+//           duration: Duration(seconds: 5),
+//         );
+//       }
+//     } on http.ClientException catch (e) {
+//       showToast(
+//         'Erreur de connexion: ${e.message}',
+//         context: context,
+//         position: StyledToastPosition.top,
+//         duration: Duration(seconds: 5),
+//       );
+//     } on TimeoutException {
+//       showToast(
+//         'La requête a expiré. Veuillez réessayer',
+//         context: context,
+//         position: StyledToastPosition.top,
+//         duration: Duration(seconds: 5),
+//       );
+//     } catch (e) {
+//       showToast(
+//         'Une erreur inattendue est survenue',
+//         context: context,
+//         position: StyledToastPosition.top,
+//         duration: Duration(seconds: 5),
+//       );
+//       print('Erreur: $e');
+//     } finally {
+//       if (mounted) {
+//         setState(() => loading = false);
+//       }
+//     }
+//   }
+// }

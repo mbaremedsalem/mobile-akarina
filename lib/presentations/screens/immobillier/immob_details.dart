@@ -8,13 +8,11 @@ import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/size_config.dart';
 import 'package:akarina/data/models/user.dart';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:developer';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+
 
 class ImmobDetails extends StatefulWidget {
   final int id;
