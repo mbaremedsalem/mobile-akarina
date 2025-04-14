@@ -63,7 +63,6 @@ Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
   if (response.statusCode == 200) {
     // Décoder explicitement en UTF-8 pour gérer les caractères spéciaux
     final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-    print(decodedBody); // Facultatif : pour vérifier les données reçues
     return decodedBody;
   } else {
     throw Exception('Failed to load property details: ${response.body}');
@@ -145,7 +144,6 @@ Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
     ).timeout(Duration(seconds: timeout));
 
     if (response.statusCode == 200) {
-      print("#########${response.body}");
       var data = jsonDecode(response.body);
       return data['results']; // Retourne uniquement la liste des résultats
     } else {

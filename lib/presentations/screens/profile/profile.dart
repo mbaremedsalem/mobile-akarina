@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/components/default_button.dart';
+import 'package:akarina/presentations/components/spiner.dart';
 import 'package:akarina/presentations/constants/constants.dart';
+import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/login/index_login.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +92,6 @@ void _showSessionExpiredDialog() {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Ferme la boîte de dialogue
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const IndexLogin()),
@@ -284,9 +285,11 @@ Future<void> deleteAccount() async {
                             "Email", userData?['email'] ?? '-'),
                          InkWell(
                           onTap: (){
-                            Navigator.push(
-                        context, MaterialPageRoute(builder: (_) => const IndexLogin()));
-                          
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => const IndexLogin()
+                                ),
+                              );
                           },
                           child: const Row(
                             children: [
@@ -332,9 +335,9 @@ Future<void> deleteAccount() async {
                                   context: context,
                                   builder: (BuildContext context) {
                                     return AlertDialog(
-                                      title: const Text("Confirmation"),
-                                      content: const Text(
-                                        "Voulez-vous vraiment supprimer votre compte ? Cette action est irréversible.",
+                                      title:  Text(getTranslated(context, "confirmer")!),
+                                      content:  Text(
+                                        getTranslated(context, "supgroupe")!,
                                       ),
                                       actions: [
                                         // Bouton Annuler
@@ -342,7 +345,7 @@ Future<void> deleteAccount() async {
                                           onPressed: () {
                                             Navigator.of(context).pop(); // Ferme la boîte de dialogue
                                           },
-                                          child: const Text("Annuler"),
+                                          child:  Text(getTranslated(context, "Annuler")!),
                                         ),
                                         // Bouton Supprimer
                                         TextButton(
@@ -350,8 +353,8 @@ Future<void> deleteAccount() async {
                                             Navigator.of(context).pop(); // Ferme la boîte de dialogue
                                             await deleteAccount(); // Appeler la fonction de suppression
                                           },
-                                          child: const Text(
-                                            "Supprimer",
+                                          child: Text(
+                                            getTranslated(context, "Supprimer")!,
                                             style: TextStyle(color: Colors.red),
                                           ),
                                         ),
@@ -379,8 +382,8 @@ Future<void> deleteAccount() async {
                         const SizedBox(height: 20),
 
                         // Footer
-                        const Text(
-                          "Développé par agharinaa.mr",
+                         Text(
+                          "${getTranslated(context, "Développé par")!} agharinaa.mr",
                           style: TextStyle(color: Colors.grey),
                         ),
                           ],
@@ -443,6 +446,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final ImagePicker picker = ImagePicker();
   final FlutterSecureStorage storage = const FlutterSecureStorage();
 
+  bool? isLoaded = false;
   @override
   void initState() {
     super.initState();
@@ -462,7 +466,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  Future<void> updateProfile() async {
+  Future<void> updateProfile() async {    
+    setState(() {
+      isLoaded=true;
+    });
     if (!_formKey.currentState!.validate()) return;
 
     final token = await storage.read(key: "access");
@@ -481,14 +488,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     final response = await request.send();
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200) {  
+      setState(() {
+        isLoaded=false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profil mis à jour avec succès")),
+         SnackBar(content: Text(getTranslated(context, "Profil mis à jour avec succès")!)),
       );
       Navigator.pop(context, true); // Retourner à la page précédente
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Erreur lors de la mise à jour")),
+         SnackBar(content: Text(getTranslated(context, "Erreur lors de la mise à jour")!)),
       );
     }
   }
@@ -497,7 +507,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Modifier le profil"),
+                leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title:  Text(getTranslated(context, "Modifier le profil")!,
+        style: TextStyle(color: kBlackColor)
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -520,9 +543,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(height: 20),
               TextFormField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: "Nom complet"),
+                decoration:  InputDecoration(labelText: getTranslated(context, "Nom complet")!,),
                 validator: (value) =>
-                    value!.isEmpty ? "Ce champ est obligatoire" : null,
+                    value!.isEmpty ? getTranslated(context, "Ce champ est obligatoire"): null,
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -546,11 +569,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     value!.isEmpty ? "Ce champ est obligatoire" : null,
               ),
               const SizedBox(height: 30),
-              Defaultbutton(
+              isLoaded!
+              ?spiner()
+              :Defaultbutton(
                                 height: getProportionateScreenHeight(45),
                                 width: double.infinity, // Prend toute la largeur disponible
                                 text: getTranslated(context, "Edit"),
                                 onTap: () async {
+                                  
                                     updateProfile();
 
                                 },

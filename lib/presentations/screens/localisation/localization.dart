@@ -19,7 +19,7 @@ class _LocationState extends State<Location> {
   late Future<List<dynamic>> futureResidences;
 
   // URL de l'API et timeout
-  final String baseUrl = 'http://192.168.0.207:8000/';
+  final String baseUrl = 'https://akarina.online/';
   final int timeout = 10;
 
   @override

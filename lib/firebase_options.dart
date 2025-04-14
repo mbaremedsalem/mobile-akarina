@@ -63,6 +63,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '746649956998',
     projectId: 'akarina-2b6a7',
     storageBucket: 'akarina-2b6a7.appspot.com',
-    iosBundleId: 'com.example.akarina',
+    iosBundleId: 'app.agharinaa.com',
   );
 }
