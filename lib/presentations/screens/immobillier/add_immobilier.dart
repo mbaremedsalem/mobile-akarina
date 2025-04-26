@@ -1,6 +1,3 @@
-
-
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -24,8 +21,7 @@ import 'dart:ui' as ui;
 
 import 'package:permission_handler/permission_handler.dart';
 
-import 'package:geolocator/geolocator.dart';
-
+// import 'package:geolocator/geolocator.dart';
 
 class PostAnnonceScreen extends StatefulWidget {
   const PostAnnonceScreen({super.key});
@@ -68,9 +64,21 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   // Options pour les dropdowns
   final List<String> immoTypes = ['appartement', 'duplex', 'maisonceremonie'];
   final List<String> operationTypes = ['alouer', 'vendre'];
-  final List<String> paymentConditions = ['Paiement mensuel', 'Paiement trimestriel', 'Paiement annuel'];
-  final List<String> venteConditions = ['Paiement cache', 'Paiement cheque', 'Paiement applicatife'];
-  final List<String> paymentPeriods = ['Mensuelle', 'Trimestrielle', 'Annuelle'];
+  final List<String> paymentConditions = [
+    'Paiement mensuel',
+    'Paiement trimestriel',
+    'Paiement annuel'
+  ];
+  final List<String> venteConditions = [
+    'Paiement cache',
+    'Paiement cheque',
+    'Paiement applicatife'
+  ];
+  final List<String> paymentPeriods = [
+    'Mensuelle',
+    'Trimestrielle',
+    'Annuelle'
+  ];
 
   Future<void> pickImages() async {
     try {
@@ -78,7 +86,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
       setState(() {
         selectedImages.addAll(images.map((image) => File(image.path)).toList());
       });
-        } catch (e) {
+    } catch (e) {
       showToast(
         'Erreur lors de la sélection des images: $e',
         context: context,
@@ -88,259 +96,264 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
     }
   }
 
-Future<void> _getCurrentLocation() async {
-  setState(() => isLoaded = true);
+  // Future<void> _getCurrentLocation() async {
+  //   setState(() => isLoaded = true);
 
-  try {
-    // Vérifiez si le service est activé
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      await _showLocationServiceDisabledAlert();
-      return;
-    }
+  //   try {
+  //     // Vérifiez si le service est activé
+  //     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  //     if (!serviceEnabled) {
+  //       await _showLocationServiceDisabledAlert();
+  //       return;
+  //     }
 
-    // Demande de permission avec gestion fine
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.deniedForever) {
-      await _showPermissionPermanentlyDeniedAlert();
-      return;
-    }
+  //     // Demande de permission avec gestion fine
+  //     LocationPermission permission = await Geolocator.checkPermission();
+  //     if (permission == LocationPermission.deniedForever) {
+  //       await _showPermissionPermanentlyDeniedAlert();
+  //       return;
+  //     }
 
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse && 
-          permission != LocationPermission.always) {
+  //     if (permission == LocationPermission.denied) {
+  //       permission = await Geolocator.requestPermission();
+  //       if (permission != LocationPermission.whileInUse &&
+  //           permission != LocationPermission.always) {
+  //         return;
+  //       }
+  //     }
+
+  //     // Récupération de la position
+  //     Position position = await Geolocator.getCurrentPosition(
+  //       desiredAccuracy: LocationAccuracy.best,
+  //     );
+
+  //     setState(() {
+  //       xCoordController.text = position.longitude.toStringAsFixed(6);
+  //       yCoordController.text = position.latitude.toStringAsFixed(6);
+  //     });
+  //   } catch (e) {
+  //     showToast(
+  //       'Erreur: ${e.toString()}',
+  //       context: context,
+  //       backgroundColor: Colors.red,
+  //       duration: const Duration(seconds: 4),
+  //     );
+  //   } finally {
+  //     setState(() => isLoaded = false);
+  //   }
+  // }
+
+  // Future<void> _showLocationServiceDisabledAlert() async {
+  //   return showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) => AlertDialog(
+  //       title:
+  //           Text(getTranslated(context, "Service de localisation désactivé")!),
+  //       content: Text(getTranslated(context,
+  //           "Veuillez activer la localisation dans les paramètres de votre appareil")!),
+  //       actions: <Widget>[
+  //         TextButton(
+  //           child: Text(getTranslated(context, "Annuler")!),
+  //           onPressed: () => Navigator.of(context).pop(),
+  //         ),
+  //         TextButton(
+  //           child: Text(getTranslated(context, "Paramètres")!),
+  //           onPressed: () {
+  //             Geolocator.openLocationSettings();
+  //             Navigator.of(context).pop();
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Future<void> _showPermissionPermanentlyDeniedAlert() async {
+  //   return showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) => AlertDialog(
+  //       title:
+  //           Text(getTranslated(context, "Permission refusée définitivement")!),
+  //       content: Text(getTranslated(context,
+  //           "Veuillez autoriser l'accès à la localisation dans les paramètres de l'application")!),
+  //       actions: <Widget>[
+  //         TextButton(
+  //           child: Text(getTranslated(context, "Annuler")!),
+  //           onPressed: () => Navigator.of(context).pop(),
+  //         ),
+  //         TextButton(
+  //           child: Text(getTranslated(context, "Paramètres")!),
+  //           onPressed: () {
+  //             openAppSettings(); // Du package permission_handler
+  //             Navigator.of(context).pop();
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  Future<void> submitResidentiel() async {
+    try {
+      debugPrint('[SubmitResidentiel] Début de la soumission');
+
+      setState(() {
+        isLoaded = true;
+      });
+
+      String? token = await storage.read(key: "access");
+      String? userId = await storage.read(key: "id");
+      debugPrint(
+          '[SubmitResidentiel] Token: ${token != null ? "présent" : "absent"}');
+      debugPrint('[SubmitResidentiel] UserID: $userId');
+
+      if (token == null || userId == null) {
+        debugPrint('[SubmitResidentiel] Erreur: Utilisateur non connecté');
+        showToast(
+          'Vous devez être connecté pour poster une annonce',
+          context: context,
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        );
+        setState(() {
+          isLoaded = false;
+        });
         return;
       }
-    }
 
-    // Récupération de la position
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.best,
-    );
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.headers['Authorization'] = 'Bearer $token';
 
-    setState(() {
-      xCoordController.text = position.longitude.toStringAsFixed(6);
-      yCoordController.text = position.latitude.toStringAsFixed(6);
-    });
+      // Log des données du formulaire
+      debugPrint('[SubmitResidentiel] Données du formulaire:');
+      debugPrint('- Type: $selectedImmoType');
+      debugPrint('- Description: ${descriptionController.text}');
+      debugPrint('- Adresse: ${addressController.text}');
+      debugPrint('- Surface: ${surfaceController.text}');
+      debugPrint('- Nombre d\'images: ${selectedImages.length}');
 
-  } catch (e) {
-    showToast(
-      'Erreur: ${e.toString()}',
-      context: context,
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
-    );
-  } finally {
-    setState(() => isLoaded = false);
-  }
-}
+      // Ajout des champs de formulaire
+      request.fields['type'] = selectedImmoType ?? '';
+      request.fields['user_id'] = userId;
+      request.fields['description'] = descriptionController.text;
+      request.fields['description_ar'] = descriptionArController.text;
+      request.fields['adresse'] = addressController.text;
+      request.fields['surface'] = surfaceController.text;
+      request.fields['x'] = xCoordController.text;
+      request.fields['y'] = yCoordController.text;
+      request.fields['nombre_de_chambres'] = roomsController.text;
+      request.fields['presence_de_balcon'] = 'true';
 
-Future<void> _showLocationServiceDisabledAlert() async {
-  return showDialog(
-    context: context,
-    builder: (BuildContext context) => AlertDialog(
-      title: Text(getTranslated(context, "Service de localisation désactivé")!),
-      content: Text(getTranslated(context, "Veuillez activer la localisation dans les paramètres de votre appareil")!),
-      actions: <Widget>[
-        TextButton(
-          child: Text(getTranslated(context, "Annuler")!),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        TextButton(
-          child: Text(getTranslated(context, "Paramètres")!),
-          onPressed: () {
-            Geolocator.openLocationSettings();
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
-    ),
-  );
-}
+      // Informations sur la ville
+      request.fields['ville[nom]'] = villeNomController.text;
+      request.fields['ville[nom_ar]'] = villeNomArController.text;
+      request.fields['ville[region]'] = villeRegionController.text;
+      request.fields['ville[region_ar]'] = villeRegionArController.text;
 
-Future<void> _showPermissionPermanentlyDeniedAlert() async {
-  return showDialog(
-    context: context,
-    builder: (BuildContext context) => AlertDialog(
-      title: Text(getTranslated(context, "Permission refusée définitivement")!),
-      content: Text(getTranslated(context, "Veuillez autoriser l'accès à la localisation dans les paramètres de l'application")!),
-      actions: <Widget>[
-        TextButton(
-          child: Text(getTranslated(context, "Annuler")!),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        TextButton(
-          child: Text(getTranslated(context, "Paramètres")!),
-          onPressed: () {
-            openAppSettings(); // Du package permission_handler
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
-    ),
-  );
-}
+      // Informations sur l'opération
+      request.fields['operation[type]'] = selectedOperationType ?? '';
+      request.fields['operation[loyer_mensuel]'] = prixController.text;
+      request.fields['operation[condition_de_alouer]'] =
+          selectedPaymentCondition ?? '';
+      request.fields['operation[periode]'] = selectedPaymentPeriod ?? '';
 
-Future<void> submitResidentiel() async {
-  try {
-    debugPrint('[SubmitResidentiel] Début de la soumission');
-    
-    setState(() {
-      isLoaded = true;
-    });
+      request.fields['operation[montant]'] = montantController.text;
+      request.fields['operation[condition_de_vent]'] =
+          selectedVenteCondition ?? '';
+      // Ajout des images
+      for (var image in selectedImages) {
+        var stream = http.ByteStream(image.openRead());
+        var length = await image.length();
+        var multipartFile = http.MultipartFile(
+          'images',
+          stream,
+          length,
+          filename: path.basename(image.path),
+        );
+        request.files.add(multipartFile);
+        debugPrint('[SubmitResidentiel] Image ajoutée: ${image.path}');
+      }
 
-    String? token = await storage.read(key: "access");
-    String? userId = await storage.read(key: "id");
-    debugPrint('[SubmitResidentiel] Token: ${token != null ? "présent" : "absent"}');
-    debugPrint('[SubmitResidentiel] UserID: $userId');
+      debugPrint('[SubmitResidentiel] Envoi de la requête...');
+      var response = await request.send();
+      var responseData = await response.stream.toBytes();
+      var responseString = String.fromCharCodes(responseData);
 
-    if (token == null || userId == null) {
-      debugPrint('[SubmitResidentiel] Erreur: Utilisateur non connecté');
+      debugPrint('[SubmitResidentiel] Réponse reçue:');
+      debugPrint('- Status Code: ${response.statusCode}');
+      debugPrint('- Body: $responseString');
+
+      var jsonResponse = json.decode(responseString);
+
+      if (response.statusCode == 201) {
+        debugPrint('[SubmitResidentiel] Succès: Annonce créée');
+        showToast(
+          'Annonce créée avec succès',
+          context: context,
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        );
+        resetForm();
+      } else {
+        debugPrint('[SubmitResidentiel] Erreur API: ${jsonResponse['error']}');
+        showToast(
+          jsonResponse['error'] ?? 'Erreur lors de la création de l\'annonce',
+          context: context,
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        );
+      }
+    } on http.ClientException catch (e) {
+      debugPrint('[SubmitResidentiel] Erreur réseau: ${e.toString()}');
+      debugPrint('[SubmitResidentiel] StackTrace: ${e.toString()}');
       showToast(
-        'Vous devez être connecté pour poster une annonce',
+        'Erreur de connexion. Vérifiez votre internet',
         context: context,
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 4),
       );
-      setState(() {
-        isLoaded = false;
-      });
-      return;
-    }
-
-    var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-    request.headers['Authorization'] = 'Bearer $token';
-
-    // Log des données du formulaire
-    debugPrint('[SubmitResidentiel] Données du formulaire:');
-    debugPrint('- Type: $selectedImmoType');
-    debugPrint('- Description: ${descriptionController.text}');
-    debugPrint('- Adresse: ${addressController.text}');
-    debugPrint('- Surface: ${surfaceController.text}');
-    debugPrint('- Nombre d\'images: ${selectedImages.length}');
-
-    // Ajout des champs de formulaire
-    request.fields['type'] = selectedImmoType ?? '';
-    request.fields['user_id'] = userId;
-    request.fields['description'] = descriptionController.text;
-    request.fields['description_ar'] = descriptionArController.text;
-    request.fields['adresse'] = addressController.text;
-    request.fields['surface'] = surfaceController.text;
-    request.fields['x'] = xCoordController.text;
-    request.fields['y'] = yCoordController.text;
-    request.fields['nombre_de_chambres'] = roomsController.text;
-    request.fields['presence_de_balcon'] = 'true';
-    
-    // Informations sur la ville
-    request.fields['ville[nom]'] = villeNomController.text;
-    request.fields['ville[nom_ar]'] = villeNomArController.text;
-    request.fields['ville[region]'] = villeRegionController.text;
-    request.fields['ville[region_ar]'] = villeRegionArController.text;
-    
-    // Informations sur l'opération
-    request.fields['operation[type]'] = selectedOperationType ?? '';
-    request.fields['operation[loyer_mensuel]'] = prixController.text;
-    request.fields['operation[condition_de_alouer]'] = selectedPaymentCondition ?? '';
-    request.fields['operation[periode]'] = selectedPaymentPeriod ?? '';
-    
-    request.fields['operation[montant]'] = montantController.text;
-    request.fields['operation[condition_de_vent]'] = selectedVenteCondition ?? '';
-    // Ajout des images
-    for (var image in selectedImages) {
-      var stream = http.ByteStream(image.openRead());
-      var length = await image.length();
-      var multipartFile = http.MultipartFile(
-        'images',
-        stream,
-        length,
-        filename: path.basename(image.path),
-      );
-      request.files.add(multipartFile);
-      debugPrint('[SubmitResidentiel] Image ajoutée: ${image.path}');
-    }
-
-    debugPrint('[SubmitResidentiel] Envoi de la requête...');
-    var response = await request.send();
-    var responseData = await response.stream.toBytes();
-    var responseString = String.fromCharCodes(responseData);
-    
-    debugPrint('[SubmitResidentiel] Réponse reçue:');
-    debugPrint('- Status Code: ${response.statusCode}');
-    debugPrint('- Body: $responseString');
-
-    var jsonResponse = json.decode(responseString);
-
-    if (response.statusCode == 201) {
-      debugPrint('[SubmitResidentiel] Succès: Annonce créée');
+    } on SocketException catch (e) {
+      debugPrint('[SubmitResidentiel] Erreur socket: ${e.toString()}');
       showToast(
-        'Annonce créée avec succès',
-        context: context,
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 4),
-      );
-      resetForm();
-    } else {
-      debugPrint('[SubmitResidentiel] Erreur API: ${jsonResponse['error']}');
-      showToast(
-        jsonResponse['error'] ?? 'Erreur lors de la création de l\'annonce',
+        'Problème de connexion au serveur',
         context: context,
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 4),
       );
+    } on TimeoutException catch (e) {
+      debugPrint('[SubmitResidentiel] Timeout: ${e.toString()}');
+      showToast(
+        'Le serveur a mis trop de temps à répondre',
+        context: context,
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      );
+    } on FormatException catch (e) {
+      debugPrint('[SubmitResidentiel] Format JSON invalide: ${e.toString()}');
+      showToast(
+        'Erreur dans le format des données',
+        context: context,
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[SubmitResidentiel] Erreur inattendue: ${e.toString()}');
+      debugPrint('[SubmitResidentiel] StackTrace: $stackTrace');
+      showToast(
+        'Une erreur inattendue est survenue',
+        context: context,
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoaded = false;
+        });
+      }
+      debugPrint('[SubmitResidentiel] Fin de la soumission');
     }
-  } on http.ClientException catch (e) {
-    debugPrint('[SubmitResidentiel] Erreur réseau: ${e.toString()}');
-    debugPrint('[SubmitResidentiel] StackTrace: ${e.toString()}');
-    showToast(
-      'Erreur de connexion. Vérifiez votre internet',
-      context: context,
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
-    );
-  } on SocketException catch (e) {
-    debugPrint('[SubmitResidentiel] Erreur socket: ${e.toString()}');
-    showToast(
-      'Problème de connexion au serveur',
-      context: context,
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
-    );
-  } on TimeoutException catch (e) {
-    debugPrint('[SubmitResidentiel] Timeout: ${e.toString()}');
-    showToast(
-      'Le serveur a mis trop de temps à répondre',
-      context: context,
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
-    );
-  } on FormatException catch (e) {
-    debugPrint('[SubmitResidentiel] Format JSON invalide: ${e.toString()}');
-    showToast(
-      'Erreur dans le format des données',
-      context: context,
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
-    );
-  } catch (e, stackTrace) {
-    debugPrint('[SubmitResidentiel] Erreur inattendue: ${e.toString()}');
-    debugPrint('[SubmitResidentiel] StackTrace: $stackTrace');
-    showToast(
-      'Une erreur inattendue est survenue',
-      context: context,
-      backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        isLoaded = false;
-      });
-    }
-    debugPrint('[SubmitResidentiel] Fin de la soumission');
   }
-}
-
 
   void resetForm() {
     setState(() {
@@ -350,9 +363,9 @@ Future<void> submitResidentiel() async {
       selectedOperationType = null;
       selectedPaymentCondition = null;
       selectedPaymentPeriod = null;
-      
+
       selectedImages.clear();
-      
+
       descriptionController.clear();
       descriptionArController.clear();
       prixController.clear();
@@ -380,7 +393,8 @@ Future<void> submitResidentiel() async {
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: kgrey300),
-                borderRadius: BorderRadius.circular(getProportionateScreenWidth(7)),
+                borderRadius:
+                    BorderRadius.circular(getProportionateScreenWidth(7)),
                 color: kgrey100,
               ),
               padding: EdgeInsets.symmetric(
@@ -397,8 +411,8 @@ Future<void> submitResidentiel() async {
                       });
                     },
                     child: _buildStateButton(
-                      isActive: currentState == 0, 
-                      text: getTranslated(context, "Immobilier")!),
+                        isActive: currentState == 0,
+                        text: getTranslated(context, "Immobilier")!),
                   ),
                   GestureDetector(
                     onTap: () {
@@ -407,15 +421,17 @@ Future<void> submitResidentiel() async {
                       });
                     },
                     child: _buildStateButton(
-                      isActive: currentState == 1, 
-                      text: getTranslated(context, "Projet")!),
+                        isActive: currentState == 1,
+                        text: getTranslated(context, "Projet")!),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            
-            currentState == 0 ? buildImmobilierForm() : const ProjectSubmissionForm(),
+
+            currentState == 0
+                ? buildImmobilierForm()
+                : const ProjectSubmissionForm(),
           ],
         ),
       ),
@@ -475,7 +491,7 @@ Future<void> submitResidentiel() async {
           },
         ),
         const SizedBox(height: 16),
-        
+
         // Description (FR)
         TextField(
           controller: descriptionController,
@@ -486,20 +502,19 @@ Future<void> submitResidentiel() async {
           maxLines: 3,
         ),
         const SizedBox(height: 16),
-        
+
         // Description (AR)
         TextField(
-          controller: descriptionArController,
-          decoration: InputDecoration(
-            labelText: getTranslated(context, "Description"),
-            border: const OutlineInputBorder(),
-          ),
-          maxLines: 3,
-          // textDirection: TextDirection.rtl,
-          textDirection: ui.TextDirection.ltr
-        ),
+            controller: descriptionArController,
+            decoration: InputDecoration(
+              labelText: getTranslated(context, "Description"),
+              border: const OutlineInputBorder(),
+            ),
+            maxLines: 3,
+            // textDirection: TextDirection.rtl,
+            textDirection: ui.TextDirection.ltr),
         const SizedBox(height: 16),
-        
+
         // Adresse
         TextField(
           controller: addressController,
@@ -509,7 +524,7 @@ Future<void> submitResidentiel() async {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Surface
         TextField(
           controller: surfaceController,
@@ -520,8 +535,6 @@ Future<void> submitResidentiel() async {
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 16),
-      
-
 
         Row(
           children: [
@@ -561,12 +574,13 @@ Future<void> submitResidentiel() async {
             if (result != null && result is Map<String, double>) {
               double latitude = result['latitude']!;
               double longitude = result['longitude']!;
-              print('Coordonnées sélectionnées (retournées): Latitude: $latitude, Longitude: $longitude');
+              print(
+                  'Coordonnées sélectionnées (retournées): Latitude: $latitude, Longitude: $longitude');
               // Fais quelque chose avec les coordonnées (par exemple, les afficher dans un widget)
               setState(() {
-      xCoordController.text = longitude.toStringAsFixed(6);
-      yCoordController.text = latitude.toStringAsFixed(6);
-    });
+                xCoordController.text = longitude.toStringAsFixed(6);
+                yCoordController.text = latitude.toStringAsFixed(6);
+              });
             }
           },
           color: Colors.blue,
@@ -576,8 +590,7 @@ Future<void> submitResidentiel() async {
           width: double.infinity,
           height: getProportionateScreenHeight(45),
         ),
-        
-      
+
         const SizedBox(height: 10),
         // Nombre de chambres
         TextField(
@@ -589,14 +602,14 @@ Future<void> submitResidentiel() async {
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 16),
-        
+
         // Informations sur la ville
         Text(
           getTranslated(context, "Informations sur la ville")!,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        
+
         // Nom ville (FR)
         TextField(
           controller: villeNomController,
@@ -606,22 +619,18 @@ Future<void> submitResidentiel() async {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Nom ville (AR)
         TextField(
-          controller: villeNomArController,
-          decoration: InputDecoration(
-            labelText: getTranslated(context, "Nom de la ville (AR)"),
-            border: const OutlineInputBorder(),
-          ),
-          // textDirection: TextDirection.rtl,
-          textDirection: ui.TextDirection.ltr
-
-          
-          
-        ),
+            controller: villeNomArController,
+            decoration: InputDecoration(
+              labelText: getTranslated(context, "Nom de la ville (AR)"),
+              border: const OutlineInputBorder(),
+            ),
+            // textDirection: TextDirection.rtl,
+            textDirection: ui.TextDirection.ltr),
         const SizedBox(height: 16),
-        
+
         // Région (FR)
         TextField(
           controller: villeRegionController,
@@ -631,20 +640,18 @@ Future<void> submitResidentiel() async {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Région (AR)
         TextField(
-          controller: villeRegionArController,
-          decoration: InputDecoration(
-            labelText: getTranslated(context, "Région (AR)"),
-            border: const OutlineInputBorder(),
-          ),
-          // textDirection: TextDirection.rtl,
-          textDirection: ui.TextDirection.ltr
-
-        ),
+            controller: villeRegionArController,
+            decoration: InputDecoration(
+              labelText: getTranslated(context, "Région (AR)"),
+              border: const OutlineInputBorder(),
+            ),
+            // textDirection: TextDirection.rtl,
+            textDirection: ui.TextDirection.ltr),
         const SizedBox(height: 16),
-        
+
         // Informations sur l'opération
         Text(
           getTranslated(context, "Informations sur l'opération")!,
@@ -671,27 +678,27 @@ Future<void> submitResidentiel() async {
           },
         ),
         const SizedBox(height: 16),
-        
+
         // Prix/Loyer
-        selectedOperationType == 'alouer' ? TextField(
-          controller: prixController,
-          decoration: InputDecoration(
-            labelText: 
-                getTranslated(context, "Loyer mensuel"),
-            border: const OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.number,
-        ):
-        // Prix/Loyer
-        TextField(
-          controller: montantController,
-          decoration: InputDecoration(
-            labelText: 
-                getTranslated(context, "Prix de vente"),
-            border: const OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.number,
-        ),
+        selectedOperationType == 'alouer'
+            ? TextField(
+                controller: prixController,
+                decoration: InputDecoration(
+                  labelText: getTranslated(context, "Loyer mensuel"),
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              )
+            :
+            // Prix/Loyer
+            TextField(
+                controller: montantController,
+                decoration: InputDecoration(
+                  labelText: getTranslated(context, "Prix de vente"),
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              ),
         const SizedBox(height: 16),
         // Condition de paiement
         if (selectedOperationType == 'alouer') ...[
@@ -714,7 +721,7 @@ Future<void> submitResidentiel() async {
             },
           ),
           const SizedBox(height: 16),
-          
+
           // Période de paiement
           DropdownButtonFormField<String>(
             value: selectedPaymentPeriod,
@@ -736,8 +743,8 @@ Future<void> submitResidentiel() async {
           ),
           const SizedBox(height: 16),
         ],
-        
-        // Condition de achat 
+
+        // Condition de achat
         if (selectedOperationType == 'vendre') ...[
           DropdownButtonFormField<String>(
             value: selectedVenteCondition,
@@ -758,7 +765,6 @@ Future<void> submitResidentiel() async {
             },
           ),
           const SizedBox(height: 16),
-          
         ],
         // Sélection des images
         Text(
@@ -766,7 +772,7 @@ Future<void> submitResidentiel() async {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        
+
         if (selectedImages.isNotEmpty)
           SizedBox(
             height: 120,
@@ -802,13 +808,13 @@ Future<void> submitResidentiel() async {
               },
             ),
           ),
-        
+
         ElevatedButton(
           onPressed: pickImages,
           child: Text(getTranslated(context, "Ajouter des images")!),
         ),
         const SizedBox(height: 16),
-        
+
         // Bouton de soumission
         isLoaded
             ? spiner()
@@ -826,9 +832,7 @@ Future<void> submitResidentiel() async {
   }
 }
 
-
 // Project submission form code remains unchanged
-
 
 class ProjectSubmissionForm extends StatefulWidget {
   const ProjectSubmissionForm({super.key});
@@ -846,7 +850,8 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
   TextEditingController endDateController = TextEditingController();
 
   // Date picker function
-  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+  Future<void> _selectDate(
+      BuildContext context, TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -862,7 +867,8 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(  // Ensure scroll for large content
+    return SingleChildScrollView(
+      // Ensure scroll for large content
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -880,7 +886,8 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
           ),
           const SizedBox(height: 10),
           Text(
-            getTranslated(context, "Chez Akareena, nous nous engageons à traiter votre demande rapidement et efficacement. Remplissez le formulaire ci-dessous pour nous fournir les détails de votre projet. Nous reviendrons vers vous dès que possible.")!,
+            getTranslated(context,
+                "Chez Akareena, nous nous engageons à traiter votre demande rapidement et efficacement. Remplissez le formulaire ci-dessous pour nous fournir les détails de votre projet. Nous reviendrons vers vous dès que possible.")!,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 14),
           ),
@@ -892,7 +899,11 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
               labelText: getTranslated(context, "Type de Projet")!,
             ),
             value: selectedType,
-            items: [getTranslated(context, "appartement")!, getTranslated(context, "Maison")!,getTranslated(context, "Terrain")!]
+            items: [
+              getTranslated(context, "appartement")!,
+              getTranslated(context, "Maison")!,
+              getTranslated(context, "Terrain")!
+            ]
                 .map((label) => DropdownMenuItem(
                       value: label,
                       child: Text(label),
@@ -983,7 +994,6 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
   }
 }
 
-
 class MapSelectorPage extends StatefulWidget {
   const MapSelectorPage({super.key});
 
@@ -995,7 +1005,7 @@ class _MapSelectorPageState extends State<MapSelectorPage> {
   GoogleMapController? _controller;
   LatLng? _selectedLocation;
 
- static const CameraPosition _kInitialPosition = CameraPosition(
+  static const CameraPosition _kInitialPosition = CameraPosition(
     target: LatLng(18.0735, -15.9582), // Centre sur Nouakchott
     zoom: 12, // Zoom plus proche pour mieux voir la ville
   );
@@ -1004,25 +1014,35 @@ class _MapSelectorPageState extends State<MapSelectorPage> {
     setState(() {
       _selectedLocation = latLng;
     });
-    print('Latitude sélectionnée: ${_selectedLocation!.latitude}, Longitude sélectionnée: ${_selectedLocation!.longitude}');
-    Navigator.pop(context, {'latitude': _selectedLocation!.latitude, 'longitude': _selectedLocation!.longitude});
+    print(
+        'Latitude sélectionnée: ${_selectedLocation!.latitude}, Longitude sélectionnée: ${_selectedLocation!.longitude}');
+    Navigator.pop(context, {
+      'latitude': _selectedLocation!.latitude,
+      'longitude': _selectedLocation!.longitude
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-              leading: IconButton(
+        leading: IconButton(
           icon: Icon(
-            Localizations.localeOf(context).languageCode == 'ar' 
-              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
-              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
-              color: kBlackColor,
+            Localizations.localeOf(context).languageCode == 'ar'
+                ? IconBroken
+                    .Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+                : IconBroken
+                    .Arrow___Left_2, // Icône pour le français (flèche à gauche)
+            color: kBlackColor,
           ),
           onPressed: () {
             Navigator.pop(context);
-          },),
-        title: Text('Sélectionner un lieu',style: TextStyle(color: kBlackColor),),
+          },
+        ),
+        title: Text(
+          'Sélectionner un lieu',
+          style: TextStyle(color: kBlackColor),
+        ),
       ),
       body: GoogleMap(
         initialCameraPosition: _kInitialPosition,

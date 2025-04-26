@@ -32,9 +32,8 @@ class _HomeState extends State<Home> {
   IconData suffixIcon = Icons.search;
   String selectedCity = '';
 
-
-List<Map<String, dynamic>> availableCities = [];
-bool isLoadingCities = true;
+  List<Map<String, dynamic>> availableCities = [];
+  bool isLoadingCities = true;
 
   Future<void> fetchCities() async {
     try {
@@ -53,7 +52,8 @@ bool isLoadingCities = true;
           isLoadingCities = false;
         });
       } else {
-        throw Exception("Erreur lors du chargement des villes : ${response.statusCode}");
+        throw Exception(
+            "Erreur lors du chargement des villes : ${response.statusCode}");
       }
     } catch (e) {
       setState(() {
@@ -64,7 +64,6 @@ bool isLoadingCities = true;
       );
     }
   }
-
 
   Future<void> fetchProperties(String ville, String address) async {
     if (ville.isNotEmpty) {
@@ -112,36 +111,21 @@ bool isLoadingCities = true;
     }
   }
 
-  // Future<void> _loadResidenciel() async {
-  //   NetworkService networkService = NetworkService();
-  //   final fetchedresidence = await networkService.fetchResidence();
-
-  //   if (fetchedresidence != null) {
-  //     setState(() {
-  //       immobilierList = fetchedresidence;
-  //       isLoading = false;
-  //     });
-  //   } else {
-  //     setState(() {
-  //       isLoading = false;
-  //     });
-  //   }
-  // }
   Future<void> _loadResidenciel() async {
-  NetworkService networkService = NetworkService();
-  final fetchedResidence = await networkService.fetchResidence();
+    NetworkService networkService = NetworkService();
+    final fetchedResidence = await networkService.fetchResidence();
 
-  if (fetchedResidence != null) {
-    setState(() {
-      immobilierList = fetchedResidence;
-      isLoading = false;
-    });
-  } else {
-    setState(() {
-      isLoading = false;
-    });
+    if (fetchedResidence != null) {
+      setState(() {
+        immobilierList = fetchedResidence;
+        isLoading = false;
+      });
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
-}
 
   Future<void> _loadProximite() async {
     NetworkService networkService = NetworkService();
@@ -202,77 +186,98 @@ bool isLoadingCities = true;
                     child: Column(
                       children: [
                         const SizedBox(height: 80),
-                      FutureBuilder<String>(
-                        future: getCurrentLanguage(context), // Récupérer la langue actuelle
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return spiner(); // Afficher un spinner si la langue n'est pas encore récupérée
-                          }
+                        FutureBuilder<String>(
+                          future: getCurrentLanguage(
+                              context), // Récupérer la langue actuelle
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return spiner(); // Afficher un spinner si la langue n'est pas encore récupérée
+                            }
 
-                          String language = snapshot.data!; // Langue actuelle (fr ou ar)
+                            String language =
+                                snapshot.data!; // Langue actuelle (fr ou ar)
 
-                          return TextField(
-                            controller: searchController,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              hintText: getTranslated(context, "Sélectionnez une ville et entrez une adresse...")!,
-                              prefixIcon: DropdownButtonHideUnderline(
-                                child: isLoadingCities
-                                    ? spiner()
-                                    : DropdownButton<String>(
-                                        value: selectedCity.isEmpty ? null : selectedCity,
-                                        items: availableCities.map((city) {
-                                          return DropdownMenuItem<String>(
-                                            value: city['nom'], // Toujours stocker en français
-                                            child: Padding(
-                                              padding: const EdgeInsetsDirectional.only(start:8.0),
-                                              child: Text(
-                                                language == "ar" ? city['nom_ar'] : city['nom'], // Afficher le bon texte
-                                                textDirection: language == "ar"
-                                                    ? TextDirection.rtl // RTL pour l'arabe
-                                                    : TextDirection.ltr, // LTR pour le français
+                            return TextField(
+                              controller: searchController,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
+                                hintText: getTranslated(context,
+                                    "Sélectionnez une ville et entrez une adresse...")!,
+                                prefixIcon: DropdownButtonHideUnderline(
+                                  child: isLoadingCities
+                                      ? spiner()
+                                      : DropdownButton<String>(
+                                          value: selectedCity.isEmpty
+                                              ? null
+                                              : selectedCity,
+                                          items: availableCities.map((city) {
+                                            return DropdownMenuItem<String>(
+                                              value: city[
+                                                  'nom'], // Toujours stocker en français
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .only(start: 8.0),
+                                                child: Text(
+                                                  language == "ar"
+                                                      ? city['nom_ar']
+                                                      : city[
+                                                          'nom'], // Afficher le bon texte
+                                                  textDirection: language ==
+                                                          "ar"
+                                                      ? TextDirection
+                                                          .rtl // RTL pour l'arabe
+                                                      : TextDirection
+                                                          .ltr, // LTR pour le français
+                                                ),
                                               ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (String? value) {
+                                            setState(() {
+                                              selectedCity = value ?? '';
+                                            });
+                                          },
+                                          hint: Padding(
+                                            padding: const EdgeInsetsDirectional
+                                                .only(
+                                                start:
+                                                    24.0), // Utilisation de start au lieu de left
+                                            child: Text(
+                                              getTranslated(context, "Ville")!,
+                                              textDirection:
+                                                  getCurrentLanguage(context) ==
+                                                          "ar"
+                                                      ? TextDirection.rtl
+                                                      : TextDirection.ltr,
                                             ),
-                                          );
-                                        }).toList(),
-                                        onChanged: (String? value) {
-                                          setState(() {
-                                            selectedCity = value ?? '';
-                                          });
-                                        },
-                                        hint: Padding(
-                                        padding: const EdgeInsetsDirectional.only(start: 24.0), // Utilisation de start au lieu de left
-                                        child: Text(
-                                          getTranslated(context, "Ville")!,
-                                          textDirection: getCurrentLanguage(context) == "ar"
-                                              ? TextDirection.rtl
-                                              : TextDirection.ltr,
+                                          ),
                                         ),
-                                      ),
-
-                                      ),
+                                ),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.search),
+                                  onPressed: () {
+                                    if (selectedCity.isNotEmpty) {
+                                      fetchProperties(
+                                          selectedCity, searchController.text);
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                "Veuillez sélectionner une ville")),
+                                      );
+                                    }
+                                  },
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.search),
-                                onPressed: () {
-                                  if (selectedCity.isNotEmpty) {
-                                    fetchProperties(selectedCity, searchController.text);
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("Veuillez sélectionner une ville")),
-                                    );
-                                  }
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
+                            );
+                          },
+                        ),
                         if (isSearch) const CircularProgressIndicator(),
                       ],
                     ),
@@ -281,66 +286,75 @@ bool isLoadingCities = true;
               ),
               const SizedBox(height: 15),
               isLoading
-              ?CategorySkeleton()
-              :
-              SizedBox(
-              height: 150,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: immobilierSummary.length,
-                itemBuilder: (context, index) {
-                  List<String> keys = immobilierSummary.keys.toList();
-                  String categoryName = immobilierSummary[keys[index]]['name'];
-                  int categoryCount = immobilierSummary[keys[index]]['count']; // Récupérer le count
-                  String imagePath = _getImageForCategory(categoryName); // Obtenir l'image associée
+                  ? CategorySkeleton()
+                  : SizedBox(
+                      height: 150,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: immobilierSummary.length,
+                        itemBuilder: (context, index) {
+                          List<String> keys = immobilierSummary.keys.toList();
+                          String categoryName =
+                              immobilierSummary[keys[index]]['name'];
+                          int categoryCount = immobilierSummary[keys[index]]
+                              ['count']; // Récupérer le count
+                          String imagePath = _getImageForCategory(
+                              categoryName); // Obtenir l'image associée
 
-                  return InkWell(
-                    onTap: () {
-                      // Déterminer l'URL de l'API en fonction de la catégorie
-                      String apiUrl;
-                      switch (categoryName.toLowerCase()) {
-                        case 'appartement':
-                          apiUrl = 'https://akarina.online/akareena/appartements/';
-                          break;
-                        case 'duplex':
-                          apiUrl = 'https://akarina.online/akareena/duplexes/';
-                          break;
-                        case 'commercial':
-                          apiUrl = 'https://akarina.online/akareena/commerciaux/';
-                          break;
-                        case 'terrain':
-                          apiUrl = 'https://akarina.online/akareena/terrains/';
-                          break;
-                        case 'residentiel':
-                          apiUrl = 'https://akarina.online/akareena/residentiels/';
-                          break;
-                        default:
-                          apiUrl = ''; // Gérer les cas non prévus
-                      }
+                          return InkWell(
+                            onTap: () {
+                              // Déterminer l'URL de l'API en fonction de la catégorie
+                              String apiUrl;
+                              switch (categoryName.toLowerCase()) {
+                                case 'appartement':
+                                  apiUrl =
+                                      'https://akarina.online/akareena/appartements/';
+                                  break;
+                                case 'duplex':
+                                  apiUrl =
+                                      'https://akarina.online/akareena/duplexes/';
+                                  break;
+                                case 'commercial':
+                                  apiUrl =
+                                      'https://akarina.online/akareena/commerciaux/';
+                                  break;
+                                case 'terrain':
+                                  apiUrl =
+                                      'https://akarina.online/akareena/terrains/';
+                                  break;
+                                case 'residentiel':
+                                  apiUrl =
+                                      'https://akarina.online/akareena/residentiels/';
+                                  break;
+                                default:
+                                  apiUrl = ''; // Gérer les cas non prévus
+                              }
 
-                      // Naviguer vers la page concernée avec l'URL de l'API
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Appartement(apiUrl: apiUrl, count: categoryCount),
-                        ),
-                      );
-                    },
-                    child: CategoryCard(
-                      name: categoryName,
-                      imagePath: imagePath, // Passer le chemin de l'image
+                              // Naviguer vers la page concernée avec l'URL de l'API
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => Appartement(
+                                      apiUrl: apiUrl, count: categoryCount),
+                                ),
+                              );
+                            },
+                            child: CategoryCard(
+                              name: categoryName,
+                              imagePath:
+                                  imagePath, // Passer le chemin de l'image
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  );
-                },
-              ),
-            ),
-              
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text(
                     getTranslated(context, "Residentiel")!,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 20),
                   ),
                   const Spacer(),
                   const Icon(IconBroken.Arrow___Right_Circle),
@@ -348,14 +362,15 @@ bool isLoadingCities = true;
               ),
               const SizedBox(height: 15),
               isSearch
-              ? filteredProperties.isNotEmpty
-                  ? _buildPropertyGrid(filteredProperties)
-                  : Center(
-                      child: Text(getTranslated(context, "Aucune propriété trouvée")!),
-                    )
-              : isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildPropertyGrid(immobilierList),
+                  ? filteredProperties.isNotEmpty
+                      ? _buildPropertyGrid(filteredProperties)
+                      : Center(
+                          child: Text(getTranslated(
+                              context, "Aucune propriété trouvée")!),
+                        )
+                  : isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildPropertyGrid(immobilierList),
             ],
           ),
         ),
@@ -363,192 +378,209 @@ bool isLoadingCities = true;
     );
   }
 
-Widget _buildPropertyGrid(List<dynamic> properties) {
-  return ListView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: properties.length,
-    itemBuilder: (context, index) {
-      final property = properties[index];
-      String imageUrl = _resolveImageUrl(property['images']);
+  Widget _buildPropertyGrid(List<dynamic> properties) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: properties.length,
+      itemBuilder: (context, index) {
+        final property = properties[index];
+        String imageUrl = _resolveImageUrl(property['images']);
 
-      // Déterminer si c'est un terrain ou un résidentiel
-      final isTerrain = property['terrain'] != null;
-      final isResidentiel = property['residentiel'] != null;
+        // Déterminer si c'est un terrain ou un résidentiel
+        final isTerrain = property['terrain'] != null;
+        final isResidentiel = property['residentiel'] != null;
 
-      // Récupérer les données spécifiques
-      final operationType = property['operation']['type'];
-      final ville = property['ville']['nom'];
-      final ratings = property['ratings'];
-      final adresse = property['adresse'];
-      final surface = property['surface'];
+        // Récupérer les données spécifiques
+        final operationType = property['operation']['type'];
+        final ville = property['ville']['nom'];
+        final ratings = property['ratings'];
+        final adresse = property['adresse'];
+        final surface = property['surface'];
 
-      // Récupérer le montant ou le loyer mensuel
-      final montant = isTerrain
-          ? property['terrain']['montant']
-          : isResidentiel
-              ? property['residentiel']['montant']
-              : null;
-      final loyerMensuel = isResidentiel ? property['residentiel']['loyer_mensuel'] : null;
-      final periode = isResidentiel ? property['residentiel']['periode'] : null;
+        // Récupérer le montant ou le loyer mensuel
+        final montant = isTerrain
+            ? property['terrain']['montant']
+            : isResidentiel
+                ? property['residentiel']['montant']
+                : null;
+        final loyerMensuel =
+            isResidentiel ? property['residentiel']['loyer_mensuel'] : null;
+        final periode =
+            isResidentiel ? property['residentiel']['periode'] : null;
 
-      return InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ImmobDetails(id: property['id']),
-            ),
-          );
-        },
-        child: Card(
-          elevation: 5,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(10),
-                        topRight: Radius.circular(10),
-                      ),
-                      child: Image.network(
-                        imageUrl,
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.broken_image, size: 150);
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: operationType == 'alouer' ? Colors.green : Colors.red,
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: Text(
-                          getTranslated(context, operationType)!,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        return InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ImmobDetails(id: property['id']),
+              ),
+            );
+          },
+          child: Card(
+            elevation: 5,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
                     children: [
-                      Text(
-                        loyerMensuel != null
-                            ? '${loyerMensuel?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!} / ${getTranslated(context, periode)!}'
-                            : '${montant?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(10),
+                          topRight: Radius.circular(10),
+                        ),
+                        child: Image.network(
+                          imageUrl,
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.broken_image, size: 150);
+                          },
+                        ),
                       ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          Image.asset(
-                            'assets/images/localisation.jpeg',
-                            width: 25,
-                            height: 25,
-                            fit: BoxFit.contain,
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: operationType == 'alouer'
+                                ? Colors.green
+                                : Colors.red,
+                            borderRadius: BorderRadius.circular(5),
                           ),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              ville ?? 'Ville non spécifiée',
-                              style: const TextStyle(fontSize: 14, color: Colors.grey),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          child: Text(
+                            getTranslated(context, operationType)!,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: List.generate(5, (starIndex) {
-                          double rating = double.tryParse(ratings ?? '0.0') ?? 0.0;
-                          return Icon(
-                            Icons.star,
-                            color: starIndex < rating ? Colors.amber : Colors.grey.shade300,
-                            size: 16,
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (isResidentiel)
-                            _buildFeatureIcon(
-                              const AssetImage('assets/images/chambre.jpeg'),
-                              property['residentiel']['nombre_de_chambres'],
-                              'Chambres',
-                            ),
-                          if (isResidentiel)
-                            _buildFeatureIcon(
-                              const AssetImage('assets/images/douche.jpeg'),
-                              property['residentiel']['nombre_de_salles_de_bain'],
-                              'Salle de bain',
-                            ),
-                          if (isResidentiel)
-                            _buildFeatureIcon(
-                              const AssetImage('assets/images/gardient.jpeg'),
-                              property['residentiel']['presence_chambre_gardient'] ? 1 : 0,
-                              'Chambre gardien',
-                            ),
-                          if (isResidentiel)
-                            _buildFeatureIcon(
-                              const AssetImage('assets/images/garage.jpeg'),
-                              property['residentiel']['nombre_de_garages'],
-                              'Garage',
-                            ),
-                          if (isTerrain)
-                            _buildFeatureIcon(
-                              const AssetImage('assets/images/landscape.png'),
-                              1, // Exemple pour un terrain
-                              'Terrain',
-                            ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          loyerMensuel != null
+                              ? '${loyerMensuel?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!} / ${getTranslated(context, periode)!}'
+                              : '${montant?.toStringAsFixed(0)} ${getTranslated(context, 'MRU')!}',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            Image.asset(
+                              'assets/images/localisation.jpeg',
+                              width: 25,
+                              height: 25,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                ville ?? 'Ville non spécifiée',
+                                style: const TextStyle(
+                                    fontSize: 14, color: Colors.grey),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: List.generate(5, (starIndex) {
+                            double rating =
+                                double.tryParse(ratings ?? '0.0') ?? 0.0;
+                            return Icon(
+                              Icons.star,
+                              color: starIndex < rating
+                                  ? Colors.amber
+                                  : Colors.grey.shade300,
+                              size: 16,
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (isResidentiel)
+                              _buildFeatureIcon(
+                                const AssetImage('assets/images/chambre.jpeg'),
+                                property['residentiel']['nombre_de_chambres'],
+                                'Chambres',
+                              ),
+                            if (isResidentiel)
+                              _buildFeatureIcon(
+                                const AssetImage('assets/images/douche.jpeg'),
+                                property['residentiel']
+                                    ['nombre_de_salles_de_bain'],
+                                'Salle de bain',
+                              ),
+                            if (isResidentiel)
+                              _buildFeatureIcon(
+                                const AssetImage('assets/images/gardient.jpeg'),
+                                property['residentiel']
+                                        ['presence_chambre_gardient']
+                                    ? 1
+                                    : 0,
+                                'Chambre gardien',
+                              ),
+                            if (isResidentiel)
+                              _buildFeatureIcon(
+                                const AssetImage('assets/images/garage.jpeg'),
+                                property['residentiel']['nombre_de_garages'],
+                                'Garage',
+                              ),
+                            if (isTerrain)
+                              _buildFeatureIcon(
+                                const AssetImage('assets/images/landscape.png'),
+                                1, // Exemple pour un terrain
+                                'Terrain',
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeatureIcon(AssetImage image, int? value, String tooltip) {
+    return Row(
+      children: [
+        Image(
+          image: image, // Utilisation de l'image passée en paramètre
+          fit: BoxFit.cover,
+          width: 24, // Définir une largeur fixe appropriée
+          height: 24, // Définir une hauteur fixe appropriée
         ),
-      );
-    },
-  );
-}
-
-Widget _buildFeatureIcon(AssetImage image, int? value, String tooltip) {
-  return Row(
-    children: [
-      Image(
-        image: image, // Utilisation de l'image passée en paramètre
-        fit: BoxFit.cover,
-        width: 24, // Définir une largeur fixe appropriée
-        height: 24, // Définir une hauteur fixe appropriée
-      ),
-      const SizedBox(width: 5), // Espace entre l'image et le texte
-      Text(
-        value?.toString() ?? '0',
-        style: const TextStyle(fontSize: 14, color: Colors.black), // Style de texte
-      ),
-    ],
-  );
-}
-
+        const SizedBox(width: 5), // Espace entre l'image et le texte
+        Text(
+          value?.toString() ?? '0',
+          style: const TextStyle(
+              fontSize: 14, color: Colors.black), // Style de texte
+        ),
+      ],
+    );
+  }
 
   String _resolveImageUrl(dynamic images) {
     if (images != null && images.isNotEmpty) {
@@ -559,22 +591,21 @@ Widget _buildFeatureIcon(AssetImage image, int? value, String tooltip) {
   }
 
   String _getImageForCategory(String categoryName) {
-  switch (categoryName) {
-    case "Appartement":
-      return 'assets/images/appartement.png';
-    case "Duplex":
-      return 'assets/images/duplex.png';
-    case "Commercial":
-      return 'assets/images/commercial.png';
-    case "Terrain":
-      return 'assets/images/landscape.png';
-    case "Residentiel":
-      return 'assets/images/resident.png';
-    default:
-      return 'assets/images/resident.png';
+    switch (categoryName) {
+      case "Appartement":
+        return 'assets/images/appartement.png';
+      case "Duplex":
+        return 'assets/images/duplex.png';
+      case "Commercial":
+        return 'assets/images/commercial.png';
+      case "Terrain":
+        return 'assets/images/landscape.png';
+      case "Residentiel":
+        return 'assets/images/resident.png';
+      default:
+        return 'assets/images/resident.png';
+    }
   }
-}
-
 }
 
 class CategoryCard extends StatelessWidget {

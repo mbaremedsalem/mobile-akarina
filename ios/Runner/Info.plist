@@ -28,10 +28,10 @@
 	<string>AIzaSyCcTubNsHkaESRHsEh9Y2h11sYpWIM1shU</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Cette application a besoin d'accéder à votre position en permanence pour certaines fonctionnalités</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Cette application a besoin d'accéder à votre position pour remplir automatiquement les coordonnées</string>
+<string>This app does not use your location. Location data is only used to display our agencies or the position of rental apartments on the map.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>This app does not use your location. Location data is only used to display our agencies or the position of rental apartments on the map.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
