@@ -113,13 +113,19 @@ class LoginCubit extends Cubit<LoginStates> {
         final data = json.decode(response.body);
 
         if (data.containsKey('access') && data.containsKey('refresh') && data.containsKey('id')) {
+         
           await storage.write(key: "access", value: data["access"]);
           keySetion=data["access"];
+
+
           await storage.write(key: "refresh", value: data["refresh"]);
           await storage.write(key: "id", value: data["id"].toString());
 
           loginModel = LoginModel.fromJason(data);
-          
+          final acces =await storage.read(key: "access");
+        
+         
+
           emit(LoginSuccessState(loginModel!));
         } else {
           emit(LoginErrorState("Invalid response structure"));

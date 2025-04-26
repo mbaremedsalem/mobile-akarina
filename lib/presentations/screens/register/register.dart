@@ -52,12 +52,13 @@ class _RegisterState extends State<Register> {
           'email': email,
           'nom_complet': '$prenom $nom',
           'numero_telephone': '+222$phone',
-          'nni': nni,
           'password': password,
           'confirm_password': confirmPassword,
-        }),
+        }
+        ),
+        
       );
-
+      
       if (response.statusCode == 201) {
         showToast(
           'Inscription réussie!',
@@ -72,7 +73,7 @@ class _RegisterState extends State<Register> {
          
       } else {
         final error = jsonDecode(response.body);
-        
+        print('sssssssssssss'+error);
         showToast(
           error['message'] ?? 'Erreur lors de l\'inscription',
           context: context,
@@ -104,52 +105,52 @@ class _RegisterState extends State<Register> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Étape 1: NNI
-              _buildStep(
-                stepNumber: 1,
-                title: getTranslated(context, "Informations d'identification")!,
-                isActive: _currentStep >= 0,
-                isCompleted: nniValid,
-                content: _currentStep == 0 && !nniValid
-                    ? Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            _buildTextField(
-                              label: getTranslated(context, "Numéro national d'identification")!,
-                              icon: Icons.credit_card,
-                              maxLength: 10,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              validator: (v) {
-                                if (v!.isEmpty) return getTranslated(context, "videerror")!;
-                                if (v.length != 10) return getTranslated(context, "nnicourt")!;
-                                return null;
-                              },
-                              onChanged: (v) => nni = v,
-                            ),
-                            const SizedBox(height: 20),
-                            _buildNextButton(
-                              onPressed: () {
-                                if (_formKey.currentState!.validate()) {
-                                  setState(() {
-                                    nniValid = true;
-                                    _currentStep += 1;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      )
-                    : null,
-              ),
+              // _buildStep(
+              //   stepNumber: 1,
+              //   title: getTranslated(context, "Informations d'identification")!,
+              //   isActive: _currentStep >= 0,
+              //   isCompleted: nniValid,
+              //   content: _currentStep == 0 && !nniValid
+              //       ? Form(
+              //           key: _formKey,
+              //           child: Column(
+              //             children: [
+              //               _buildTextField(
+              //                 label: getTranslated(context, "Numéro national d'identification")!,
+              //                 icon: Icons.credit_card,
+              //                 maxLength: 10,
+              //                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              //                 validator: (v) {
+              //                   if (v!.isEmpty) return getTranslated(context, "videerror")!;
+              //                   if (v.length != 10) return getTranslated(context, "nnicourt")!;
+              //                   return null;
+              //                 },
+              //                 onChanged: (v) => nni = v,
+              //               ),
+              //               const SizedBox(height: 20),
+              //               _buildNextButton(
+              //                 onPressed: () {
+              //                   if (_formKey.currentState!.validate()) {
+              //                     setState(() {
+              //                       nniValid = true;
+              //                       _currentStep += 1;
+              //                     });
+              //                   }
+              //                 },
+              //               ),
+              //             ],
+              //           ),
+              //         )
+              //       : null,
+              // ),
 
               // Étape 2: Informations personnelles
               _buildStep(
-                stepNumber: 2,
+                stepNumber: 1,
                 title: getTranslated(context, "Informations personnelles")!,
-                isActive: _currentStep >= 1,
+                isActive: _currentStep >= 0,
                 isCompleted: personalInfoValid,
-                content: _currentStep == 1 && !personalInfoValid
+                content: _currentStep == 0 && !personalInfoValid
                     ? Form(
                         key: _formKey2,
                         child: Column(
@@ -191,14 +192,14 @@ class _RegisterState extends State<Register> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _buildBackButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _currentStep -= 1;
-                                      nniValid = false;
-                                    });
-                                  },
-                                ),
+                                // _buildBackButton(
+                                //   onPressed: () {
+                                //     setState(() {
+                                //       _currentStep -= 1;
+                                //       nniValid = false;
+                                //     });
+                                //   },
+                                // ),
                                 _buildNextButton(
                                   onPressed: () {
                                     if (_formKey2.currentState!.validate()) {
@@ -219,11 +220,11 @@ class _RegisterState extends State<Register> {
 
               // Étape 3: Mot de passe
               _buildStep(
-                stepNumber: 3,
+                stepNumber: 2,
                 title: getTranslated(context, "Création du mot de passe")!,
-                isActive: _currentStep >= 2,
+                isActive: _currentStep >= 1,
                 isCompleted: passwordValid,
-                content: _currentStep == 2
+                content: _currentStep == 1
                     ? Column(
                         children: [
                           _buildPasswordField(

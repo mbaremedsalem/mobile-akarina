@@ -50,9 +50,9 @@ class _LocationState extends State<Location> {
   // Fonction pour ajouter des marqueurs sur la carte
   void _addMarkers(List<dynamic> residences) {
     for (var residence in residences) {
-      final double? latitude = double.tryParse(residence?['x'] ?? '48.8566');
-      final double? longitude = double.tryParse(residence?['y'] ?? '2.3522');
-
+      final double? latitude = double.tryParse(residence?['x'] ?? '18.0735');
+      final double? longitude = double.tryParse(residence?['y'] ?? '-15.9582');
+      
       // Si la latitude ou longitude est nulle, ignorer ce marqueur
       if (latitude != null && longitude != null) {
         _markers.add(

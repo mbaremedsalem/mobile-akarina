@@ -24,7 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? userData;
   bool isLoading = true;
   final FlutterSecureStorage storage = const FlutterSecureStorage();
-
+  // final storage = FlutterSecureStorage();
 
   String appVersion = "Chargement..."; // Variable pour stocker la version
 
@@ -144,6 +144,13 @@ Future<void> deleteAccount() async {
   }
 }
 
+TextDirection _getTextDirection(BuildContext context) {
+  Locale locale = Localizations.localeOf(context);
+  // Si langue arabe → TextDirection.rtl, sinon → ltr
+  return locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr;
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -227,30 +234,27 @@ Future<void> deleteAccount() async {
                                 ),
                               ),
                       ),
-
-                      
                       // Nom complet
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 10.0),
                         child: Column(
                           children: [
                             Text(
-                              userData?['nom_complet'] ?? "Nom inconnu",
+                              userData?['nom_complet'] ?? getTranslated(context, "Nom inconnu")!,
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          
-                        // Téléphone
-                        Text(
-                          userData?['numero_telephone'] ?? "Téléphone inconnu",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
+                            Text(
+                              userData?['numero_telephone'] ?? getTranslated(context, "Téléphone inconnu")!,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                              textDirection: _getTextDirection(context),
+                            ),
+                        
                         // Badge "Compte vérifié"
                         if (userData?['activation_status'] == true)
                           Container(
@@ -260,13 +264,13 @@ Future<void> deleteAccount() async {
                               color: Colors.green.shade100,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Row(
+                            child:  Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.verified, color: Colors.green, size: 16),
                                 SizedBox(width: 5),
                                 Text(
-                                  "Compte vérifié",
+                                  getTranslated(context, "Compte vérifié")!,
                                   style: TextStyle(
                                     color: Colors.green,
                                     fontWeight: FontWeight.bold,
@@ -275,7 +279,7 @@ Future<void> deleteAccount() async {
                               ],
                             ),
                           ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 0),
                         // Informations détaillées
                         const Divider(),
                         buildInfoRow(
@@ -283,22 +287,29 @@ Future<void> deleteAccount() async {
                         buildInfoRow("NNI", userData?['nni'] ?? '-'),
                         buildInfoRow(
                             "Email", userData?['email'] ?? '-'),
-                         InkWell(
-                          onTap: (){
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const IndexLogin()
-                                ),
-                              );
+                        
+                        InkWell(
+                          onTap: () async {
+                            await storage.delete(key: "access"); // 👈 Supprimer le token
+
+                            // Ensuite redirection vers la page de login
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const IndexLogin()),
+                            );
                           },
                           child: const Row(
                             children: [
-                              Text("Log Out",style:TextStyle(fontSize: 16,color: Colors.grey),),
+                              Text(
+                                "Log Out",
+                                style: TextStyle(fontSize: 16, color: Colors.grey),
+                              ),
                               Spacer(),
                               Icon(Icons.logout),
                             ],
                           ),
                         ),
+
                         
                         const SizedBox(height: 20),
                         // Boutons

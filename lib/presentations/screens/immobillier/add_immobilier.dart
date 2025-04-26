@@ -1,434 +1,16 @@
-// import 'dart:convert';
-// import 'package:akarina/presentations/components/spiner.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-// import 'package:flutter_styled_toast/flutter_styled_toast.dart';
-// import 'package:flutter_svg/svg.dart';
-// import 'package:http/http.dart' as http;
-// import 'package:akarina/presentations/components/default_button.dart';
-// import 'package:akarina/presentations/constants/constants.dart';
-// import 'package:akarina/size_config.dart';
-// import 'package:akarina/data/localization/language_constants.dart';
-// import 'package:intl/intl.dart';
 
-// class PostAnnonceScreen extends StatefulWidget {
-//   const PostAnnonceScreen({super.key});
-
-//   @override
-//   _PostAnnonceScreenState createState() => _PostAnnonceScreenState();
-// }
-
-// class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
-//   String? selectedType;
-//   String? selectedimmo;
-//   String? selectedZone;
-//   List<dynamic> villes = [];
-//   int currentState = 0;
-//   bool isLoaded = false;
-//   String selectedCity = '';
-
-//   TextEditingController descriptionController = TextEditingController();
-//   TextEditingController prixController = TextEditingController();
-//   TextEditingController surfaceController = TextEditingController();
-//   TextEditingController addressController = TextEditingController();
-
-//   final storage = const FlutterSecureStorage(); // Pour stocker les données de manière sécurisée
-//   final String apiUrl = 'https://akarina.online/akareena/imobiers/new/';
-
-//   List<Map<String, dynamic>> availableCities = []; // Stocke la liste des villes
-//   String? selectedVille; // Ville sélectionnée (ID stocké sous forme de String)
-//   bool isLoadingCities = true; // Pour afficher un indicateur de chargement
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     fetchCities();
-//   }
-
-
-//   /// Récupération des villes depuis l'API
-//   Future<void> fetchCities() async {
-//     try {
-//       final response = await http.get(
-//         Uri.parse("https://akarina.online/akareena/villes/"),
-//         headers: {
-//           'Content-Type': 'application/json; charset=utf-8',
-//         },
-//       );
-
-//       if (response.statusCode == 200) {
-//         setState(() {
-//           availableCities = List<Map<String, dynamic>>.from(
-//             jsonDecode(utf8.decode(response.bodyBytes)), // Gère l'encodage UTF-8
-//           );
-//           isLoadingCities = false;
-//         });
-//       } else {
-//         throw Exception("Erreur lors du chargement des villes : ${response.statusCode}");
-//       }
-//     } catch (e) {
-//       setState(() {
-//         isLoadingCities = false;
-//       });
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text("Erreur : $e")),
-//       );
-//     }
-//   }
-
-//   /// Récupère la langue actuelle et affiche le nom en FR ou AR
-//   String getCityName(Map<String, dynamic> city) {
-//     String? currentLang = Localizations.localeOf(context).languageCode;
-//     return currentLang == 'ar' ? city['nom_ar'] : city['nom'];
-//   }
-
-
-//   // Fonction pour soumettre l'annonce immobilière
-// Future<void> submitAnnonce(BuildContext context) async {
-//   setState(() {
-//     isLoaded = true;
-//   });
-
-//   String? token = await storage.read(key: "access"); // Lire le token depuis le stockage sécurisé
-//   final url = Uri.parse(apiUrl);
-
-//   // Préparation des données à envoyer
-//   Map<String, dynamic> body = {
-//     "nom": selectedVille, // Assurez-vous que c'est un ID depuis la liste des villes
-//     "type": selectedType,
-//     "loyer_mensuel": int.parse(prixController.text),
-//     "immobilier_type": selectedimmo,
-//     "adresse": selectedZone,
-//     "surface": surfaceController.text,
-//     "description": descriptionController.text,
-//     "etage": 3, // Valeur par défaut
-//     "presence_de_balcon": true,
-//   };
-
-//   try {
-//     final response = await http.post(
-//       url,
-//       headers: {
-//         'Authorization': 'Bearer $token', // Utiliser le token dans l'en-tête Authorization
-//         'Content-Type': 'application/json',
-//       },
-//       body: jsonEncode(body),
-//     );
-
-//     if (response.statusCode == 201) {
-//       final jsonResponse = json.decode(response.body);
-//       // Stocker l'ID de l'immobilier dans le stockage sécurisé
-//       await storage.write(key: 'idimmo', value: jsonResponse['id'].toString());
-
-//       // Afficher un toast de succès
-//       showToast(
-//         jsonResponse['message'],
-//         context: context, // Ensure context is passed here
-//         backgroundColor: Colors.green,
-//         duration: const Duration(seconds: 4),
-//       );
-//     } else {
-//       final errorResponse = json.decode(response.body);
-//       showToast(
-//         errorResponse['error'] ?? 'Une erreur est survenue',
-//         context: context, // Ensure context is passed here
-//         backgroundColor: Colors.red,
-//         duration: const Duration(seconds: 4),
-//       );
-//     }
-//   } catch (e) {
-//     showToast(
-//       'Erreur réseau. Veuillez réessayer.',
-//       context: context, // Ensure context is passed here
-//       backgroundColor: Colors.red,
-//       duration: const Duration(seconds: 4),
-//     );
-//   } finally {
-//     setState(() {
-//       isLoaded = false;
-//     });
-//   }
-// }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: SingleChildScrollView(
-//         padding: const EdgeInsets.all(16.0),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             // En-tête pour basculer entre "Immobilier" et "Projet"
-//             Container(
-//               decoration: BoxDecoration(
-//                 border: Border.all(color: kgrey300),
-//                 borderRadius: BorderRadius.circular(getProportionateScreenWidth(7)),
-//                 color: kgrey100,
-//               ),
-//               padding: EdgeInsets.symmetric(
-//                 horizontal: getProportionateScreenWidth(5),
-//                 vertical: getProportionateScreenHeight(5),
-//               ),
-//               child: Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   GestureDetector(
-//                     onTap: () {
-//                       setState(() {
-//                         currentState = 0;
-//                       });
-//                     },
-//                     child: _buildStateButton(isActive: currentState == 0, text:getTranslated(context, "Immobilier")!),
-//                   ),
-//                   GestureDetector(
-//                     onTap: () {
-//                       setState(() {
-//                         currentState = 1;
-//                       });
-//                     },
-//                     child: _buildStateButton(isActive: currentState == 1, text: getTranslated(context, "Projet")!),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//             const SizedBox(height: 10),
-//             currentState == 0 ? buildImmobilierForm() : const ProjectSubmissionForm(),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   // Widget pour le bouton de bascule entre les formulaires
-//   Widget _buildStateButton({required bool isActive, required String text}) {
-//     return Container(
-//       height: getProportionateScreenHeight(37),
-//       width: getProportionateScreenWidth(155),
-//       decoration: BoxDecoration(
-//         borderRadius: BorderRadius.circular(getProportionateScreenWidth(5)),
-//         color: isActive ? kWhiteColor : kgrey100,
-//         boxShadow: [
-//           BoxShadow(
-//             color: isActive ? kgrey300 : kgrey100,
-//             offset: const Offset(0.0, 0.0),
-//             blurRadius: 10.0,
-//             spreadRadius: 1,
-//           ),
-//         ],
-//       ),
-//       child: Center(
-//         child: Text(
-//           text,
-//           textScaleFactor: 1.0,
-//           style: textstyle.copyWith(
-//             fontSize: getProportionateScreenWidth(14),
-//             color: kBlackColor,
-//             fontWeight: FontWeight.w600,
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   // Formulaire pour l'immobilier
-//   Widget buildImmobilierForm() {
-//     return Column(
-//       children: [
-//       Card(
-//         shape: RoundedRectangleBorder(
-//           borderRadius: BorderRadius.circular(12.0), // Rounded corners for the card
-//         ),
-//         elevation: 2,
-//         child: Padding(
-//           padding: const EdgeInsets.all(16.0), // Padding inside the card
-//           child: Row(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               // Image on the left side
-//               Image.network(
-//                 'https://www.bpm.mr/uploads/2/2020-09/bankily.JPG', // Replace with correct image URL
-//                 height: 40,
-//                 width: 40,
-//                 fit: BoxFit.cover, // Ensure the image covers the container proportionally
-//               ),
-//               const SizedBox(width: 16), // Space between image and text
-//               // Column for price, duration, and contact
-//               Expanded(
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       '6,600 ${getTranslated(context, "MRU")}', // Price
-//                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-//                     ),
-//                     const SizedBox(height: 4), // Slight space between text
-//                     Text(
-//                       '6 ${getTranslated(context, "mois")}', // Duration
-//                       style: const TextStyle(fontSize: 14),
-//                     ),
-//                     const SizedBox(height: 8), // Space between text and contact
-//                     Text(
-//                       '${getTranslated(context, "Contact")}: 47100063', // Contact information
-//                       style: const TextStyle(fontSize: 14, color: Colors.grey),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//               // Copy icon on the right
-//               IconButton(
-//                 icon: const Icon(Icons.copy),
-//                 onPressed: () {
-//                   // Action to copy contact details
-//                 },
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//       // End of the Card Layout
-
-//       const SizedBox(height: 8), // Space between card and the next element
-
-//       // GestureDetector for choosing screenshot
-//       GestureDetector(
-//         onTap: () {
-//           // Action for choosing a payment screenshot
-//         },
-//         child: Container(
-//           height: 100,
-//           decoration: BoxDecoration(
-//             borderRadius: BorderRadius.circular(5),
-//             border: Border.all(color: Colors.grey),
-//           ),
-//           child: Center(
-//             child: Column(
-//               mainAxisAlignment: MainAxisAlignment.center,
-//               children: [
-//                 const Icon(Icons.upload, size: 30, color: Colors.grey),
-//                 const SizedBox(height: 8),
-//                 Text(
-//                   '${getTranslated(context, "Cliquez pour choisir capture d'écran du paiement")}',
-//                   style: const TextStyle(color: Colors.grey),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-
-//         const SizedBox(height: 10),
-//         // Dropdown pour sélectionner la ville
-//             isLoadingCities
-//                 ? const CircularProgressIndicator() // Affiche un chargement
-//                 : DropdownButtonFormField<int>(
-//                     value: selectedVille != null ? int.tryParse(selectedVille!) : null,
-//                     onChanged: (int? newValue) {
-//                       setState(() {
-//                         selectedVille = newValue?.toString(); // Stocke l'ID en string
-//                       });
-//                     },
-//                     items: availableCities.map<DropdownMenuItem<int>>((ville) {
-//                       return DropdownMenuItem<int>(
-//                         value: ville['id'], // ID de la ville
-//                         child: Text(getCityName(ville)), // Nom affiché selon la langue
-//                       );
-//                     }).toList(),
-//                     decoration: InputDecoration(
-//                       labelText: getTranslated(context, "Ville"),
-//                       border: const OutlineInputBorder(),
-//                     ),
-//                   ),    
-//         const SizedBox(height: 10),
-//         // Dropdown pour le type d'annonce
-//         DropdownButtonFormField<String>(
-//           value: selectedType,
-//           onChanged: (newValue) {
-//             setState(() {
-//               selectedType = newValue;
-//             });
-//           },
-//           items: [getTranslated(context, "vendre")!,getTranslated(context, "alouer")!].map((type) {
-//             return DropdownMenuItem<String>(
-//               value: type,
-//               child: Text(type),
-//             );
-//           }).toList(),
-//           decoration: InputDecoration(labelText:getTranslated(context, "Type d'Annonce")!, border: const OutlineInputBorder()),
-//         ),
-//         const SizedBox(height: 16),
-//         // Dropdown pour le type d'immobilier
-//         DropdownButtonFormField<String>(
-//           value: selectedimmo,
-//           onChanged: (newValue) {
-//             setState(() {
-//               selectedimmo = newValue;
-//             });
-//           },
-//           items: [getTranslated(context, "appartement")!,getTranslated(context, "duplex")!,getTranslated(context, "commercial")!].map((type) {
-//             return DropdownMenuItem<String>(
-//               value: type,
-//               child: Text(type),
-//             );
-//           }).toList(),
-//           decoration: InputDecoration(labelText:getTranslated(context, "Type d'Immobilier"), border: const OutlineInputBorder()),
-//         ),
-//         const SizedBox(height: 16),
-//         // Champ pour le prix
-//         TextFormField(
-//           controller: prixController,
-//           decoration: InputDecoration(labelText: getTranslated(context, "Prix"), border: const OutlineInputBorder()),
-//           keyboardType: TextInputType.number,
-//         ),
-//         const SizedBox(height: 16),
-//         // Champ pour la surface
-//         TextFormField(
-//           controller: surfaceController,
-//           decoration: InputDecoration(labelText: getTranslated(context, "Surface"), border: const OutlineInputBorder()),
-//           keyboardType: TextInputType.number,
-//         ),
-//         const SizedBox(height: 16),
-//         // Dropdown pour la zone
-//         TextFormField(
-//           controller: addressController,
-//           decoration: InputDecoration(labelText: getTranslated(context, "Adresse"), border: const OutlineInputBorder()),
-//           keyboardType: TextInputType.text,
-//         ),
-//         const SizedBox(height: 16),
-//         // Champ pour la description
-//         TextField(
-//           controller: descriptionController,
-//           maxLines: 4,
-//           decoration: InputDecoration(border: const OutlineInputBorder(), labelText: getTranslated(context, "Description")),
-//         ),
-//         const SizedBox(height: 20),
-//         // Bouton de soumission
-//         isLoaded
-//             ? spiner() // Affichage du spinner si isLoaded est vrai
-//             : Defaultbutton(
-//                 onTap: (){
-//                   submitAnnonce(context);
-//                 }, // Appeler la fonction submitAnnonce lors de l'appui sur le bouton
-//                 color: pcolor,
-//                 textcolor: kWhiteColor,
-//                 text: getTranslated(context, "Soumettre"),
-//                 borderRadius: getProportionateScreenWidth(5),
-//                 width: getProportionateScreenWidth(500),
-//                 height: getProportionateScreenHeight(45),
-//               ),
-//       ],
-//     );
-//   }
-// }
 
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:akarina/presentations/components/spiner.dart';
+import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_styled_toast/flutter_styled_toast.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:akarina/presentations/components/default_button.dart';
 import 'package:akarina/presentations/constants/constants.dart';
@@ -459,6 +41,8 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   String? selectedOperationType;
   String? selectedPaymentCondition;
   String? selectedPaymentPeriod;
+  String? selectedVenteCondition;
+
   int currentState = 0;
   bool isLoaded = false;
   List<File> selectedImages = [];
@@ -467,6 +51,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   TextEditingController descriptionController = TextEditingController();
   TextEditingController descriptionArController = TextEditingController();
   TextEditingController prixController = TextEditingController();
+  TextEditingController montantController = TextEditingController();
   TextEditingController surfaceController = TextEditingController();
   TextEditingController addressController = TextEditingController();
   TextEditingController roomsController = TextEditingController();
@@ -484,17 +69,16 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   final List<String> immoTypes = ['appartement', 'duplex', 'maisonceremonie'];
   final List<String> operationTypes = ['alouer', 'vendre'];
   final List<String> paymentConditions = ['Paiement mensuel', 'Paiement trimestriel', 'Paiement annuel'];
+  final List<String> venteConditions = ['Paiement cache', 'Paiement cheque', 'Paiement applicatife'];
   final List<String> paymentPeriods = ['Mensuelle', 'Trimestrielle', 'Annuelle'];
 
   Future<void> pickImages() async {
     try {
-      final List<XFile>? images = await _picker.pickMultiImage();
-      if (images != null) {
-        setState(() {
-          selectedImages.addAll(images.map((image) => File(image.path)).toList());
-        });
-      }
-    } catch (e) {
+      final List<XFile> images = await _picker.pickMultiImage();
+      setState(() {
+        selectedImages.addAll(images.map((image) => File(image.path)).toList());
+      });
+        } catch (e) {
       showToast(
         'Erreur lors de la sélection des images: $e',
         context: context,
@@ -503,44 +87,6 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
       );
     }
   }
-  
-  // Nouvelle méthode pour récupérer la position
-  // Future<void> _getCurrentLocation() async {
-  //   setState(() {
-  //     isLoaded = true;
-  //   });
-
-  //   try {
-  //     // Vérifiez les permissions
-  //     final status = await Permission.location.request();
-  //     if (!status.isGranted) {
-  //       throw Exception('Permission de localisation refusée');
-  //     }
-
-  //     // Récupérez la position
-  //     final position = await Geolocator.getCurrentPosition(
-  //       desiredAccuracy: LocationAccuracy.high,
-  //     );
-
-  //     // Mettez à jour les champs x et y
-  //     setState(() {
-  //       xCoordController.text = position.longitude.toString();
-  //       yCoordController.text = position.latitude.toString();
-  //     });
-
-  //   } catch (e) {
-  //     showToast(
-  //       'Erreur lors de la récupération de la position: $e',
-  //       context: context,
-  //       backgroundColor: Colors.red,
-  //       duration: const Duration(seconds: 4),
-  //     );
-  //   } finally {
-  //     setState(() {
-  //       isLoaded = false;
-  //     });
-  //   }
-  // }
 
 Future<void> _getCurrentLocation() async {
   setState(() => isLoaded = true);
@@ -668,7 +214,7 @@ Future<void> submitResidentiel() async {
 
     // Log des données du formulaire
     debugPrint('[SubmitResidentiel] Données du formulaire:');
-    debugPrint('- Type: ${selectedImmoType}');
+    debugPrint('- Type: $selectedImmoType');
     debugPrint('- Description: ${descriptionController.text}');
     debugPrint('- Adresse: ${addressController.text}');
     debugPrint('- Surface: ${surfaceController.text}');
@@ -697,7 +243,9 @@ Future<void> submitResidentiel() async {
     request.fields['operation[loyer_mensuel]'] = prixController.text;
     request.fields['operation[condition_de_alouer]'] = selectedPaymentCondition ?? '';
     request.fields['operation[periode]'] = selectedPaymentPeriod ?? '';
-
+    
+    request.fields['operation[montant]'] = montantController.text;
+    request.fields['operation[condition_de_vent]'] = selectedVenteCondition ?? '';
     // Ajout des images
     for (var image in selectedImages) {
       var stream = http.ByteStream(image.openRead());
@@ -802,6 +350,7 @@ Future<void> submitResidentiel() async {
       selectedOperationType = null;
       selectedPaymentCondition = null;
       selectedPaymentPeriod = null;
+      
       selectedImages.clear();
       
       descriptionController.clear();
@@ -910,7 +459,7 @@ Future<void> submitResidentiel() async {
         DropdownButtonFormField<String>(
           value: selectedImmoType,
           decoration: InputDecoration(
-            labelText: getTranslated(context, "Type d'immobilier")!,
+            labelText: getTranslated(context, "Type d'Immobilier")!,
             border: const OutlineInputBorder(),
           ),
           items: immoTypes.map((type) {
@@ -971,36 +520,16 @@ Future<void> submitResidentiel() async {
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 16),
-        
-        // Coordonnées X
-        // TextField(
-        //   controller: xCoordController,
-        //   decoration: InputDecoration(
-        //     labelText: "Coordonnée X (Longitude)",
-        //     border: const OutlineInputBorder(),
-        //   ),
-        //   keyboardType: TextInputType.numberWithOptions(decimal: true),
-        // ),
-        // const SizedBox(height: 16),
-        
-        // // Coordonnées Y
-        // TextField(
-        //   controller: yCoordController,
-        //   decoration: InputDecoration(
-        //     labelText: "Coordonnée Y (Latitude)",
-        //     border: const OutlineInputBorder(),
-        //   ),
-        //   keyboardType: TextInputType.numberWithOptions(decimal: true),
-        // ),
-        // const SizedBox(height: 16),
-        // Remplacez les TextField existants pour x et y par ceci :
+      
+
+
         Row(
           children: [
             Expanded(
               child: TextField(
                 controller: xCoordController,
                 decoration: InputDecoration(
-                  labelText: "Longitude (X)",
+                  labelText: getTranslated(context, "Longitude (X)"),
                   border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
@@ -1012,7 +541,7 @@ Future<void> submitResidentiel() async {
               child: TextField(
                 controller: yCoordController,
                 decoration: InputDecoration(
-                  labelText: "Latitude (Y)",
+                  labelText: getTranslated(context, "Latitude (Y)"),
                   border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
@@ -1023,14 +552,32 @@ Future<void> submitResidentiel() async {
         ),
         const SizedBox(height: 10),
         Defaultbutton(
-          onTap: _getCurrentLocation,
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => MapSelectorPage()),
+            );
+
+            if (result != null && result is Map<String, double>) {
+              double latitude = result['latitude']!;
+              double longitude = result['longitude']!;
+              print('Coordonnées sélectionnées (retournées): Latitude: $latitude, Longitude: $longitude');
+              // Fais quelque chose avec les coordonnées (par exemple, les afficher dans un widget)
+              setState(() {
+      xCoordController.text = longitude.toStringAsFixed(6);
+      yCoordController.text = latitude.toStringAsFixed(6);
+    });
+            }
+          },
           color: Colors.blue,
           textcolor: Colors.white,
-          text: "Utiliser ma position actuelle",
+          text: getTranslated(context, "Utiliser ma position actuelle"),
           borderRadius: getProportionateScreenWidth(5),
           width: double.infinity,
           height: getProportionateScreenHeight(45),
         ),
+        
+      
         const SizedBox(height: 10),
         // Nombre de chambres
         TextField(
@@ -1104,7 +651,6 @@ Future<void> submitResidentiel() async {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        
         // Type d'opération
         DropdownButtonFormField<String>(
           value: selectedOperationType,
@@ -1127,18 +673,26 @@ Future<void> submitResidentiel() async {
         const SizedBox(height: 16),
         
         // Prix/Loyer
-        TextField(
+        selectedOperationType == 'alouer' ? TextField(
           controller: prixController,
           decoration: InputDecoration(
-            labelText: selectedOperationType == 'alouer' 
-                ? getTranslated(context, "Loyer mensuel")
-                : getTranslated(context, "Prix de vente"),
+            labelText: 
+                getTranslated(context, "Loyer mensuel"),
+            border: const OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+        ):
+        // Prix/Loyer
+        TextField(
+          controller: montantController,
+          decoration: InputDecoration(
+            labelText: 
+                getTranslated(context, "Prix de vente"),
             border: const OutlineInputBorder(),
           ),
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 16),
-        
         // Condition de paiement
         if (selectedOperationType == 'alouer') ...[
           DropdownButtonFormField<String>(
@@ -1183,6 +737,29 @@ Future<void> submitResidentiel() async {
           const SizedBox(height: 16),
         ],
         
+        // Condition de achat 
+        if (selectedOperationType == 'vendre') ...[
+          DropdownButtonFormField<String>(
+            value: selectedVenteCondition,
+            decoration: InputDecoration(
+              labelText: getTranslated(context, "Condition de Vente"),
+              border: const OutlineInputBorder(),
+            ),
+            items: venteConditions.map((condition) {
+              return DropdownMenuItem<String>(
+                value: condition,
+                child: Text(condition),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedVenteCondition = value;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          
+        ],
         // Sélection des images
         Text(
           getTranslated(context, "Images (minimum 1, maximum 6)")!,
@@ -1401,6 +978,66 @@ class _ProjectSubmissionFormState extends State<ProjectSubmissionForm> {
             height: getProportionateScreenHeight(45),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class MapSelectorPage extends StatefulWidget {
+  const MapSelectorPage({super.key});
+
+  @override
+  _MapSelectorPageState createState() => _MapSelectorPageState();
+}
+
+class _MapSelectorPageState extends State<MapSelectorPage> {
+  GoogleMapController? _controller;
+  LatLng? _selectedLocation;
+
+ static const CameraPosition _kInitialPosition = CameraPosition(
+    target: LatLng(18.0735, -15.9582), // Centre sur Nouakchott
+    zoom: 12, // Zoom plus proche pour mieux voir la ville
+  );
+
+  void _onMapTapped(LatLng latLng) {
+    setState(() {
+      _selectedLocation = latLng;
+    });
+    print('Latitude sélectionnée: ${_selectedLocation!.latitude}, Longitude sélectionnée: ${_selectedLocation!.longitude}');
+    Navigator.pop(context, {'latitude': _selectedLocation!.latitude, 'longitude': _selectedLocation!.longitude});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+              leading: IconButton(
+          icon: Icon(
+            Localizations.localeOf(context).languageCode == 'ar' 
+              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+              color: kBlackColor,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },),
+        title: Text('Sélectionner un lieu',style: TextStyle(color: kBlackColor),),
+      ),
+      body: GoogleMap(
+        initialCameraPosition: _kInitialPosition,
+        onMapCreated: (GoogleMapController controller) {
+          _controller = controller;
+        },
+        onTap: _onMapTapped,
+        markers: _selectedLocation == null
+            ? {}
+            : {
+                Marker(
+                  markerId: MarkerId('selected-location'),
+                  position: _selectedLocation!,
+                ),
+              },
       ),
     );
   }

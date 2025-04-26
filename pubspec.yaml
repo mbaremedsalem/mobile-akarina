@@ -32,9 +32,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.10.0
-  webview_flutter_android: ^4.0.0
-  webview_flutter_wkwebview: ^3.9.4
+  # webview_flutter: ^4.10.0
+  # webview_flutter_android: ^4.0.0
+  # webview_flutter_wkwebview: ^3.9.4
   flutter_svg: ^2.0.10+1
   smooth_page_indicator: ^1.2.0+3
   flutter_localization: ^0.3.0
@@ -55,6 +55,7 @@ dependencies:
   latlong2: ^0.9.1
   flutter_rating_bar: ^4.0.0
   photo_view: ^0.15.0 
+  
   
   fluttertoast: ^8.2.5
   # firebase_messaging: ^15.1.3
