@@ -124,8 +124,7 @@ class LoginCubit extends Cubit<LoginStates> {
           loginModel = LoginModel.fromJason(data);
           final acces =await storage.read(key: "access");
         
-         
-
+        
           emit(LoginSuccessState(loginModel!));
         } else {
           emit(LoginErrorState("Invalid response structure"));
