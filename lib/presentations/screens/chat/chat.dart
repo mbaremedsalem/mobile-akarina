@@ -1,4 +1,6 @@
 import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/presentations/components/refreshable_widget.dart';
+import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:akarina/data/services/connectivity_service.dart';
 
 class ChatPage extends StatefulWidget {
   final int participantId;
@@ -29,12 +32,27 @@ class _ChatPageState extends State<ChatPage> {
   List<dynamic> messages = [];
   final TextEditingController messageController = TextEditingController();
   final ImagePicker imagePicker = ImagePicker();
+  bool hasInternetConnection = true;
 
   int? conversationId;
 
   @override
   void initState() {
     super.initState();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    // Vérifier la connectivité internet d'abord
+    final hasConnection = await ConnectivityService.hasInternetConnection();
+    setState(() {
+      hasInternetConnection = hasConnection;
+    });
+    
+    if (!hasConnection) {
+      return; // Ne pas charger les données si pas de connexion
+    }
+    
     _fetchConversationAndMessages();
   }
 
@@ -200,6 +218,22 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Afficher la page d'erreur de connexion si pas de connexion internet
+    if (!hasInternetConnection) {
+      return NoInternetPage(
+        onRetry: () async {
+          final hasConnection = await ConnectivityService.hasInternetConnection();
+          setState(() {
+            hasInternetConnection = hasConnection;
+          });
+          
+          if (hasConnection) {
+            _initializeData();
+          }
+        },
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -263,90 +297,97 @@ class _ChatPageState extends State<ChatPage> {
             return Column(
               children: [
                 Expanded(
-                  child: messages.isEmpty
-                      ? Center(
-                          child: Text(getTranslated(context,
-                              "Pas de messages pour cette conversation.")!))
-                      : ListView.builder(
-                          reverse: true,
-                          itemCount: messages.length,
-                          itemBuilder: (context, index) {
-                            final message = messages[index];
-                            final isSender =
-                                message['sender'] == widget.participantId;
+                  child: RefreshableWidget(
+                    onRefresh: () async {
+                      if (conversationId != null) {
+                        _fetchMessages(conversationId!);
+                      }
+                    },
+                    child: messages.isEmpty
+                        ? Center(
+                            child: Text(getTranslated(context,
+                                "Pas de messages pour cette conversation.")!))
+                        : ListView.builder(
+                            reverse: true,
+                            itemCount: messages.length,
+                            itemBuilder: (context, index) {
+                              final message = messages[index];
+                              final isSender =
+                                  message['sender'] == widget.participantId;
 
-                            return Align(
-                              alignment: isSender
-                                  ? Alignment.centerLeft
-                                  : Alignment.centerRight,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10),
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: isSender
-                                      ? Colors.grey[300]
-                                      : Colors.blue[300],
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (message['message_type'] == 'image' &&
-                                        message['image'].isNotEmpty)
-                                      GestureDetector(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  FullScreenImage(
-                                                      imageUrl:
-                                                          message['image']),
-                                            ),
-                                          );
-                                        },
-                                        child: Image.network(
-                                          message[
-                                              'image'], // Affichage de l'image réduite
-                                          width: 150,
-                                          height: 150,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                            return const Icon(
-                                                Icons.broken_image,
-                                                size: 50,
-                                                color: Colors.grey);
+                              return Align(
+                                alignment: isSender
+                                    ? Alignment.centerLeft
+                                    : Alignment.centerRight,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      vertical: 5, horizontal: 10),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: isSender
+                                        ? Colors.grey[300]
+                                        : Colors.blue[300],
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (message['message_type'] == 'image' &&
+                                          message['image'].isNotEmpty)
+                                        GestureDetector(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    FullScreenImage(
+                                                        imageUrl:
+                                                            message['image']),
+                                              ),
+                                            );
                                           },
+                                          child: Image.network(
+                                            message[
+                                                'image'], // Affichage de l'image réduite
+                                            width: 150,
+                                            height: 150,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return const Icon(
+                                                  Icons.broken_image,
+                                                  size: 50,
+                                                  color: Colors.grey);
+                                            },
+                                          ),
+                                        )
+                                      else if (message['content']
+                                          .isNotEmpty) // Afficher du texte si disponible
+                                        Text(
+                                          message['content'],
+                                          style: TextStyle(
+                                            color: isSender
+                                                ? Colors.black
+                                                : Colors.white,
+                                          ),
                                         ),
-                                      )
-                                    else if (message['content']
-                                        .isNotEmpty) // Afficher du texte si disponible
+                                      const SizedBox(height: 5),
                                       Text(
-                                        message['content'],
+                                        _formatTimestamp(message['timestamp']),
                                         style: TextStyle(
+                                          fontSize: 12,
                                           color: isSender
-                                              ? Colors.black
-                                              : Colors.white,
+                                              ? Colors.black54
+                                              : Colors.white70,
                                         ),
                                       ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      _formatTimestamp(message['timestamp']),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isSender
-                                            ? Colors.black54
-                                            : Colors.white70,
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
+                              );
+                            },
+                          ),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(8.0),

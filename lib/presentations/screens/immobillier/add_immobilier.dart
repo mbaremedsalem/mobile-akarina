@@ -62,21 +62,25 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   final String apiUrl = 'https://akarina.online/akareena/residentiel/create/';
 
   // Options pour les dropdowns
-  final List<String> immoTypes = ['appartement', 'duplex', 'maisonceremonie'];
+  final List<String> immoTypes = ['appartement', 'duplex', 'Maisonceremonie','commercial','Terrain'];
+
   final List<String> operationTypes = ['alouer', 'vendre'];
+
   final List<String> paymentConditions = [
     'Paiement mensuel',
     'Paiement trimestriel',
     'Paiement annuel'
   ];
+
   final List<String> venteConditions = [
     'Paiement cache',
     'Paiement cheque',
     'Paiement applicatife'
   ];
   final List<String> paymentPeriods = [
+    'Par Jour',
+    'Hebdomodaire',
     'Mensuelle',
-    'Trimestrielle',
     'Annuelle'
   ];
 
@@ -89,6 +93,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
     } catch (e) {
       showToast(
         'Erreur lors de la sélection des images: $e',
+        // ignore: use_build_context_synchronously
         context: context,
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 4),
@@ -96,102 +101,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
     }
   }
 
-  // Future<void> _getCurrentLocation() async {
-  //   setState(() => isLoaded = true);
 
-  //   try {
-  //     // Vérifiez si le service est activé
-  //     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  //     if (!serviceEnabled) {
-  //       await _showLocationServiceDisabledAlert();
-  //       return;
-  //     }
-
-  //     // Demande de permission avec gestion fine
-  //     LocationPermission permission = await Geolocator.checkPermission();
-  //     if (permission == LocationPermission.deniedForever) {
-  //       await _showPermissionPermanentlyDeniedAlert();
-  //       return;
-  //     }
-
-  //     if (permission == LocationPermission.denied) {
-  //       permission = await Geolocator.requestPermission();
-  //       if (permission != LocationPermission.whileInUse &&
-  //           permission != LocationPermission.always) {
-  //         return;
-  //       }
-  //     }
-
-  //     // Récupération de la position
-  //     Position position = await Geolocator.getCurrentPosition(
-  //       desiredAccuracy: LocationAccuracy.best,
-  //     );
-
-  //     setState(() {
-  //       xCoordController.text = position.longitude.toStringAsFixed(6);
-  //       yCoordController.text = position.latitude.toStringAsFixed(6);
-  //     });
-  //   } catch (e) {
-  //     showToast(
-  //       'Erreur: ${e.toString()}',
-  //       context: context,
-  //       backgroundColor: Colors.red,
-  //       duration: const Duration(seconds: 4),
-  //     );
-  //   } finally {
-  //     setState(() => isLoaded = false);
-  //   }
-  // }
-
-  // Future<void> _showLocationServiceDisabledAlert() async {
-  //   return showDialog(
-  //     context: context,
-  //     builder: (BuildContext context) => AlertDialog(
-  //       title:
-  //           Text(getTranslated(context, "Service de localisation désactivé")!),
-  //       content: Text(getTranslated(context,
-  //           "Veuillez activer la localisation dans les paramètres de votre appareil")!),
-  //       actions: <Widget>[
-  //         TextButton(
-  //           child: Text(getTranslated(context, "Annuler")!),
-  //           onPressed: () => Navigator.of(context).pop(),
-  //         ),
-  //         TextButton(
-  //           child: Text(getTranslated(context, "Paramètres")!),
-  //           onPressed: () {
-  //             Geolocator.openLocationSettings();
-  //             Navigator.of(context).pop();
-  //           },
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Future<void> _showPermissionPermanentlyDeniedAlert() async {
-  //   return showDialog(
-  //     context: context,
-  //     builder: (BuildContext context) => AlertDialog(
-  //       title:
-  //           Text(getTranslated(context, "Permission refusée définitivement")!),
-  //       content: Text(getTranslated(context,
-  //           "Veuillez autoriser l'accès à la localisation dans les paramètres de l'application")!),
-  //       actions: <Widget>[
-  //         TextButton(
-  //           child: Text(getTranslated(context, "Annuler")!),
-  //           onPressed: () => Navigator.of(context).pop(),
-  //         ),
-  //         TextButton(
-  //           child: Text(getTranslated(context, "Paramètres")!),
-  //           onPressed: () {
-  //             openAppSettings(); // Du package permission_handler
-  //             Navigator.of(context).pop();
-  //           },
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Future<void> submitResidentiel() async {
     try {
@@ -481,7 +391,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
           items: immoTypes.map((type) {
             return DropdownMenuItem<String>(
               value: type,
-              child: Text(type),
+              child: Text(getTranslated(context, type)!),
             );
           }).toList(),
           onChanged: (value) {
@@ -668,7 +578,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
           items: operationTypes.map((type) {
             return DropdownMenuItem<String>(
               value: type,
-              child: Text(type),
+              child: Text(getTranslated(context, type)!),
             );
           }).toList(),
           onChanged: (value) {
@@ -702,6 +612,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
         const SizedBox(height: 16),
         // Condition de paiement
         if (selectedOperationType == 'alouer') ...[
+         
           DropdownButtonFormField<String>(
             value: selectedPaymentCondition,
             decoration: InputDecoration(
@@ -711,7 +622,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
             items: paymentConditions.map((condition) {
               return DropdownMenuItem<String>(
                 value: condition,
-                child: Text(condition),
+                child: Text(getTranslated(context, condition)!),
               );
             }).toList(),
             onChanged: (value) {
@@ -720,8 +631,8 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
               });
             },
           ),
+          
           const SizedBox(height: 16),
-
           // Période de paiement
           DropdownButtonFormField<String>(
             value: selectedPaymentPeriod,
@@ -732,7 +643,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
             items: paymentPeriods.map((period) {
               return DropdownMenuItem<String>(
                 value: period,
-                child: Text(period),
+                child: Text(getTranslated(context, period)!),
               );
             }).toList(),
             onChanged: (value) {
@@ -741,6 +652,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
               });
             },
           ),
+          
           const SizedBox(height: 16),
         ],
 

@@ -10,7 +10,7 @@ import 'package:http/http.dart' as http;
 
 
 class Register extends StatefulWidget {
-  Register({Key? key}) : super(key: key);
+  const Register({super.key});
 
   @override
   _RegisterState createState() => _RegisterState();
@@ -30,6 +30,7 @@ class _RegisterState extends State<Register> {
   String phone = '';
   String? password;
   String? confirmPassword;
+  String? clientType; // Nouveau champ pour le type de compte
   bool loading = false;
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
@@ -37,6 +38,7 @@ class _RegisterState extends State<Register> {
   // Validation des étapes
   bool nniValid = false;
   bool personalInfoValid = false;
+  bool accountTypeValid = false; // Nouvelle validation
   bool passwordValid = false;
 
   Future<void> registerUser() async {
@@ -54,6 +56,7 @@ class _RegisterState extends State<Register> {
           'numero_telephone': '+222$phone',
           'password': password,
           'confirm_password': confirmPassword,
+          'client_type': clientType,
         }
         ),
         
@@ -73,7 +76,18 @@ class _RegisterState extends State<Register> {
          
       } else {
         final error = jsonDecode(response.body);
-        print('sssssssssssss'+error);
+        print('=== ERREUR D\'INSCRIPTION ===');
+        print('Status Code: ${response.statusCode}');
+        print('Response Body: $error');
+        print('Type d\'erreur: ${error.runtimeType}');
+        print('Clés disponibles: ${error.keys.toList()}');
+        if (error is Map) {
+          error.forEach((key, value) {
+            print('$key: $value (type: ${value.runtimeType})');
+          });
+        }
+        print('============================');
+        
         showToast(
           error['message'] ?? 'Erreur lors de l\'inscription',
           context: context,
@@ -218,13 +232,87 @@ class _RegisterState extends State<Register> {
                     : null,
               ),
 
-              // Étape 3: Mot de passe
+              // Étape 3: Type de compte
               _buildStep(
                 stepNumber: 2,
-                title: getTranslated(context, "Création du mot de passe")!,
+                title: getTranslated(context, "Type de compte")!,
                 isActive: _currentStep >= 1,
+                isCompleted: accountTypeValid,
+                content: _currentStep == 1 && !accountTypeValid
+                    ? Column(
+                        children: [
+                          Text(
+                            getTranslated(context, "Sélectionnez le type de compte que vous souhaitez créer")!,
+                            style: const TextStyle(fontSize: 16, color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildAccountTypeCard(
+                            title: getTranslated(context, "Client")!,
+                            description: getTranslated(context, "Je veux acheter ou louer une propriété")!,
+                            icon: Icons.person,
+                            isSelected: clientType == 'client',
+                            onTap: () {
+                              setState(() {
+                                clientType = 'client';
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          _buildAccountTypeCard(
+                            title: getTranslated(context, "Propriétaire")!,
+                            description: getTranslated(context, "Je veux vendre ou louer ma propriété")!,
+                            icon: Icons.home,
+                            isSelected: clientType == 'owner',
+                            onTap: () {
+                              setState(() {
+                                clientType = 'owner';
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildBackButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _currentStep -= 1;
+                                    accountTypeValid = false;
+                                  });
+                                },
+                              ),
+                              _buildNextButton(
+                                onPressed: () {
+                                  if (clientType != null) {
+                                    setState(() {
+                                      accountTypeValid = true;
+                                      _currentStep += 1;
+                                    });
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(getTranslated(context, "Veuillez sélectionner un type de compte")!),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : null,
+              ),
+
+              // Étape 4: Mot de passe
+              _buildStep(
+                stepNumber: 3,
+                title: getTranslated(context, "Création du mot de passe")!,
+                isActive: _currentStep >= 2,
                 isCompleted: passwordValid,
-                content: _currentStep == 1
+                content: _currentStep == 2
                     ? Column(
                         children: [
                           _buildPasswordField(
@@ -268,7 +356,7 @@ class _RegisterState extends State<Register> {
                                 onPressed: () {
                                   setState(() {
                                     _currentStep -= 1;
-                                    personalInfoValid = false;
+                                    accountTypeValid = false;
                                   });
                                 },
                               ),
@@ -470,6 +558,82 @@ class _RegisterState extends State<Register> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
       child: Text(getTranslated(context, "confirmer")!),
+    );
+  }
+
+  Widget _buildAccountTypeCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? Colors.white : Colors.grey.shade600,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.blue : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Colors.blue,
+                size: 24,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

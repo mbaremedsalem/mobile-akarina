@@ -38,8 +38,7 @@ class _LoginState extends State<Login> {
       listener: (context, state) {
           if (state is LoginSuccessState) {
             Fluttertoast.showToast(
-              msg: utf8.decode(state.loginModel.message!.runes.toList()), // Décodage en UTF-8
-              // msg: state.loginModel.message!,
+              msg: state.loginModel.message ?? 'Connexion réussie',
               toastLength: Toast.LENGTH_SHORT,
               gravity: ToastGravity.BOTTOM,
               backgroundColor: Colors.green,
@@ -54,7 +53,7 @@ class _LoginState extends State<Login> {
             });
           } else if (state is LoginErrorState) {
             Fluttertoast.showToast(
-              msg: utf8.decode(state.error.runes.toList()), // Décodage en UTF-8
+              msg: state.error ?? 'Erreur de connexion',
               toastLength: Toast.LENGTH_LONG,
               gravity: ToastGravity.BOTTOM,
               backgroundColor: Colors.red,
@@ -97,7 +96,7 @@ class _LoginState extends State<Login> {
                                 controller: telephonecontroller,
                                 validator: (value) {
                                   String pattern = r'^[0-9]*$';
-                                  RegExp regExp = new RegExp(pattern);
+                                  RegExp regExp = RegExp(pattern);
         
                                   if (value!.isEmpty) {
                                     return getTranslated(context, "telobligatoire");
@@ -149,7 +148,7 @@ class _LoginState extends State<Login> {
                       ),
                       spaceHeight(10),
                       Container(
-                          width: SizeConfig.screenWidth! - getProportionateScreenWidth(40),
+                          width: SizeConfig.screenWidth - getProportionateScreenWidth(40),
                           margin: EdgeInsets.symmetric(
                             horizontal: getProportionateScreenWidth(20),
                           ),

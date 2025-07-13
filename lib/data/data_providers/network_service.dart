@@ -46,7 +46,7 @@ class NetworkService {
   }
 
   Future<Map<String, dynamic>> fetchImmobDetails(int id) async {
-    final url = '${baseUrl}akareena/residentiels/$id';
+    final url = '${baseUrl}akareena/imobier/$id';
     final response = await http.get(
       Uri.parse(url),
       headers: {
@@ -169,6 +169,40 @@ class NetworkService {
     } catch (e) {
       print('Erreur lors de la récupération des catégories: $e');
       return null;
+    }
+  }
+
+  Future<List<dynamic>> fetchRecommendations() async {
+    var url = Uri.parse("${baseUrl}akareena/residentiel/recommendation/prix-rating/");
+    try {
+      var response = await get(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      ).timeout(Duration(seconds: timeout));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Réponse API recommandations: $data');
+        print('Type de réponse: ${data.runtimeType}');
+        
+        // La réponse est directement une liste selon l'API fournie
+        if (data is List) {
+          print('Réponse est une liste avec ${data.length} éléments');
+          return data;
+        } else {
+          print('Type de réponse inattendu: ${data.runtimeType}');
+          return [];
+        }
+      } else {
+        print('Erreur HTTP: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load recommendations: ${response.body}');
+      }
+    } catch (e) {
+      print('Erreur lors de la récupération des recommandations: $e');
+      print('Type d\'erreur: ${e.runtimeType}');
+      return [];
     }
   }
 // --------- chat
@@ -303,33 +337,12 @@ class NetworkService {
 // Fonction pour récupérer les utilisateurs
   Future<List<User>> fetchUsers(BuildContext context) async {
     final url = Uri.parse('https://akarina.online/user/clients/');
-    keySetion = await storage.read(key: "access");
-    print("keySetion: $keySetion");
-    // Vérifier si l'utilisateur est connecté
-    bool isEmpty = keySetion?.isEmpty ?? false;
-    if (keySetion == null || isEmpty) {
-      _showTokenAlert(context,
-          isExpired: false); // Afficher l'alerte "Non Connecté"
-      await Future.delayed(
-          const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-      throw Exception(getTranslated(context, "Non Connecté"));
-    }
-
-    // Vérifier si le token est expiré
-    if (!await isTokenValid(keySetion)) {
-      _showTokenAlert(context,
-          isExpired: true); // Afficher l'alerte "Session Expirée"
-      await Future.delayed(
-          const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-      throw Exception(getTranslated(context, "Session Expirée"));
-    }
-
+    
     try {
       final response = await http.get(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $keySetion',
         },
       );
 
@@ -337,22 +350,12 @@ class NetworkService {
         // Si la requête réussit, on parse la réponse
         List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => User.fromJson(json)).toList();
-      } else if (response.statusCode == 401) {
-        // Si le token est invalide ou expiré (401 Unauthorized)
-        final responseBody = jsonDecode(response.body);
-        if (responseBody['code'] == "token_not_valid") {
-          _showTokenAlert(context,
-              isExpired: true); // Afficher l'alerte "Session Expirée"
-          await Future.delayed(const Duration(
-              milliseconds: 500)); // Délai pour afficher l'alerte
-          throw Exception(getTranslated(context, "Session Expirée"));
-        }
+      } else {
+        // Gérer les autres erreurs
+        print('Erreur API : ${response.body}');
+        throw Exception(
+            '${getTranslated(context, "Échec du chargement des utilisateurs ")}: ${response.body}');
       }
-
-      // Gérer les autres erreurs
-      print('Erreur API : ${response.body}');
-      throw Exception(
-          '${getTranslated(context, "Échec du chargement des utilisateurs ")}: ${response.body}');
     } catch (e) {
       print('Erreur : $e');
       rethrow;
@@ -3229,5 +3232,20 @@ class NetworkService {
     }
 
     return responseJson;
+  }
+
+  Future<List<dynamic>> fetchRecommendedResidences() async {
+    final url = Uri.parse("${baseUrl}akareena/residentiel/recommendation/prix-rating/");
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(utf8.decode(response.bodyBytes));
+    } else {
+      throw Exception('Erreur lors du chargement des recommandations');
+    }
   }
 }

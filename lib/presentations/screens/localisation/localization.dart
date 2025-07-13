@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
+import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:akarina/data/services/connectivity_service.dart';
 
 class Location extends StatefulWidget {
   const Location({super.key});
@@ -17,6 +19,7 @@ class _LocationState extends State<Location> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   late Future<List<dynamic>> futureResidences;
+  bool hasInternetConnection = true;
 
   // URL de l'API et timeout
   final String baseUrl = 'https://akarina.online/';
@@ -25,6 +28,20 @@ class _LocationState extends State<Location> {
   @override
   void initState() {
     super.initState();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    // Vérifier la connectivité internet d'abord
+    final hasConnection = await ConnectivityService.hasInternetConnection();
+    setState(() {
+      hasInternetConnection = hasConnection;
+    });
+    
+    if (!hasConnection) {
+      return; // Ne pas charger les données si pas de connexion
+    }
+    
     futureResidences = fetchResidence(); // Récupérer les résidences lorsque la page se charge
   }
 
@@ -89,6 +106,22 @@ class _LocationState extends State<Location> {
 
   @override
   Widget build(BuildContext context) {
+    // Afficher la page d'erreur de connexion si pas de connexion internet
+    if (!hasInternetConnection) {
+      return NoInternetPage(
+        onRetry: () async {
+          final hasConnection = await ConnectivityService.hasInternetConnection();
+          setState(() {
+            hasInternetConnection = hasConnection;
+          });
+          
+          if (hasConnection) {
+            _initializeData();
+          }
+        },
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
                 leading: IconButton(
