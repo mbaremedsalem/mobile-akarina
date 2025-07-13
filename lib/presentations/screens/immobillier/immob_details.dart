@@ -19,7 +19,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:akarina/data/services/connectivity_service.dart';
 
-
 class ImmobDetails extends StatefulWidget {
   final int id;
 
@@ -35,7 +34,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   Map<String, dynamic>? immobData;
   GoogleMapController? _controller;
   late Future<List<User>> futureUsers;
-  
+
   // Variables pour les reviews
   List<Map<String, dynamic>> reviews = [];
   bool isLoadingReviews = false;
@@ -55,11 +54,11 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     setState(() {
       hasInternetConnection = hasConnection;
     });
-    
+
     if (!hasConnection) {
       return; // Ne pas charger les données si pas de connexion
     }
-    
+
     fetchImmobDetails();
     fetchReviews();
     futureUsers = NetworkService().fetchUsers(context);
@@ -71,7 +70,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       print('=== API RESPONSE ===');
       print('Raw data: $data');
       print('===================');
-      
+
       setState(() {
         // Extraire les données de l'objet 'immob'
         immobData = data['immob'] ?? data;
@@ -97,7 +96,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://akarina.online/akareena/immobilier/${widget.id}/reviews/'),
+        Uri.parse(
+            'https://akarina.online/akareena/immobilier/${widget.id}/reviews/'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -106,7 +106,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         setState(() {
-          reviews = (responseData['reviews'] as List<dynamic>).cast<Map<String, dynamic>>();
+          reviews = (responseData['reviews'] as List<dynamic>)
+              .cast<Map<String, dynamic>>();
           averageRating = (responseData['average_rating'] as num).toDouble();
           isLoadingReviews = false;
         });
@@ -132,7 +133,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       if (token == null || token.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(getTranslated(context, "Vous devez vous connecter pour poster un avis")!),
+            content: Text(getTranslated(
+                context, "Vous devez vous connecter pour poster un avis")!),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
@@ -173,7 +175,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         print('✅ Review créé avec succès: $responseData');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(responseData['message'] ?? getTranslated(context, "Review créé avec succès")!),
+            content: Text(responseData['message'] ??
+                getTranslated(context, "Review créé avec succès")!),
             backgroundColor: Colors.green,
           ),
         );
@@ -184,7 +187,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         print('❌ Erreur 401: Token expiré ou invalide');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(getTranslated(context, "Vous devez vous connecter pour poster un avis")!),
+            content: Text(getTranslated(
+                context, "Vous devez vous connecter pour poster un avis")!),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
@@ -203,9 +207,9 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         try {
           final errorData = jsonDecode(response.body);
           print('📄 Détails de l\'erreur: $errorData');
-          
+
           String errorMessage = getTranslated(context, "Erreur de validation")!;
-          
+
           // Traiter les erreurs spécifiques
           if (errorData['rating'] != null) {
             errorMessage += '\n- Rating: ${errorData['rating'][0]}';
@@ -216,7 +220,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
           if (errorData['non_field_errors'] != null) {
             errorMessage += '\n- ${errorData['non_field_errors'][0]}';
           }
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMessage),
@@ -228,7 +232,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
           print('❌ Erreur lors du parsing de l\'erreur: $e');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(getTranslated(context, "Erreur de validation des données")!),
+              content: Text(
+                  getTranslated(context, "Erreur de validation des données")!),
               backgroundColor: Colors.red,
             ),
           );
@@ -238,7 +243,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         print('❌ Erreur 403: Accès interdit');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(getTranslated(context, "Vous n'avez pas l'autorisation de poster un avis")!),
+            content: Text(getTranslated(
+                context, "Vous n'avez pas l'autorisation de poster un avis")!),
             backgroundColor: Colors.red,
           ),
         );
@@ -256,7 +262,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         print('❌ Erreur 429: Trop de requêtes');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(getTranslated(context, "Trop de requêtes. Veuillez patienter")!),
+            content: Text(getTranslated(
+                context, "Trop de requêtes. Veuillez patienter")!),
             backgroundColor: Colors.orange,
           ),
         );
@@ -265,7 +272,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         print('❌ Erreur serveur: ${response.statusCode}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(getTranslated(context, "Erreur serveur. Veuillez réessayer plus tard")!),
+            content: Text(getTranslated(
+                context, "Erreur serveur. Veuillez réessayer plus tard")!),
             backgroundColor: Colors.red,
           ),
         );
@@ -276,48 +284,54 @@ class _ImmobDetailsState extends State<ImmobDetails> {
           final errorData = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(errorData['message'] ?? errorData['detail'] ?? getTranslated(context, "Erreur lors de la création du review")!),
+              content: Text(errorData['message'] ??
+                  errorData['detail'] ??
+                  getTranslated(
+                      context, "Erreur lors de la création du review")!),
               backgroundColor: Colors.red,
             ),
           );
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${getTranslated(context, "Erreur")}: ${response.statusCode}'),
+              content: Text(
+                  '${getTranslated(context, "Erreur")}: ${response.statusCode}'),
               backgroundColor: Colors.red,
             ),
           );
         }
       }
-          } catch (e) {
-        print('💥 Exception lors de la création du review: $e');
-        print('📋 Type d\'erreur: ${e.runtimeType}');
-        
-        String errorMessage;
-        if (e.toString().contains('SocketException')) {
-          errorMessage = getTranslated(context, "Erreur de connexion réseau")!;
-        } else if (e.toString().contains('TimeoutException')) {
-          errorMessage = getTranslated(context, "Délai d'attente dépassé")!;
-        } else if (e.toString().contains('FormatException')) {
-          errorMessage = getTranslated(context, "Erreur de format de données")!;
-        } else if (e.toString().contains('MissingPluginException')) {
-          errorMessage = getTranslated(context, "Erreur de configuration de l'application")!;
-        } else if (e.toString().contains('HandshakeException')) {
-          errorMessage = getTranslated(context, "Erreur de sécurité de connexion")!;
-        } else if (e.toString().contains('CertificateException')) {
-          errorMessage = getTranslated(context, "Erreur de certificat SSL")!;
-        } else {
-          errorMessage = "Erreur: $e";
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 6),
-          ),
-        );
+    } catch (e) {
+      print('💥 Exception lors de la création du review: $e');
+      print('📋 Type d\'erreur: ${e.runtimeType}');
+
+      String errorMessage;
+      if (e.toString().contains('SocketException')) {
+        errorMessage = getTranslated(context, "Erreur de connexion réseau")!;
+      } else if (e.toString().contains('TimeoutException')) {
+        errorMessage = getTranslated(context, "Délai d'attente dépassé")!;
+      } else if (e.toString().contains('FormatException')) {
+        errorMessage = getTranslated(context, "Erreur de format de données")!;
+      } else if (e.toString().contains('MissingPluginException')) {
+        errorMessage =
+            getTranslated(context, "Erreur de configuration de l'application")!;
+      } else if (e.toString().contains('HandshakeException')) {
+        errorMessage =
+            getTranslated(context, "Erreur de sécurité de connexion")!;
+      } else if (e.toString().contains('CertificateException')) {
+        errorMessage = getTranslated(context, "Erreur de certificat SSL")!;
+      } else {
+        errorMessage = "Erreur: $e";
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
   }
 
   @override
@@ -326,25 +340,28 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     if (!hasInternetConnection) {
       return NoInternetPage(
         onRetry: () async {
-          final hasConnection = await ConnectivityService.hasInternetConnection();
+          final hasConnection =
+              await ConnectivityService.hasInternetConnection();
           setState(() {
             hasInternetConnection = hasConnection;
           });
-          
+
           if (hasConnection) {
             _initializeData();
           }
         },
       );
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(
-            Localizations.localeOf(context).languageCode == 'ar' 
-              ? IconBroken.Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
-              : IconBroken.Arrow___Left_2, // Icône pour le français (flèche à gauche)
+            Localizations.localeOf(context).languageCode == 'ar'
+                ? IconBroken
+                    .Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
+                : IconBroken
+                    .Arrow___Left_2, // Icône pour le français (flèche à gauche)
             color: kBlackColor,
           ),
           onPressed: () {
@@ -373,7 +390,9 @@ class _ImmobDetailsState extends State<ImmobDetails> {
           child: isLoading
               ? const Center(child: CircularProgressIndicator())
               : immobData == null
-                  ? Center(child: Text(getTranslated(context, "Aucune donnée trouvée.")!))
+                  ? Center(
+                      child: Text(
+                          getTranslated(context, "Aucune donnée trouvée.")!))
                   : SingleChildScrollView(
                       child: Padding(
                         padding: const EdgeInsets.all(10.0),
@@ -389,7 +408,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                             SizedBox(height: getProportionateScreenHeight(5)),
                             // Section pour les utilisateurs
                             _buildUsersSection(),
-                           
+                            SizedBox(height: getProportionateScreenHeight(25)),
                             // Disponibilité
                             // Informations principales (icônes des caractéristiques)
                             _buildFeatureInfo(),
@@ -403,16 +422,24 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                             FutureBuilder<String>(
                               future: getCurrentLanguage(context),
                               builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
                                   return const CircularProgressIndicator();
                                 } else if (snapshot.hasError) {
-                                  return Text(getTranslated(context, "Erreur lors du chargement de la langue")!);
+                                  return Text(getTranslated(context,
+                                      "Erreur lors du chargement de la langue")!);
                                 } else {
-                                  final currentLanguage = snapshot.data ?? ARABIC;
-                                  final descriptionKey = currentLanguage == ARABIC ? 'description_ar' : 'description';
+                                  final currentLanguage =
+                                      snapshot.data ?? ARABIC;
+                                  final descriptionKey =
+                                      currentLanguage == ARABIC
+                                          ? 'description_ar'
+                                          : 'description';
 
                                   return _buildDescriptionSection(
-                                    immobData?[descriptionKey] ?? getTranslated(context, "Pas de description disponible."),
+                                    immobData?[descriptionKey] ??
+                                        getTranslated(context,
+                                            "Pas de description disponible."),
                                   );
                                 }
                               },
@@ -422,7 +449,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
                             // Localisation du maison (Google Maps)
                             _buildMapSection(immobData),
-                            
+
                             // Section des reviews
                             _buildReviewsSection(),
                           ],
@@ -479,12 +506,14 @@ class _ImmobDetailsState extends State<ImmobDetails> {
             ),
             decoration: BoxDecoration(
               color: available ? Colors.green : Colors.red,
-              borderRadius: BorderRadius.circular(getProportionateScreenWidth(8.0)),
+              borderRadius:
+                  BorderRadius.circular(getProportionateScreenWidth(8.0)),
             ),
             child: Text(
               available
                   ? getTranslated(context, "Disponible") ?? "Disponible"
-                  : getTranslated(context, "Non disponible") ?? "Non disponible",
+                  : getTranslated(context, "Non disponible") ??
+                      "Non disponible",
               style: TextStyle(
                 fontSize: getProportionateScreenWidth(14),
                 color: Colors.white,
@@ -499,10 +528,11 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
   // Fonction pour le bouton WhatsApp
   void _launchWhatsApp() async {
-    const phoneNumber = '1234567890';
+    const phoneNumber = '20203000';
     const message = 'Bonjour, je vous contacte depuis l\'application';
-    final url = Uri.parse('https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}');
-    
+    final url = Uri.parse(
+        'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}');
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
@@ -514,7 +544,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   void _launchPhone() async {
     const phoneNumber = '20203000';
     final url = Uri.parse('tel:$phoneNumber');
-    
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
@@ -564,7 +594,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_outlined, color: Colors.white, size: 24),
+                        Icon(Icons.chat_outlined,
+                            color: Colors.white, size: 24),
                         SizedBox(width: 8),
                         Text(
                           getTranslated(context, "WhatsApp")!,
@@ -617,7 +648,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   Widget _buildPriceAndStatusHeader() {
     // Déterminer le type de propriété et extraire les données appropriées
     Map<String, dynamic>? propertyData;
-    
+
     if (immobData?['residentiel'] != null) {
       propertyData = immobData?['residentiel'];
     } else if (immobData?['terrain'] != null) {
@@ -627,13 +658,18 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     } else {
       propertyData = immobData;
     }
-    
+
     // Récupération des données
-    final typeOperation = propertyData?['type_operation'] ?? immobData?['operation']?['type'] ?? 'vendre';
-    final montant = double.tryParse(propertyData?['montant']?.toString() ?? '0');
-    final loyerMensuel = double.tryParse(propertyData?['loyer_mensuel']?.toString() ?? '0');
+    final typeOperation = propertyData?['type_operation'] ??
+        immobData?['operation']?['type'] ??
+        'vendre';
+    final montant =
+        double.tryParse(propertyData?['montant']?.toString() ?? '0');
+    final loyerMensuel =
+        double.tryParse(propertyData?['loyer_mensuel']?.toString() ?? '0');
     final periode = propertyData?['periode'] ?? 'mois';
-    final isAvailable = propertyData?['available'] == true || immobData?['available'] == true;
+    final isAvailable =
+        propertyData?['available'] == true || immobData?['available'] == true;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -644,7 +680,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
           padding: EdgeInsets.all(getProportionateScreenWidth(16)),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(getProportionateScreenWidth(10)),
+            borderRadius:
+                BorderRadius.circular(getProportionateScreenWidth(10)),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(0.2),
@@ -671,7 +708,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      typeOperation == 'vendre' 
+                      typeOperation == 'vendre'
                           ? getTranslated(context, 'vendre')!
                           : getTranslated(context, 'alouer')!,
                       style: TextStyle(
@@ -694,7 +731,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                     ),
                     if (typeOperation == 'louer')
                       Padding(
-                        padding: EdgeInsets.only(top: getProportionateScreenHeight(4)),
+                        padding: EdgeInsets.only(
+                            top: getProportionateScreenHeight(4)),
                         child: Text(
                           getTranslated(context, 'Prix mensuel')!,
                           style: TextStyle(
@@ -708,14 +746,14 @@ class _ImmobDetailsState extends State<ImmobDetails> {
               ),
 
               // Espacement conditionnel
-              if (!isSmallScreen) 
+              if (!isSmallScreen)
                 SizedBox(width: getProportionateScreenWidth(16)),
 
               // Partie Disponibilité
               Flexible(
                 flex: 1,
                 child: Container(
-                  margin: isSmallScreen 
+                  margin: isSmallScreen
                       ? EdgeInsets.only(top: getProportionateScreenHeight(12))
                       : EdgeInsets.zero,
                   padding: EdgeInsets.symmetric(
@@ -723,10 +761,14 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                     vertical: getProportionateScreenHeight(8),
                   ),
                   decoration: BoxDecoration(
-                    color: isAvailable ? Colors.green.shade50 : Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(getProportionateScreenWidth(20)),
+                    color:
+                        isAvailable ? Colors.green.shade50 : Colors.red.shade50,
+                    borderRadius:
+                        BorderRadius.circular(getProportionateScreenWidth(20)),
                     border: Border.all(
-                      color: isAvailable ? Colors.green.shade200 : Colors.red.shade200,
+                      color: isAvailable
+                          ? Colors.green.shade200
+                          : Colors.red.shade200,
                       width: 1.5,
                     ),
                   ),
@@ -745,13 +787,15 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                       SizedBox(width: getProportionateScreenWidth(8)),
                       Flexible(
                         child: Text(
-                          isAvailable 
+                          isAvailable
                               ? getTranslated(context, 'Available')!
                               : getTranslated(context, 'Unavailable')!,
                           style: TextStyle(
                             fontSize: getProportionateScreenWidth(14),
                             fontWeight: FontWeight.w600,
-                            color: isAvailable ? Colors.green.shade800 : Colors.red.shade800,
+                            color: isAvailable
+                                ? Colors.green.shade800
+                                : Colors.red.shade800,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -777,7 +821,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       print('Première image: ${images[0]}');
     }
     print('===================');
-    
+
     if (images.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(20),
@@ -790,7 +834,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
             Icon(Icons.image_not_supported, size: 50, color: Colors.grey[400]),
             const SizedBox(height: 10),
             Text(
-              getTranslated(context, "Aucune image disponible.") ?? "Aucune image disponible.",
+              getTranslated(context, "Aucune image disponible.") ??
+                  "Aucune image disponible.",
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],
@@ -822,8 +867,12 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                         flex: 2,
                         child: Padding(
                           padding: EdgeInsets.only(
-                            right: isArabic ? 0.0 : getProportionateScreenWidth(4.0),
-                            left: isArabic ? getProportionateScreenWidth(4.0) : 0.0,
+                            right: isArabic
+                                ? 0.0
+                                : getProportionateScreenWidth(4.0),
+                            left: isArabic
+                                ? getProportionateScreenWidth(4.0)
+                                : 0.0,
                           ),
                           child: _buildImage(images[0]['image'], 0, images),
                         ),
@@ -837,13 +886,17 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                             if (images.length > 1)
                               Expanded(
                                 child: Padding(
-                                  padding: EdgeInsets.only(bottom: getProportionateScreenHeight(4.0)),
-                                  child: _buildImage(images[1]['image'], 1, images),
+                                  padding: EdgeInsets.only(
+                                      bottom:
+                                          getProportionateScreenHeight(4.0)),
+                                  child: _buildImage(
+                                      images[1]['image'], 1, images),
                                 ),
                               ),
                             if (images.length > 2)
                               Expanded(
-                                child: _buildImage(images[2]['image'], 2, images),
+                                child:
+                                    _buildImage(images[2]['image'], 2, images),
                               ),
                           ],
                         ),
@@ -861,7 +914,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                       for (int i = 3; i < 6 && i < images.length; i++)
                         Expanded(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: getProportionateScreenWidth(2.0)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: getProportionateScreenWidth(2.0)),
                             child: _buildImage(images[i]['image'], i, images),
                           ),
                         ),
@@ -880,13 +934,13 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       print('URL invalide: null ou vide');
       return false;
     }
-    
+
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasAbsolutePath) {
       print('URL invalide: $url');
       return false;
     }
-    
+
     print('URL valide: $url');
     return true;
   }
@@ -894,14 +948,15 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   // Fonction pour afficher chaque image
   Widget _buildImage(String imageUrl, int index, List<dynamic> images) {
     print('Building image $index: $imageUrl');
-    
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => FullScreenImageView(
-              imageUrls: images.map<String>((image) => image['image'] ?? '').toList(),
+              imageUrls:
+                  images.map<String>((image) => image['image'] ?? '').toList(),
               initialIndex: index,
             ),
           ),
@@ -923,7 +978,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                     return Center(
                       child: CircularProgressIndicator(
                         value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
                             : null,
                       ),
                     );
@@ -932,13 +988,15 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                     print('Erreur de chargement image: $error');
                     return Container(
                       color: Colors.grey[300],
-                      child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                      child: const Icon(Icons.broken_image,
+                          size: 40, color: Colors.grey),
                     );
                   },
                 )
               : Container(
                   color: Colors.grey[300],
-                  child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                  child: const Icon(Icons.broken_image,
+                      size: 40, color: Colors.grey),
                 ),
         ),
       ),
@@ -953,18 +1011,19 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return const Center(child: Text('Erreur lors du chargement des utilisateurs'));
+          return const Center(
+              child: Text('Erreur lors du chargement des utilisateurs'));
         } else if (snapshot.hasData && snapshot.data!.isEmpty) {
           return const Center(child: Text('Aucun utilisateur trouvé.'));
         } else if (snapshot.hasData) {
           return SizedBox(
-            height: getProportionateScreenHeight(90),
+            height: getProportionateScreenHeight(100),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: snapshot.data!.length,
               itemBuilder: (context, index) {
                 User user = snapshot.data![index];
-                
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 0.0),
                   child: InkWell(
@@ -973,9 +1032,10 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                           ? user.image!
                           : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png';
 
-                      final participantName = user.nomComplet?.isNotEmpty == true
-                          ? user.nomComplet!
-                          : getTranslated(context, "Utilisateur inconnu")!;
+                      final participantName =
+                          user.nomComplet?.isNotEmpty == true
+                              ? user.nomComplet!
+                              : getTranslated(context, "Utilisateur inconnu")!;
 
                       Navigator.push(
                         context,
@@ -995,10 +1055,10 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                         Stack(
                           children: [
                             CircleAvatar(
-                              radius: 32,
+                              radius: 25,
                               backgroundColor: pcolor,
                               child: CircleAvatar(
-                                radius: 30,
+                                radius: 23,
                                 backgroundImage: NetworkImage(
                                   user.image?.isNotEmpty == true
                                       ? user.image!
@@ -1015,24 +1075,26 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: Colors.green,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         SizedBox(
-                          width: 70,
+                          width: getProportionateScreenWidth(70),
                           child: Text(
                             user.nomComplet?.isNotEmpty == true
                                 ? user.nomComplet!
-                                : getTranslated(context, "Utilisateur inconnu")!,
+                                : getTranslated(
+                                    context, "Utilisateur inconnu")!,
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 10,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1055,7 +1117,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   Widget _buildFeatureInfo() {
     Map<String, dynamic>? propertyData;
     String propertyType = 'unknown';
-    
+
     if (immobData?['residentiel'] != null) {
       propertyData = immobData?['residentiel'];
       propertyType = 'residentiel';
@@ -1068,19 +1130,20 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     } else {
       propertyData = immobData;
     }
-    
+
     print('Property type: $propertyType');
     print('Property data: $propertyData');
-    
+
     // Fonction pour vérifier si une valeur existe et n'est pas égale à 0
     bool isValidValue(dynamic value) {
       if (value == null) return false;
-      if (value is String) return value.isNotEmpty && value != '0' && value != 'null';
+      if (value is String)
+        return value.isNotEmpty && value != '0' && value != 'null';
       if (value is num) return value > 0;
       if (value is bool) return value == true;
       return true;
     }
-    
+
     // Fonction pour obtenir la valeur numérique
     int getNumericValue(dynamic value) {
       if (value == null) return 0;
@@ -1091,107 +1154,135 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       }
       return 0;
     }
-    
+
     List<Map<String, dynamic>> allFeatureItems = [
       {
         'key': 'nombre_de_chambres',
-        'image': 'assets/images/chambre.jpeg', 
-        'text': '${getNumericValue(propertyData!['nombre_de_chambres'])} ${getTranslated(context, "Chambres")}',
+        'image': 'assets/images/chambre.jpeg',
+        'text':
+            '${getNumericValue(propertyData!['nombre_de_chambres'])} ${getTranslated(context, "Chambres")}',
         'value': propertyData['nombre_de_chambres']
       },
       {
         'key': 'nombre_de_salles_de_bain',
-        'image': 'assets/images/douche.jpeg', 
-        'text': '${getNumericValue(propertyData['nombre_de_salles_de_bain'])} ${getTranslated(context, "Salle de bain")}',
+        'image': 'assets/images/douche.jpeg',
+        'text':
+            '${getNumericValue(propertyData['nombre_de_salles_de_bain'])} ${getTranslated(context, "Salle de bain")}',
         'value': propertyData['nombre_de_salles_de_bain']
       },
       {
         'key': 'nombre_de_garages',
-        'image': 'assets/images/garage.jpeg', 
-        'text': '${getNumericValue(propertyData['nombre_de_garages'])} ${getTranslated(context, "Garage")}',
+        'image': 'assets/images/garage.jpeg',
+        'text':
+            '${getNumericValue(propertyData['nombre_de_garages'])} ${getTranslated(context, "Garage")}',
         'value': propertyData['nombre_de_garages']
       },
       {
         'key': 'adresse',
-        'image': 'assets/images/localisation.jpeg', 
-        'text': '${propertyData['adresse'] ?? immobData?['adresse'] ?? getTranslated(context, "Adresse non spécifiée")}',
+        'image': 'assets/images/localisation.jpeg',
+        'text':
+            '${propertyData['adresse'] ?? immobData?['adresse'] ?? getTranslated(context, "Adresse non spécifiée")}',
         'value': propertyData['adresse'] ?? immobData?['adresse']
       },
       {
         'key': 'type_operation',
-        'image': 'assets/images/type_operation.jpeg', 
-        'text': '${getTranslated(context, propertyData['type_operation'] ?? immobData?['operation']?['type'] ?? "Non spécifié")}',
-        'value': propertyData['type_operation'] ?? immobData?['operation']?['type']
+        'image': 'assets/images/type_operation.jpeg',
+        'text':
+            '${getTranslated(context, propertyData['type_operation'] ?? immobData?['operation']?['type'] ?? "Non spécifié")}',
+        'value':
+            propertyData['type_operation'] ?? immobData?['operation']?['type']
       },
       {
         'key': 'surface',
-        'image': 'assets/images/type_operation.jpeg', 
-        'text': '${getNumericValue(propertyData['surface'] ?? immobData?['surface'])} ${getTranslated(context, "m²")}',
+        'image': 'assets/images/type_operation.jpeg',
+        'text':
+            '${getNumericValue(propertyData['surface'] ?? immobData?['surface'])} ${getTranslated(context, "m²")}',
         'value': propertyData['surface'] ?? immobData?['surface']
       },
       {
         'key': 'presence_de_jardin',
-        'image': 'assets/images/gardain.jpeg', 
-        'text': (propertyData['presence_de_jardin'] == true) ? '${getTranslated(context, "avec")}' : '${getTranslated(context, "sans")}',
+        'image': 'assets/images/gardain.jpeg',
+        'text': (propertyData['presence_de_jardin'] == true)
+            ? '${getTranslated(context, "avec")}'
+            : '${getTranslated(context, "sans")}',
         'value': propertyData['presence_de_jardin']
       },
       {
         'key': 'nombre_d_etages',
-        'image': 'assets/images/etage.jpeg', 
-        'text': (propertyData['nombre_d_etages'] != null && propertyData['nombre_d_etages'] != 0) ? '${getTranslated(context, "avec")}' : '${getTranslated(context, "sans")}',
+        'image': 'assets/images/etage.jpeg',
+        'text': (propertyData['nombre_d_etages'] != null &&
+                propertyData['nombre_d_etages'] != 0)
+            ? '${getTranslated(context, "avec")}'
+            : '${getTranslated(context, "sans")}',
         'value': propertyData['nombre_d_etages']
       },
       {
         'key': 'presence_de_pisime',
-        'image': 'assets/images/pisume.jpeg', 
-        'text': (propertyData['presence_de_pisime'] == true) ? '${getTranslated(context, "avec")}' : '${getTranslated(context, "sans")}',
+        'image': 'assets/images/pisume.jpeg',
+        'text': (propertyData['presence_de_pisime'] == true)
+            ? '${getTranslated(context, "avec")}'
+            : '${getTranslated(context, "sans")}',
         'value': propertyData['presence_de_pisime']
       },
       {
         'key': 'presence_de_wifi',
-        'image': 'assets/images/wifi.jpeg', 
-        'text': (propertyData['presence_de_wifi'] == true) ? '${getTranslated(context, "avec")}' : '${getTranslated(context, "sans")}',
+        'image': 'assets/images/wifi.jpeg',
+        'text': (propertyData['presence_de_wifi'] == true)
+            ? '${getTranslated(context, "avec")}'
+            : '${getTranslated(context, "sans")}',
         'value': propertyData['presence_de_wifi']
       },
       {
         'key': 'meubler',
-        'image': 'assets/images/type_operation.jpeg', 
-        'text': (propertyData['meubler'] == true) ? '${getTranslated(context, "Meubler")}' : '${getTranslated(context, "pas Meubler")}',
+        'image': 'assets/images/type_operation.jpeg',
+        'text': (propertyData['meubler'] == true)
+            ? '${getTranslated(context, "Meubler")}'
+            : '${getTranslated(context, "pas Meubler")}',
         'value': propertyData['meubler']
       },
     ];
-    
+
     // Filtrer les éléments qui existent et ne sont pas égaux à 0
     List<Map<String, dynamic>> featureItems = allFeatureItems.where((item) {
       final value = item['value'];
       final key = item['key'];
-      
+
       // Cas spéciaux pour certains champs
       if (key == 'adresse') {
-        return value != null && value.toString().isNotEmpty && value.toString() != 'null';
+        return value != null &&
+            value.toString().isNotEmpty &&
+            value.toString() != 'null';
       }
       if (key == 'type_operation') {
-        return value != null && value.toString().isNotEmpty && value.toString() != 'null';
+        return value != null &&
+            value.toString().isNotEmpty &&
+            value.toString() != 'null';
       }
       if (key == 'surface') {
         return getNumericValue(value) > 0;
       }
-      if (key == 'nombre_de_chambres' || key == 'nombre_de_salles_de_bain' || key == 'nombre_de_garages') {
+      if (key == 'nombre_de_chambres' ||
+          key == 'nombre_de_salles_de_bain' ||
+          key == 'nombre_de_garages') {
         return getNumericValue(value) > 0;
       }
       if (key == 'nombre_d_etages') {
         return value != null && value != 0;
       }
-      if (key == 'presence_de_jardin' || key == 'presence_de_pisime' || key == 'presence_de_wifi' || key == 'meubler') {
+      if (key == 'presence_de_jardin' ||
+          key == 'presence_de_pisime' ||
+          key == 'presence_de_wifi' ||
+          key == 'meubler') {
         return value == true;
       }
-      
+
       return isValidValue(value);
     }).toList();
-    
+
     print('📊 Total features: ${allFeatureItems.length}');
     print('✅ Valid features: ${featureItems.length}');
-    print('🔍 Filtered features: ${featureItems.map((item) => item['key']).toList()}');
+    print(
+        '🔍 Filtered features: ${featureItems.map((item) => item['key']).toList()}');
 
     if (featureItems.isEmpty) {
       return Container(
@@ -1284,7 +1375,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
   Widget _buildInfrastructureSection() {
     Map<String, dynamic>? propertyData;
-    
+
     if (immobData?['residentiel'] != null) {
       propertyData = immobData?['residentiel'];
     } else if (immobData?['terrain'] != null) {
@@ -1294,8 +1385,10 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     } else {
       propertyData = immobData;
     }
-    
-    List<dynamic> infrastructures = propertyData!['infrastructures_proches'] ?? immobData?['infrastructures_proches'] ?? [];
+
+    List<dynamic> infrastructures = propertyData!['infrastructures_proches'] ??
+        immobData?['infrastructures_proches'] ??
+        [];
 
     return FutureBuilder<String>(
       future: getCurrentLanguage(context),
@@ -1303,7 +1396,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const CircularProgressIndicator();
         } else if (snapshot.hasError) {
-          return Text(getTranslated(context, "Erreur lors du chargement de la langue")!);
+          return Text(getTranslated(
+              context, "Erreur lors du chargement de la langue")!);
         } else {
           final currentLanguage = snapshot.data ?? ARABIC;
           final isArabic = currentLanguage == ARABIC;
@@ -1313,7 +1407,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
             children: [
               Text(
                 getTranslated(context, "Entourage du maison")!,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               GridView.builder(
@@ -1331,7 +1426,9 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                   return _buildInfrastructureCard(
                     isArabic ? infra['nom_ar'] : infra['nom'],
                     _getImageForInfrastructure(
-                      isArabic ? infra['type_infrastructure_ar'] : infra['type_infrastructure'],
+                      isArabic
+                          ? infra['type_infrastructure_ar']
+                          : infra['type_infrastructure'],
                     ),
                   );
                 },
@@ -1381,7 +1478,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
   Widget _buildMapSection(Map<String, dynamic>? data) {
     Map<String, dynamic>? propertyData;
-    
+
     if (data?['residentiel'] != null) {
       propertyData = data?['residentiel'];
     } else if (data?['terrain'] != null) {
@@ -1391,7 +1488,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     } else {
       propertyData = data;
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1433,7 +1530,9 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                     double.parse(propertyData?['y'] ?? data?['y'] ?? '48.8566'),
                     double.parse(propertyData?['x'] ?? data?['x'] ?? '2.3522'),
                   ),
-                  infoWindow: InfoWindow(title: propertyData?['nom_ville'] ?? data?['ville']?['nom']),
+                  infoWindow: InfoWindow(
+                      title:
+                          propertyData?['nom_ville'] ?? data?['ville']?['nom']),
                 ),
               },
             ),
@@ -1478,7 +1577,7 @@ class _ImmobDetailsState extends State<ImmobDetails> {
           ],
         ),
         const SizedBox(height: 10),
-        
+
         // Affichage de la note moyenne
         if (reviews.isNotEmpty)
           Container(
@@ -1501,11 +1600,15 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                       ),
                     ),
                     Row(
-                      children: List.generate(5, (index) => Icon(
-                        Icons.star,
-                        size: 20,
-                        color: index < averageRating.floor() ? Colors.amber : Colors.grey[300],
-                      )),
+                      children: List.generate(
+                          5,
+                          (index) => Icon(
+                                Icons.star,
+                                size: 20,
+                                color: index < averageRating.floor()
+                                    ? Colors.amber
+                                    : Colors.grey[300],
+                              )),
                     ),
                   ],
                 ),
@@ -1534,9 +1637,9 @@ class _ImmobDetailsState extends State<ImmobDetails> {
               ],
             ),
           ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Liste des reviews
         if (isLoadingReviews)
           const Center(child: CircularProgressIndicator())
@@ -1560,7 +1663,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                 ElevatedButton.icon(
                   onPressed: () => _showAddReviewDialog(),
                   icon: const Icon(Icons.add),
-                  label: Text(getTranslated(context, "Soyez le premier à donner votre avis")!),
+                  label: Text(getTranslated(
+                      context, "Soyez le premier à donner votre avis")!),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: pcolor,
                     foregroundColor: Colors.white,
@@ -1585,10 +1689,10 @@ class _ImmobDetailsState extends State<ImmobDetails> {
 
   Widget _buildReviewCard(Map<String, dynamic> review) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final comment = isArabic && review['comment_ar']?.isNotEmpty == true 
-        ? review['comment_ar'] 
+    final comment = isArabic && review['comment_ar']?.isNotEmpty == true
+        ? review['comment_ar']
         : review['comment'];
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -1626,7 +1730,8 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      review['user_name'] ?? getTranslated(context, "Utilisateur")!,
+                      review['user_name'] ??
+                          getTranslated(context, "Utilisateur")!,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -1645,11 +1750,15 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                 ),
               ),
               Row(
-                children: List.generate(5, (index) => Icon(
-                  Icons.star,
-                  size: 16,
-                  color: index < (review['rating'] ?? 0) ? Colors.amber : Colors.grey[300],
-                )),
+                children: List.generate(
+                    5,
+                    (index) => Icon(
+                          Icons.star,
+                          size: 16,
+                          color: index < (review['rating'] ?? 0)
+                              ? Colors.amber
+                              : Colors.grey[300],
+                        )),
               ),
             ],
           ),
@@ -1715,10 +1824,11 @@ class __DescriptionSectionState extends State<_DescriptionSection> {
         children: [
           Text(
             getTranslated(context, "Description de la maison")!,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
           ),
           const SizedBox(height: 10),
-                    Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AnimatedSize(
@@ -1727,7 +1837,8 @@ class __DescriptionSectionState extends State<_DescriptionSection> {
                   widget.description,
                   style: const TextStyle(fontSize: 16, color: Colors.black87),
                   maxLines: isExpanded ? null : 3,
-                  overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                  overflow:
+                      isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                 ),
               ),
               Align(
@@ -1742,12 +1853,17 @@ class __DescriptionSectionState extends State<_DescriptionSection> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        isExpanded ? getTranslated(context, "Voir moins")! : getTranslated(context, "Voir plus")!,
-                        style: const TextStyle(fontSize: 16, color: Colors.blue),
+                        isExpanded
+                            ? getTranslated(context, "Voir moins")!
+                            : getTranslated(context, "Voir plus")!,
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.blue),
                       ),
                       const SizedBox(width: 5),
                       Icon(
-                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        isExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
                         color: Colors.blue,
                         size: 20,
                       ),
@@ -1797,7 +1913,7 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
   @override
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -1829,7 +1945,8 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
             initialScale: PhotoViewComputedScale.contained,
             minScale: PhotoViewComputedScale.contained * 0.5,
             maxScale: PhotoViewComputedScale.contained * 5.0,
-            heroAttributes: PhotoViewHeroAttributes(tag: widget.imageUrls[index]),
+            heroAttributes:
+                PhotoViewHeroAttributes(tag: widget.imageUrls[index]),
           );
         },
         itemCount: widget.imageUrls.length,
@@ -1912,7 +2029,7 @@ class _OrderDialogState extends State<OrderDialog> {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
@@ -1976,7 +2093,7 @@ class _OrderDialogState extends State<OrderDialog> {
                 ],
               ),
             ),
-            
+
             // Contenu scrollable
             Expanded(
               child: SingleChildScrollView(
@@ -1997,7 +2114,8 @@ class _OrderDialogState extends State<OrderDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            getTranslated(context, "Informations sur l'immobilier")!,
+                            getTranslated(
+                                context, "Informations sur l'immobilier")!,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -2025,7 +2143,7 @@ class _OrderDialogState extends State<OrderDialog> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Champs de saisie
                     Text(
                       getTranslated(context, "Vos informations")!,
@@ -2035,7 +2153,7 @@ class _OrderDialogState extends State<OrderDialog> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
@@ -2049,12 +2167,13 @@ class _OrderDialogState extends State<OrderDialog> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     TextField(
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
-                        labelText: getTranslated(context, "Numéro de téléphone")!,
+                        labelText:
+                            getTranslated(context, "Numéro de téléphone")!,
                         prefixIcon: const Icon(Icons.phone),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -2064,7 +2183,7 @@ class _OrderDialogState extends State<OrderDialog> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Moyens de paiement
                     Text(
                       getTranslated(context, "Moyen de paiement")!,
@@ -2074,58 +2193,61 @@ class _OrderDialogState extends State<OrderDialog> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     ...paymentMethods.map((method) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: RadioListTile<String>(
-                        value: method['id'],
-                        groupValue: selectedPaymentMethod,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedPaymentMethod = value!;
-                          });
-                        },
-                        title: Text(
-                          isArabic ? method['nameAr'] : method['name'],
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: RadioListTile<String>(
+                            value: method['id'],
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                            title: Text(
+                              isArabic ? method['nameAr'] : method['name'],
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              isArabic
+                                  ? method['descriptionAr']
+                                  : method['description'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            secondary: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: method['color'].withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                method['icon'],
+                                color: method['color'],
+                                size: 20,
+                              ),
+                            ),
+                            activeColor: method['color'],
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            tileColor: selectedPaymentMethod == method['id']
+                                ? method['color'].withOpacity(0.05)
+                                : null,
                           ),
-                        ),
-                        subtitle: Text(
-                          isArabic ? method['descriptionAr'] : method['description'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        secondary: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: method['color'].withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            method['icon'],
-                            color: method['color'],
-                            size: 20,
-                          ),
-                        ),
-                        activeColor: method['color'],
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        tileColor: selectedPaymentMethod == method['id']
-                            ? method['color'].withOpacity(0.05)
-                            : null,
-                      ),
-                    )),
+                        )),
                   ],
                 ),
               ),
             ),
-            
+
             // Boutons
             Container(
               padding: const EdgeInsets.all(20),
@@ -2158,9 +2280,7 @@ class _OrderDialogState extends State<OrderDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: isLoading
-                          ? null
-                          : () => _submitOrder(),
+                      onPressed: isLoading ? null : () => _submitOrder(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: pcolor,
                         foregroundColor: Colors.white,
@@ -2175,12 +2295,14 @@ class _OrderDialogState extends State<OrderDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Text(
                               getTranslated(context, "Commander")!,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
@@ -2197,7 +2319,8 @@ class _OrderDialogState extends State<OrderDialog> {
     if (nameController.text.isEmpty || phoneController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(getTranslated(context, "Veuillez remplir tous les champs")!),
+          content:
+              Text(getTranslated(context, "Veuillez remplir tous les champs")!),
           backgroundColor: Colors.red,
         ),
       );
@@ -2211,7 +2334,7 @@ class _OrderDialogState extends State<OrderDialog> {
     try {
       final storage = const FlutterSecureStorage();
       final String? token = await storage.read(key: "access");
-      
+
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2246,32 +2369,35 @@ class _OrderDialogState extends State<OrderDialog> {
       if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         print("✅ Commande créée avec succès: $responseData");
-        
+
         await _updateImmobilierStatus(false);
-        
+
         setState(() {
           isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(getTranslated(context, "Commande envoyée avec succès")!),
+            content:
+                Text(getTranslated(context, "Commande envoyée avec succès")!),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         Navigator.pop(context);
       } else {
         final errorData = jsonDecode(response.body);
         print("❌ Erreur création commande: $errorData");
-        
+
         setState(() {
           isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorData['message'] ?? getTranslated(context, "Erreur lors de la création de la commande")!),
+            content: Text(errorData['message'] ??
+                getTranslated(
+                    context, "Erreur lors de la création de la commande")!),
             backgroundColor: Colors.red,
           ),
         );
@@ -2281,7 +2407,7 @@ class _OrderDialogState extends State<OrderDialog> {
       setState(() {
         isLoading = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Erreur: $e"),
@@ -2295,14 +2421,15 @@ class _OrderDialogState extends State<OrderDialog> {
     try {
       final storage = const FlutterSecureStorage();
       final String? token = await storage.read(key: "access");
-      
+
       if (token == null) {
         print("❌ Token non trouvé pour mise à jour statut");
         return;
       }
 
       final response = await http.patch(
-        Uri.parse('https://akarina.online/akareena/imobiers/${widget.immobilierId}/'),
+        Uri.parse(
+            'https://akarina.online/akareena/imobiers/${widget.immobilierId}/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -2362,7 +2489,7 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Sélection de la note
             Text(
               getTranslated(context, "Votre note")!,
@@ -2381,13 +2508,15 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
                   child: Icon(
                     Icons.star,
                     size: 40,
-                    color: index < selectedRating ? Colors.amber : Colors.grey[300],
+                    color: index < selectedRating
+                        ? Colors.amber
+                        : Colors.grey[300],
                   ),
                 );
               }),
             ),
             const SizedBox(height: 20),
-            
+
             // Champ de commentaire
             TextField(
               controller: commentController,
@@ -2402,7 +2531,7 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Boutons
             Row(
               children: [
@@ -2424,7 +2553,8 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
                   child: ElevatedButton(
                     onPressed: selectedRating > 0
                         ? () {
-                            widget.onSubmit(selectedRating, commentController.text);
+                            widget.onSubmit(
+                                selectedRating, commentController.text);
                           }
                         : null,
                     style: ElevatedButton.styleFrom(

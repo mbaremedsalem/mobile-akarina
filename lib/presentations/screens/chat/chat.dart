@@ -28,7 +28,7 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  late Future<Map<String, dynamic>> futureConversation;
+  Future<Map<String, dynamic>> futureConversation = Future.value({});
   List<dynamic> messages = [];
   final TextEditingController messageController = TextEditingController();
   final ImagePicker imagePicker = ImagePicker();
@@ -48,11 +48,11 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       hasInternetConnection = hasConnection;
     });
-    
+
     if (!hasConnection) {
       return; // Ne pas charger les données si pas de connexion
     }
-    
+
     _fetchConversationAndMessages();
   }
 
@@ -222,18 +222,19 @@ class _ChatPageState extends State<ChatPage> {
     if (!hasInternetConnection) {
       return NoInternetPage(
         onRetry: () async {
-          final hasConnection = await ConnectivityService.hasInternetConnection();
+          final hasConnection =
+              await ConnectivityService.hasInternetConnection();
           setState(() {
             hasInternetConnection = hasConnection;
           });
-          
+
           if (hasConnection) {
             _initializeData();
           }
         },
       );
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -330,7 +331,8 @@ class _ChatPageState extends State<ChatPage> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       if (message['message_type'] == 'image' &&
                                           message['image'].isNotEmpty)
