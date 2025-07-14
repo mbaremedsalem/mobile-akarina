@@ -177,9 +177,9 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
   Widget _buildCategoriesList() {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -227,7 +227,7 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 24),
              GridView.builder(
-                  
+                  shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,

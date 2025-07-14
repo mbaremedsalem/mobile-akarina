@@ -196,7 +196,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ClipPath(
           clipper: WaveClipperOne(flip: true, reverse: false),
           child: Container(
-            height: 180,
+            height: 120,
             width: double.infinity,
             decoration: BoxDecoration(
               image: DecorationImage(
@@ -245,7 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         // Avatar positionné
         Positioned(
-          top: 110,
+          top: 40,
           left: MediaQuery.of(context).size.width / 2 - 65,
           child: _buildProfileAvatar(),
         ),
@@ -312,7 +312,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             
                             const SizedBox(height: 20),
                             const Divider(),
-                            _buildInfoRow(Icons.phone, getTranslated(context, "telephone")!, userData?['numero_telephone'] ?? '-'),
+                            _buildInfoRow(Icons.phone, getTranslated(context, "telephone")!, userData?['numero_telephone'].substring(4) ?? '-'),
                             _buildInfoRow(Icons.credit_card, getTranslated(context, "nni")!, userData?['nni'] ?? '-'),
                             _buildInfoRow(Icons.location_on, getTranslated(context, "adresse")!, userData?['adrese'] ?? '-'),
                           ],
@@ -491,29 +491,34 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         children: [
-          // Bouton Chargement du compte
-          SizedBox(
-            width: double.infinity,
-            child: Defaultbutton(
-              text: getTranslated(context, "Chargement du compte")!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PaymentMethodsPage(),
+          // Bouton Chargement du compte (seulement pour les utilisateurs owner)
+          if (userData?['client_type'] == 'owner')
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: Defaultbutton(
+                    text: getTranslated(context, "Chargement du compte")!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PaymentMethodsPage(),
+                        ),
+                      ).then((value) {
+                        if (value == true) {
+                          fetchUserData();
+                        }
+                      });
+                    },
+                    color: Colors.orange,
                   ),
-                ).then((value) {
-                  if (value == true) {
-                    fetchUserData();
-                  }
-                });
-              },
-              color: Colors.orange,
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
           
-          // Boutons modifier et déconnexion
+          // Boutons modifier, supprimer compte et déconnexion
           Row(
             children: [
               Expanded(
@@ -537,7 +542,27 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(width: 10),
               Expanded(
                 child: Defaultbutton(
-                  text: getTranslated(context, "Déconnexion")!,
+                  text: getTranslated(context, "Supprimer")!,
+                  onTap: () => _showDeleteAccountDialog(),
+                  color: Colors.red[700]!,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Bouton déconnexion avec icône
+          SizedBox(
+            width: double.infinity,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.3), width: 1.5),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
                   onTap: () async {
                     await storage.delete(key: "access");
                     Navigator.pushReplacement(
@@ -545,13 +570,99 @@ class _ProfilePageState extends State<ProfilePage> {
                       MaterialPageRoute(builder: (context) => const IndexLogin()),
                     );
                   },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(IconBroken.Logout, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          getTranslated(context, "Déconnexion")!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              Text(
+                getTranslated(context, "Supprimer le compte")!,
+                style: const TextStyle(
                   color: Colors.red,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        ],
-      ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                getTranslated(context, "Êtes-vous sûr de vouloir supprimer votre compte ?")!,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                getTranslated(context, "Cette action est irréversible")!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                getTranslated(context, "Non, annuler")!,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                deleteAccount();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(getTranslated(context, "Oui, supprimer")!),
+            ),
+          ],
+        );
+      },
     );
   }
 

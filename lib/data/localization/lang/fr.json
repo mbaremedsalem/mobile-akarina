@@ -896,5 +896,13 @@
     "Conseils de dépannage":"Conseils de dépannage",
     "Vérifiez que votre WiFi est activé":"Vérifiez que votre WiFi est activé",
     "Vérifiez votre connexion mobile":"Vérifiez votre connexion mobile",
-    "Redémarrez votre routeur":"Redémarrez votre routeur"
+    "Redémarrez votre routeur":"Redémarrez votre routeur",
+    "Type de compte":"Type de compte",
+    "Sélectionnez le type de compte que vous souhaitez créer":"Sélectionnez le type de compte que vous souhaitez créer",
+    "Client":"Client",
+    "Je veux acheter ou louer une propriété":"Je veux acheter ou louer une propriété",
+    "Vendeur":"Propriétaire",
+    "Je veux vendre ou louer une propriété":"Je veux vendre ou louer une propriété",
+    "Vous êtes sûr de vouloir supprimer votre compte ?":"Vous êtes sûr de vouloir supprimer votre compte ?"
+
 }

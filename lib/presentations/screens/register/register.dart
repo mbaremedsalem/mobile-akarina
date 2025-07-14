@@ -260,8 +260,8 @@ class _RegisterState extends State<Register> {
                           ),
                           const SizedBox(height: 16),
                           _buildAccountTypeCard(
-                            title: getTranslated(context, "Propriétaire")!,
-                            description: getTranslated(context, "Je veux vendre ou louer ma propriété")!,
+                            title: getTranslated(context, "Vendeur")!,
+                            description: getTranslated(context, "Je veux vendre ou louer une propriété")!,
                             icon: Icons.home,
                             isSelected: clientType == 'owner',
                             onTap: () {
