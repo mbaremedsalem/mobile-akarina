@@ -5,6 +5,7 @@ import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/chat/chat.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/size_config.dart';
@@ -292,7 +293,9 @@ class _ImmobDetailsState extends State<ImmobDetails> {
             ),
           );
         } catch (e) {
+          print('==================+++++++++${response.statusCode}');
           ScaffoldMessenger.of(context).showSnackBar(
+            
             SnackBar(
               content: Text(
                   '${getTranslated(context, "Erreur")}: ${response.statusCode}'),
@@ -305,6 +308,10 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       print('💥 Exception lors de la création du review: $e');
       print('📋 Type d\'erreur: ${e.runtimeType}');
 
+      // Afficher le type d'erreur dans la console
+      print("Type d'erreur : ${e.runtimeType}");
+      print("Message : $e");
+   
       String errorMessage;
       if (e.toString().contains('SocketException')) {
         errorMessage = getTranslated(context, "Erreur de connexion réseau")!;
@@ -1974,14 +1981,18 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
   }
 }
 
+
+
 class OrderDialog extends StatefulWidget {
   final int immobilierId;
   final Map<String, dynamic>? immobilierData;
+  final String? merchantCode;
 
   const OrderDialog({
     super.key,
     required this.immobilierId,
     this.immobilierData,
+    this.merchantCode = '023977',
   });
 
   @override
@@ -1991,8 +2002,23 @@ class OrderDialog extends StatefulWidget {
 class _OrderDialogState extends State<OrderDialog> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
+  final TextEditingController dateDebutController = TextEditingController();
+  final TextEditingController dateFinController = TextEditingController();
+  final TextEditingController ebankilyPhoneController = TextEditingController();
+  final TextEditingController ebankilyPasscodeController = TextEditingController();
+  final TextEditingController notesController = TextEditingController();
+  
   String selectedPaymentMethod = 'reception';
   bool isLoading = false;
+  bool showBankilyInstructions = false;
+  bool showPaymentDetails = false;
+  
+  // Variables pour les montants
+  double? montantTotal;
+  double montantBankily = 0;
+
+  Map<String, dynamic>? reservationResponse;
+  Map<String, dynamic>? paymentDetails;
 
   final List<Map<String, dynamic>> paymentMethods = [
     {
@@ -2005,7 +2031,7 @@ class _OrderDialogState extends State<OrderDialog> {
       'color': Colors.green,
     },
     {
-      'id': 'bankili',
+      'id': 'ebankily',
       'name': 'Bankili',
       'nameAr': 'بانكيلي',
       'description': 'Paiement via Bankili',
@@ -2025,6 +2051,46 @@ class _OrderDialogState extends State<OrderDialog> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    dateDebutController.text = DateFormat('yyyy-MM-dd').format(now);
+    dateFinController.text = DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 30)));
+    _calculateAmounts();
+  }
+
+void _calculateAmounts() {
+  if (widget.immobilierData == null) {
+    montantTotal = 0;
+    montantBankily = 0;
+    return;
+  }
+
+  // Cas location
+  if (widget.immobilierData?['operation']?['type'] == 'louer' ||
+      widget.immobilierData?['residentiel']?['type_operation'] == 'louer') {
+    final loyer = (widget.immobilierData?['residentiel']?['loyer_mensuel'] ??
+                  widget.immobilierData?['loyer_mensuel'] ?? 0)
+                .toDouble();
+    final dateDebut = DateTime.tryParse(dateDebutController.text);
+    final dateFin = DateTime.tryParse(dateFinController.text);
+
+    if (dateDebut != null && dateFin != null) {
+      final months = (dateFin.difference(dateDebut).inDays / 30).ceil();
+      montantTotal = loyer * months;
+    }
+  } else {
+    montantTotal = (widget.immobilierData?['residentiel']?['montant'] ??
+                   widget.immobilierData?['montant'] ??
+                   0)
+                  .toDouble();
+  }
+
+  // Éviter le null avec valeur par défaut
+  montantBankily = (montantTotal ?? 0) * 2;
+}
+
+  @override
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final screenHeight = MediaQuery.of(context).size.height;
@@ -2034,20 +2100,19 @@ class _OrderDialogState extends State<OrderDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Container(
-        width: screenWidth * 0.95,
-        height: screenHeight * 0.8,
+      child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 500,
-          maxHeight: screenHeight * 0.85,
+          maxHeight: screenHeight * 0.9,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // En-tête
+            // Header
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: pcolor,
+                color: Theme.of(context).primaryColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(20),
                   topRight: Radius.circular(20),
@@ -2073,7 +2138,7 @@ class _OrderDialogState extends State<OrderDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          getTranslated(context, "Commander")!,
+                          getTranslated(context, 'Réservation')!,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -2081,7 +2146,7 @@ class _OrderDialogState extends State<OrderDialog> {
                           ),
                         ),
                         Text(
-                          getTranslated(context, "Formulaire de commande")!,
+                          'Formulaire de réservation',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
                             fontSize: 14,
@@ -2094,233 +2159,603 @@ class _OrderDialogState extends State<OrderDialog> {
               ),
             ),
 
-            // Contenu scrollable
+            // Content
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Informations sur l'immobilier
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            getTranslated(
-                                context, "Informations sur l'immobilier")!,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "ID: ${widget.immobilierId}",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          if (widget.immobilierData != null) ...[
-                            const SizedBox(height: 4),
+                    if (showPaymentDetails && reservationResponse != null) 
+                      _buildReservationSuccess(),
+                    
+                    if (!showPaymentDetails) ...[
+                      // Property information
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              "Adresse: ${widget.immobilierData!['adresse'] ?? 'N/A'}",
+                              "Informations sur l'immobilier",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "ID: ${widget.immobilierId}",
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[600],
+                              ),
+                            ),
+                            if (widget.immobilierData != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                "Adresse: ${widget.immobilierData!['adresse'] ?? 'N/A'}",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Type: ${widget.immobilierData!['operation']?['type'] ?? widget.immobilierData!['residentiel']?['type_operation'] ?? 'N/A'}",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              if (montantTotal != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Montant: ${montantTotal!.toStringAsFixed(0)} MRU",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Reservation period
+                      Text(
+                        "Période de réservation",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: dateDebutController,
+                              decoration: InputDecoration(
+                                labelText: "Date début",
+                                prefixIcon: const Icon(Icons.calendar_today),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                              ),
+                              readOnly: true,
+                              onTap: () => _selectDate(context, dateDebutController),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: dateFinController,
+                              decoration: InputDecoration(
+                                labelText: "Date fin",
+                                prefixIcon: const Icon(Icons.calendar_today),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                              ),
+                              readOnly: true,
+                              onTap: () => _selectDate(context, dateFinController),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // User information
+                      Text(
+                        "Vos informations",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          labelText: "Nom complet",
+                          prefixIcon: const Icon(Icons.person),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: "Numéro de téléphone",
+                          prefixIcon: const Icon(Icons.phone),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: notesController,
+                        decoration: InputDecoration(
+                          labelText: "Notes (optionnel)",
+                          prefixIcon: const Icon(Icons.note),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Payment methods
+                      Text(
+                        "Moyen de paiement",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...paymentMethods.map((method) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: RadioListTile<String>(
+                              value: method['id'],
+                              groupValue: selectedPaymentMethod,
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedPaymentMethod = value!;
+                                  showBankilyInstructions = false;
+                                });
+                              },
+                              title: Text(
+                                isArabic ? method['nameAr'] : method['name'],
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                isArabic ? method['descriptionAr'] : method['description'],
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              secondary: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: method['color'].withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  method['icon'],
+                                  color: method['color'],
+                                  size: 20,
+                                ),
+                              ),
+                              activeColor: method['color'],
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              tileColor: selectedPaymentMethod == method['id']
+                                  ? method['color'].withOpacity(0.05)
+                                  : null,
+                            ),
+                          )),
+
+                      // Bankily instructions
+                      if (selectedPaymentMethod == 'ebankily' && showBankilyInstructions)
+                        _buildBankilyInstructions(),
+
+                      // Bankily fields
+                      if (selectedPaymentMethod == 'ebankily' && widget.merchantCode != null)
+                        Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            TextField(
+                              controller: ebankilyPhoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: InputDecoration(
+                                labelText: "Votre numéro Bankili",
+                                prefixIcon: const Icon(Icons.phone_android),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: ebankilyPasscodeController,
+                              keyboardType: TextInputType.number,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: "Code de confirmation Bankili",
+                                prefixIcon: const Icon(Icons.lock),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Champs de saisie
-                    Text(
-                      getTranslated(context, "Vos informations")!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText: getTranslated(context, "Nom complet")!,
-                        prefixIcon: const Icon(Icons.person),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
                         ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText:
-                            getTranslated(context, "Numéro de téléphone")!,
-                        prefixIcon: const Icon(Icons.phone),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Moyens de paiement
-                    Text(
-                      getTranslated(context, "Moyen de paiement")!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    ...paymentMethods.map((method) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: RadioListTile<String>(
-                            value: method['id'],
-                            groupValue: selectedPaymentMethod,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedPaymentMethod = value!;
-                              });
-                            },
-                            title: Text(
-                              isArabic ? method['nameAr'] : method['name'],
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              isArabic
-                                  ? method['descriptionAr']
-                                  : method['description'],
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            secondary: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: method['color'].withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                method['icon'],
-                                color: method['color'],
-                                size: 20,
-                              ),
-                            ),
-                            activeColor: method['color'],
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            tileColor: selectedPaymentMethod == method['id']
-                                ? method['color'].withOpacity(0.05)
-                                : null,
-                          ),
-                        )),
+                    ],
                   ],
                 ),
               ),
             ),
-
-            // Boutons
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
+            // Buttons
+            if (!showPaymentDetails)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        child: Text(
+                          "Annuler",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isLoading 
+                            ? null 
+                            : () {
+                                if (selectedPaymentMethod == 'ebankily' && !showBankilyInstructions) {
+                                  setState(() {
+                                    showBankilyInstructions = true;
+                                  });
+                                } else {
+                                  _submitReservation();
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Text(
+                                selectedPaymentMethod == 'ebankily' && !showBankilyInstructions
+                                    ? "Générer code"
+                                    : "Confirmer",
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300],
-                        foregroundColor: Colors.black87,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        getTranslated(context, "Annuler")!,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : () => _submitOrder(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: pcolor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : Text(
-                              getTranslated(context, "Commander")!,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _submitOrder() async {
-    if (nameController.text.isEmpty || phoneController.text.isEmpty) {
+  Widget _buildBankilyInstructions() {
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue[100]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Instructions de paiement Bankili",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Code marchand",
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue),
+                  ),
+                  child: Text(
+                    widget.merchantCode ?? '',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.copy, color: Colors.blue),
+                onPressed: () {
+                  if (widget.merchantCode != null) {
+                    Clipboard.setData(ClipboardData(text: widget.merchantCode!));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Code copié"),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: "1. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: "Copiez le code marchand ci-dessus",
+                ),
+                const TextSpan(text: "\n"),
+                TextSpan(
+                  text: "2. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: "Ouvrez l'application Bankili",
+                ),
+                const TextSpan(text: "\n"),
+                TextSpan(
+                  text: "3. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: "Cliquez sur B-Pay",
+                ),
+                const TextSpan(text: "\n"),
+                TextSpan(
+                  text: "4. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: "Entrez le code marchand copié",
+                ),
+                const TextSpan(text: "\n"),
+                TextSpan(
+                  text: "5. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: "Entrez le montant: ${montantBankily.toStringAsFixed(0)} MRU", // Montant doublé
+                ),
+                const TextSpan(text: "\n"),
+                TextSpan(
+                  text: "6. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: "Bankili vous donnera un code de confirmation",
+                ),
+                const TextSpan(text: "\n"),
+                TextSpan(
+                  text: "7. ",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: "Entrez le code de confirmation ci-dessous",
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservationSuccess() {
+    final reservation = reservationResponse?['reservation'];
+    final payment = reservationResponse?['payment_details'];
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green[100]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green),
+              const SizedBox(width: 8),
+              Text(
+                reservationResponse?['message'] ?? "Réservation confirmée",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Numéro de réservation: ${reservation?['id'] ?? ''}",
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Statut: ${reservation?['statut'] ?? ''}",
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Montant total: ${reservation?['montant_total'] ?? ''} MRU",
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Moyen de paiement: ${payment?['method'] ?? reservation?['moyen_paiement'] ?? ''}",
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          
+          if (payment?['transaction_id'] != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              "Transaction ID: ${payment?['transaction_id'] ?? ''}",
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+          
+          if (payment?['message'] != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              payment?['message'] ?? '',
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        controller.text = DateFormat('yyyy-MM-dd').format(picked);
+        _calculateAmounts(); // Recalculer les montants quand la date change
+      });
+    }
+  }
+
+  Future<void> _submitReservation() async {
+    if (nameController.text.isEmpty || phoneController.text.isEmpty || 
+        dateDebutController.text.isEmpty || dateFinController.text.isEmpty) {
+          
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text(getTranslated(context, "Veuillez remplir tous les champs")!),
+        const SnackBar(
+          content: Text("Veuillez remplir tous les champs obligatoires"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (selectedPaymentMethod == 'ebankily' && 
+        (ebankilyPhoneController.text.isEmpty || ebankilyPasscodeController.text.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Veuillez remplir les informations Bankili"),
           backgroundColor: Colors.red,
         ),
       );
@@ -2337,8 +2772,8 @@ class _OrderDialogState extends State<OrderDialog> {
 
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(context, "Session expirée")!),
+          const SnackBar(
+            content: Text("Session expirée"),
             backgroundColor: Colors.red,
           ),
         );
@@ -2348,62 +2783,58 @@ class _OrderDialogState extends State<OrderDialog> {
         return;
       }
 
+      // Utiliser montantBankily si paiement via Bankily, sinon montantTotal
+      final double montantAPayer = selectedPaymentMethod == 'ebankily' 
+          ? montantBankily 
+          : montantTotal ?? 0;
+
+      final Map<String, dynamic> requestBody = {
+        'immobilier_id': widget.immobilierId,
+        'date_debut': dateDebutController.text,
+        'date_fin': dateFinController.text,
+        'moyen_paiement': selectedPaymentMethod,
+        'notes': notesController.text,
+        'montant_total': montantAPayer, // Envoyer le montant approprié
+      };
+
+      if (selectedPaymentMethod == 'ebankily') {
+        requestBody['ebankily_phone'] = ebankilyPhoneController.text;
+        requestBody['ebankily_passcode'] = ebankilyPasscodeController.text;
+      }
+
       final response = await http.post(
-        Uri.parse('https://akarina.online/akareena/orders/create/'),
+        Uri.parse('https://akarina.online/akareena/reservations/create/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'immobilier_id': widget.immobilierId,
-          'client_name': nameController.text,
-          'client_phone': phoneController.text,
-          'payment_method': selectedPaymentMethod,
-          'status': 'pending',
-        }),
+        body: jsonEncode(requestBody),
       );
-
-      print("📡 Status Code: ${response.statusCode}");
-      print("📄 Response Body: ${response.body}");
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
-        print("✅ Commande créée avec succès: $responseData");
+        setState(() {
+          reservationResponse = responseData;
+          paymentDetails = responseData['payment_details'];
+          showPaymentDetails = true;
+          isLoading = false;
+        });
 
         await _updateImmobilierStatus(false);
-
-        setState(() {
-          isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(getTranslated(context, "Commande envoyée avec succès")!),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.pop(context);
       } else {
         final errorData = jsonDecode(response.body);
-        print("❌ Erreur création commande: $errorData");
-
         setState(() {
           isLoading = false;
         });
-
+        print('==================+++++++++$errorData');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorData['message'] ??
-                getTranslated(
-                    context, "Erreur lors de la création de la commande")!),
+            content: Text(errorData['message'] ?? "Erreur lors de la création de la réservation"),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      print("💥 Exception lors de la création de commande: $e");
       setState(() {
         isLoading = false;
       });
@@ -2422,14 +2853,10 @@ class _OrderDialogState extends State<OrderDialog> {
       final storage = const FlutterSecureStorage();
       final String? token = await storage.read(key: "access");
 
-      if (token == null) {
-        print("❌ Token non trouvé pour mise à jour statut");
-        return;
-      }
+      if (token == null) return;
 
-      final response = await http.patch(
-        Uri.parse(
-            'https://akarina.online/akareena/imobiers/${widget.immobilierId}/'),
+      await http.patch(
+        Uri.parse('https://akarina.online/akareena/imobiers/${widget.immobilierId}/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -2438,18 +2865,8 @@ class _OrderDialogState extends State<OrderDialog> {
           'available': available,
         }),
       );
-
-      print("📡 Status Code (mise à jour): ${response.statusCode}");
-      print("📄 Response Body (mise à jour): ${response.body}");
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        print("✅ Statut immobilier mis à jour: $responseData");
-      } else {
-        print("❌ Erreur mise à jour statut immobilier: ${response.statusCode}");
-      }
     } catch (e) {
-      print("💥 Exception lors de la mise à jour du statut: $e");
+      print("Erreur mise à jour statut immobilier: $e");
     }
   }
 }
