@@ -5,6 +5,7 @@ class LoginModel
   int?id;
   String?refresh;
   String? access;
+  String? role;
 
   LoginModel.fromJason(Map<String,dynamic> json)
   {
@@ -12,6 +13,7 @@ class LoginModel
     id = json['id'];
     refresh = json['refresh'];
     access = json['access'];
+    role = json['role'];
 
   }
 }

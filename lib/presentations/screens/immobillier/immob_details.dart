@@ -12,6 +12,7 @@ import 'package:akarina/size_config.dart';
 import 'package:akarina/data/models/user.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:developer';
 import 'package:photo_view/photo_view.dart';
@@ -19,6 +20,9 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:akarina/data/services/connectivity_service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextDirection; // Explicit import
+import 'package:akarina/presentations/screens/login/index_login.dart';
 
 class ImmobDetails extends StatefulWidget {
   final int id;
@@ -42,11 +46,21 @@ class _ImmobDetailsState extends State<ImmobDetails> {
   double averageRating = 0.0;
   bool hasInternetConnection = true;
   final FlutterSecureStorage storage = const FlutterSecureStorage();
+  bool isSessionActive = false;
 
   @override
   void initState() {
     super.initState();
     _initializeData();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    final storage = const FlutterSecureStorage();
+    final String? token = await storage.read(key: "access");
+    setState(() {
+      isSessionActive = token != null && token.isNotEmpty;
+    });
   }
 
   Future<void> _initializeData() async {
@@ -340,7 +354,29 @@ class _ImmobDetailsState extends State<ImmobDetails> {
       );
     }
   }
-
+  void _showSessionExpiredDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(getTranslated(context, "Session Expirée")!),
+          content: Text(getTranslated(context, "Votre session a expiré. Veuillez vous reconnecter.")!),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const IndexLogin()),
+                );
+              },
+              child: Text(getTranslated(context, "Se reconnecter")!),
+            ),
+          ],
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     // Afficher la page d'erreur de connexion si pas de connexion internet
@@ -381,7 +417,22 @@ class _ImmobDetailsState extends State<ImmobDetails> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
+        try {
+          final String? token = await storage.read(key: "access");
+          
+          if (token == null) {
+            _showSessionExpiredDialog();
+            return;
+          }
+          } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur : $e")),
+      );
+    }
           _showOrderDialog();
         },
         backgroundColor: pcolor,
@@ -1982,7 +2033,6 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
 }
 
 
-
 class OrderDialog extends StatefulWidget {
   final int immobilierId;
   final Map<String, dynamic>? immobilierData;
@@ -2000,6 +2050,7 @@ class OrderDialog extends StatefulWidget {
 }
 
 class _OrderDialogState extends State<OrderDialog> {
+  // Contrôleurs
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController dateDebutController = TextEditingController();
@@ -2007,46 +2058,47 @@ class _OrderDialogState extends State<OrderDialog> {
   final TextEditingController ebankilyPhoneController = TextEditingController();
   final TextEditingController ebankilyPasscodeController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
-  
+  final TextEditingController passwordController = TextEditingController();
+
+  // État
   String selectedPaymentMethod = 'reception';
   bool isLoading = false;
   bool showBankilyInstructions = false;
   bool showPaymentDetails = false;
-  
-  // Variables pour les montants
   double? montantTotal;
   double montantBankily = 0;
-
   Map<String, dynamic>? reservationResponse;
   Map<String, dynamic>? paymentDetails;
 
+  // Méthodes de paiement
   final List<Map<String, dynamic>> paymentMethods = [
     {
       'id': 'reception',
-      'name': 'Paiement à la réception',
+      'name': 'reception',
       'nameAr': 'الدفع عند الاستلام',
-      'description': 'Payez lors de la réception du bien',
+      'description': 'reception_desc',
       'descriptionAr': 'ادفع عند استلام العقار',
       'icon': Icons.delivery_dining,
       'color': Colors.green,
     },
     {
       'id': 'ebankily',
-      'name': 'Bankili',
+      'name': 'ebankily',
       'nameAr': 'بانكيلي',
-      'description': 'Paiement via Bankili',
+      'description': 'ebankily_desc',
       'descriptionAr': 'الدفع عبر بانكيلي',
       'icon': Icons.payment,
       'color': Colors.blue,
     },
     {
       'id': 'seddad',
-      'name': 'Seddad',
+      'name': 'seddad',
       'nameAr': 'سداد',
-      'description': 'Paiement via Seddad',
+      'description': 'seddad_desc',
       'descriptionAr': 'الدفع عبر سداد',
       'icon': Icons.payment,
       'color': Colors.orange,
+      'disabled': true,
     },
   ];
 
@@ -2059,466 +2111,404 @@ class _OrderDialogState extends State<OrderDialog> {
     _calculateAmounts();
   }
 
-void _calculateAmounts() {
-  if (widget.immobilierData == null) {
-    montantTotal = 0;
-    montantBankily = 0;
-    return;
-  }
+  void _calculateAmounts() {
+    if (widget.immobilierData == null) {
+      montantTotal = 0;
+      montantBankily = 0;
+      return;
+    }
 
-  // Cas location
-  if (widget.immobilierData?['operation']?['type'] == 'louer' ||
-      widget.immobilierData?['residentiel']?['type_operation'] == 'louer') {
-    final loyer = (widget.immobilierData?['residentiel']?['loyer_mensuel'] ??
+    if (widget.immobilierData?['operation']?['type'] == 'louer' ||
+        widget.immobilierData?['residentiel']?['type_operation'] == 'louer') {
+      final loyer = (widget.immobilierData?['residentiel']?['loyer_mensuel'] ??
                   widget.immobilierData?['loyer_mensuel'] ?? 0)
                 .toDouble();
-    final dateDebut = DateTime.tryParse(dateDebutController.text);
-    final dateFin = DateTime.tryParse(dateFinController.text);
+      final dateDebut = DateTime.tryParse(dateDebutController.text);
+      final dateFin = DateTime.tryParse(dateFinController.text);
 
-    if (dateDebut != null && dateFin != null) {
-      final months = (dateFin.difference(dateDebut).inDays / 30).ceil();
-      montantTotal = loyer * months;
-    }
-  } else {
-    montantTotal = (widget.immobilierData?['residentiel']?['montant'] ??
+      if (dateDebut != null && dateFin != null) {
+        final months = (dateFin.difference(dateDebut).inDays / 30).ceil();
+        montantTotal = loyer * months;
+      }
+    } else {
+      montantTotal = (widget.immobilierData?['residentiel']?['montant'] ??
                    widget.immobilierData?['montant'] ??
                    0)
                   .toDouble();
+    }
+
+    montantBankily = (montantTotal ?? 0) * 2;
   }
 
-  // Éviter le null avec valeur par défaut
-  montantBankily = (montantTotal ?? 0) * 2;
-}
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 500,
-          maxHeight: screenHeight * 0.9,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.shopping_cart,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          getTranslated(context, 'Réservation')!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Formulaire de réservation',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (showPaymentDetails && reservationResponse != null) 
-                      _buildReservationSuccess(),
-                    
-                    if (!showPaymentDetails) ...[
-                      // Property information
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Informations sur l'immobilier",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "ID: ${widget.immobilierId}",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            if (widget.immobilierData != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                "Adresse: ${widget.immobilierData!['adresse'] ?? 'N/A'}",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Type: ${widget.immobilierData!['operation']?['type'] ?? widget.immobilierData!['residentiel']?['type_operation'] ?? 'N/A'}",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              if (montantTotal != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  "Montant: ${montantTotal!.toStringAsFixed(0)} MRU",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Reservation period
-                      Text(
-                        "Période de réservation",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: dateDebutController,
-                              decoration: InputDecoration(
-                                labelText: "Date début",
-                                prefixIcon: const Icon(Icons.calendar_today),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                              readOnly: true,
-                              onTap: () => _selectDate(context, dateDebutController),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextField(
-                              controller: dateFinController,
-                              decoration: InputDecoration(
-                                labelText: "Date fin",
-                                prefixIcon: const Icon(Icons.calendar_today),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                              readOnly: true,
-                              onTap: () => _selectDate(context, dateFinController),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // User information
-                      Text(
-                        "Vos informations",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: nameController,
-                        decoration: InputDecoration(
-                          labelText: "Nom complet",
-                          prefixIcon: const Icon(Icons.person),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: "Numéro de téléphone",
-                          prefixIcon: const Icon(Icons.phone),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: notesController,
-                        decoration: InputDecoration(
-                          labelText: "Notes (optionnel)",
-                          prefixIcon: const Icon(Icons.note),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                        ),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Payment methods
-                      Text(
-                        "Moyen de paiement",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...paymentMethods.map((method) => Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: RadioListTile<String>(
-                              value: method['id'],
-                              groupValue: selectedPaymentMethod,
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedPaymentMethod = value!;
-                                  showBankilyInstructions = false;
-                                });
-                              },
-                              title: Text(
-                                isArabic ? method['nameAr'] : method['name'],
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                isArabic ? method['descriptionAr'] : method['description'],
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              secondary: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: method['color'].withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  method['icon'],
-                                  color: method['color'],
-                                  size: 20,
-                                ),
-                              ),
-                              activeColor: method['color'],
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              tileColor: selectedPaymentMethod == method['id']
-                                  ? method['color'].withOpacity(0.05)
-                                  : null,
-                            ),
-                          )),
-
-                      // Bankily instructions
-                      if (selectedPaymentMethod == 'ebankily' && showBankilyInstructions)
-                        _buildBankilyInstructions(),
-
-                      // Bankily fields
-                      if (selectedPaymentMethod == 'ebankily' && widget.merchantCode != null)
-                        Column(
-                          children: [
-                            const SizedBox(height: 20),
-                            TextField(
-                              controller: ebankilyPhoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(
-                                labelText: "Votre numéro Bankili",
-                                prefixIcon: const Icon(Icons.phone_android),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: ebankilyPasscodeController,
-                              keyboardType: TextInputType.number,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: "Code de confirmation Bankili",
-                                prefixIcon: const Icon(Icons.lock),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            // Buttons
-            if (!showPaymentDetails)
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Directionality(
+        textDirection: getAppTextDirection(context),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 500,
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).primaryColor,
                   borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 5,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
                 ),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        child: Text(
-                          "Annuler",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[700],
-                          ),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.shopping_cart,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: isLoading 
-                            ? null 
-                            : () {
-                                if (selectedPaymentMethod == 'ebankily' && !showBankilyInstructions) {
-                                  setState(() {
-                                    showBankilyInstructions = true;
-                                  });
-                                } else {
-                                  _submitReservation();
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            getTranslated(context, "reservation_title")!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Text(
-                                selectedPaymentMethod == 'ebankily' && !showBankilyInstructions
-                                    ? "Générer code"
-                                    : "Confirmer",
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
+                          Text(
+                            getTranslated(context, "reservation_subtitle")!,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-          ],
+
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showPaymentDetails && reservationResponse != null) 
+                        _buildReservationSuccess(context),
+                      
+                      if (!showPaymentDetails) ...[
+                        // Property Info
+                        _buildPropertyInfo(context),
+                        const SizedBox(height: 20),
+
+                        // Dates
+                        _buildDateInputs(context),
+                        const SizedBox(height: 20),
+
+                        // Client Info
+                        _buildClientInfo(context),
+                        const SizedBox(height: 20),
+
+                        // Payment Methods
+                        Text(
+                          getTranslated(context, "payment_method")!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...paymentMethods.map((method) => _buildPaymentMethodTile(context, method)),
+
+                        // Bankily Instructions
+                        if (selectedPaymentMethod == 'ebankily' && showBankilyInstructions)
+                          _buildBankilyInstructions(context),
+
+                        // Bankily Fields
+                        if (selectedPaymentMethod == 'ebankily' && widget.merchantCode != null)
+                          _buildBankilyFields(context),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // Buttons
+              if (!showPaymentDetails) _buildActionButtons(context),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBankilyInstructions() {
+  Widget _buildPropertyInfo(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            getTranslated(context, "property_info")!,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "${getTranslated(context, "id")!}: ${widget.immobilierId}",
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          if (widget.immobilierData != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              "${getTranslated(context, "address")!}: ${widget.immobilierData!['adresse'] ?? 'N/A'}",
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "${getTranslated(context, "type")!}: ${widget.immobilierData!['operation']?['type'] ?? widget.immobilierData!['residentiel']?['type_operation'] ?? 'N/A'}",
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            if (montantTotal != null) ...[
+              const SizedBox(height: 4),
+
+              // Text(
+
+              //   "${getTranslated(context, "amount")!}: ${montantTotal!.toStringAsFixed(0)}MRU",
+              //   style: TextStyle(
+              //     fontSize: 14,
+              //     color: Colors.grey[600],
+              //   ),
+              // ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateInputs(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          getTranslated(context, "reservation_period")!,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: dateDebutController,
+                decoration: InputDecoration(
+                  labelText: getTranslated(context, "start_date")!,
+                  prefixIcon: const Icon(Icons.calendar_today),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                ),
+                readOnly: true,
+                onTap: () => _selectDate(context, dateDebutController),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: dateFinController,
+                decoration: InputDecoration(
+                  labelText: getTranslated(context, "end_date")!,
+                  prefixIcon: const Icon(Icons.calendar_today),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                ),
+                readOnly: true,
+                onTap: () => _selectDate(context, dateFinController),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClientInfo(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          getTranslated(context, "your_info")!,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: nameController,
+          decoration: InputDecoration(
+            labelText: getTranslated(context, "full_name")!,
+            prefixIcon: const Icon(Icons.person),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            labelText: getTranslated(context, "phone_number")!,
+            prefixIcon: const Icon(Icons.phone),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: notesController,
+          decoration: InputDecoration(
+            labelText: getTranslated(context, "notes_optional")!,
+            prefixIcon: const Icon(Icons.note),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+          maxLines: 2,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentMethodTile(BuildContext context, Map<String, dynamic> method) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDisabled = method['disabled'] == true;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: AbsorbPointer(
+        absorbing: isDisabled,
+        child: Opacity(
+          opacity: isDisabled ? 0.6 : 1.0,
+          child: RadioListTile<String>(
+            value: method['id'],
+            groupValue: selectedPaymentMethod,
+            onChanged: isDisabled 
+                ? null 
+                : (value) {
+                    if (value == 'seddad') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(getTranslated(context, "seddad_unavailable")!),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    setState(() {
+                      selectedPaymentMethod = value!;
+                      showBankilyInstructions = false;
+                    });
+                  },
+            title: Text(
+              isArabic ? method['nameAr'] : getTranslated(context, method['name'])!,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDisabled ? Colors.grey : null,
+              ),
+            ),
+            subtitle: Text(
+              isArabic ? method['descriptionAr'] : getTranslated(context, method['description'])!,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDisabled ? Colors.grey : Colors.grey[600],
+              ),
+            ),
+            secondary: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: method['color'].withOpacity(isDisabled ? 0.05 : 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                method['icon'],
+                color: isDisabled ? Colors.grey : method['color'],
+                size: 20,
+              ),
+            ),
+            activeColor: isDisabled ? Colors.grey : method['color'],
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            tileColor: selectedPaymentMethod == method['id']
+                ? method['color'].withOpacity(0.05)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBankilyInstructions(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.all(16),
@@ -2536,7 +2526,7 @@ void _calculateAmounts() {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Instructions de paiement Bankili",
+                  getTranslated(context, "bankily_instructions")!,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.blue,
@@ -2547,7 +2537,7 @@ void _calculateAmounts() {
           ),
           const SizedBox(height: 12),
           Text(
-            "Code marchand",
+            getTranslated(context, "merchant_code")!,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -2577,8 +2567,8 @@ void _calculateAmounts() {
                   if (widget.merchantCode != null) {
                     Clipboard.setData(ClipboardData(text: widget.merchantCode!));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Code copié"),
+                      SnackBar(
+                        content: Text(getTranslated(context, "code_copied")!),
                       ),
                     );
                   }
@@ -2594,32 +2584,32 @@ void _calculateAmounts() {
                   text: "1. ",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const TextSpan(
-                  text: "Copiez le code marchand ci-dessus",
+                TextSpan(
+                  text: getTranslated(context, "bankily_step1")!,
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
                   text: "2. ",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const TextSpan(
-                  text: "Ouvrez l'application Bankili",
+                TextSpan(
+                  text: getTranslated(context, "bankily_step2")!,
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
                   text: "3. ",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const TextSpan(
-                  text: "Cliquez sur B-Pay",
+                TextSpan(
+                  text: getTranslated(context, "bankily_step3")!,
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
                   text: "4. ",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const TextSpan(
-                  text: "Entrez le code marchand copié",
+                TextSpan(
+                  text: getTranslated(context, "bankily_step4")!,
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
@@ -2627,23 +2617,23 @@ void _calculateAmounts() {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 TextSpan(
-                  text: "Entrez le montant: ${montantBankily.toStringAsFixed(0)} MRU", // Montant doublé
+                  text: "${getTranslated(context, "bankily_step5")!} ${montantBankily.toStringAsFixed(0)} MRU",
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
                   text: "6. ",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const TextSpan(
-                  text: "Bankili vous donnera un code de confirmation",
+                TextSpan(
+                  text: getTranslated(context, "bankily_step6")!,
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
                   text: "7. ",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const TextSpan(
-                  text: "Entrez le code de confirmation ci-dessous",
+                TextSpan(
+                  text: getTranslated(context, "bankily_step7")!,
                 ),
               ],
             ),
@@ -2653,7 +2643,43 @@ void _calculateAmounts() {
     );
   }
 
-  Widget _buildReservationSuccess() {
+  Widget _buildBankilyFields(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        TextField(
+          controller: ebankilyPhoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            labelText: getTranslated(context, "bankily_phone")!,
+            prefixIcon: const Icon(Icons.phone_android),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: ebankilyPasscodeController,
+          keyboardType: TextInputType.number,
+          obscureText: false,
+          decoration: InputDecoration(
+            labelText: getTranslated(context, "bankily_passcode")!,
+            prefixIcon: const Icon(Icons.lock),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReservationSuccess(BuildContext context) {
     final reservation = reservationResponse?['reservation'];
     final payment = reservationResponse?['payment_details'];
     
@@ -2674,7 +2700,7 @@ void _calculateAmounts() {
               const Icon(Icons.check_circle, color: Colors.green),
               const SizedBox(width: 8),
               Text(
-                reservationResponse?['message'] ?? "Réservation confirmée",
+                reservationResponse?['message'] ?? getTranslated(context, "reservation_confirmed")!,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.green,
@@ -2684,29 +2710,29 @@ void _calculateAmounts() {
           ),
           const SizedBox(height: 16),
           Text(
-            "Numéro de réservation: ${reservation?['id'] ?? ''}",
+            "${getTranslated(context, "reservation_number")!}: ${reservation?['id'] ?? ''}",
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
-            "Statut: ${reservation?['statut'] ?? ''}",
+            "${getTranslated(context, "status")!}: ${reservation?['statut'] ?? ''}",
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
-            "Montant total: ${reservation?['montant_total'] ?? ''} MRU",
+            "${getTranslated(context, "total_amount")!}: ${reservation?['montant_total'] ?? ''} MRU",
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
-            "Moyen de paiement: ${payment?['method'] ?? reservation?['moyen_paiement'] ?? ''}",
+            "${getTranslated(context, "payment_method")!}: ${payment?['method'] ?? reservation?['moyen_paiement'] ?? ''}",
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           
           if (payment?['transaction_id'] != null) ...[
             const SizedBox(height: 8),
             Text(
-              "Transaction ID: ${payment?['transaction_id'] ?? ''}",
+              "${getTranslated(context, "transaction_id")!}: ${payment?['transaction_id'] ?? ''}",
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
@@ -2723,6 +2749,96 @@ void _calculateAmounts() {
     );
   }
 
+  Widget _buildActionButtons(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(color: Colors.grey[300]!),
+              ),
+              child: Text(
+                getTranslated(context, "cancel")!,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: isLoading 
+                  ? null 
+                  : () {
+                      if (selectedPaymentMethod == 'ebankily' && !showBankilyInstructions) {
+                        setState(() {
+                          showBankilyInstructions = true;
+                        });
+                      } else if (selectedPaymentMethod == 'seddad') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(getTranslated(context, "seddad_unavailable")!),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      } else {
+                        _showPasswordDialog();
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      selectedPaymentMethod == 'ebankily' && !showBankilyInstructions
+                          ? getTranslated(context, "generate_code")!
+                          : getTranslated(context, "confirm")!,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -2733,18 +2849,99 @@ void _calculateAmounts() {
     if (picked != null) {
       setState(() {
         controller.text = DateFormat('yyyy-MM-dd').format(picked);
-        _calculateAmounts(); // Recalculer les montants quand la date change
+        _calculateAmounts();
       });
     }
   }
 
-  Future<void> _submitReservation() async {
+  void _showPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final fieldWidth = (screenWidth * 0.13).clamp(40.0, 60.0);
+        
+        return AlertDialog(
+          title: Center(child: Text(getTranslated(context, "password")!)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(getTranslated(context, "enter_password_to_confirm")!),
+              const SizedBox(height: 24),
+              PinCodeTextField(
+                appContext: context,
+                length: 4,
+                obscureText: true,
+                
+                animationType: AnimationType.none,
+                keyboardType: TextInputType.number,
+                pinTheme: PinTheme(
+                  shape: PinCodeFieldShape.box,
+                  borderRadius: BorderRadius.circular(8),
+                  fieldHeight: fieldWidth,
+                  fieldWidth: fieldWidth,
+                  activeFillColor: Colors.white,
+                  activeColor: Theme.of(context).primaryColor,
+                  selectedColor: Theme.of(context).primaryColor,
+                  inactiveColor: Colors.grey.shade300,
+                ),
+                onCompleted: (pin) {
+                  Navigator.pop(context);
+                  _submitReservation(password: pin);
+                },
+                onChanged: (value) {
+                  passwordController.text = value;
+                },
+              ),
+            ],
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        isLoading = false;
+                      });
+                    },
+                    child: Text(getTranslated(context, "cancel")!),
+                  ),
+                ),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (passwordController.text.length != 4) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(getTranslated(context, "pin_4_digits_required")!),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.pop(context);
+                      _submitReservation(password: passwordController.text);
+                    },
+                    child: Text(getTranslated(context, "confirm")!),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      
+      },
+    );
+  }
+
+  Future<void> _submitReservation({String? password}) async {
     if (nameController.text.isEmpty || phoneController.text.isEmpty || 
         dateDebutController.text.isEmpty || dateFinController.text.isEmpty) {
-          
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Veuillez remplir tous les champs obligatoires"),
+        SnackBar(
+          content: Text(getTranslated(context, "fill_required_fields")!),
           backgroundColor: Colors.red,
         ),
       );
@@ -2754,8 +2951,8 @@ void _calculateAmounts() {
     if (selectedPaymentMethod == 'ebankily' && 
         (ebankilyPhoneController.text.isEmpty || ebankilyPasscodeController.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Veuillez remplir les informations Bankili"),
+        SnackBar(
+          content: Text(getTranslated(context, "fill_bankily_info")!),
           backgroundColor: Colors.red,
         ),
       );
@@ -2772,8 +2969,8 @@ void _calculateAmounts() {
 
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Session expirée"),
+          SnackBar(
+            content: Text(getTranslated(context, "session_expired")!),
             backgroundColor: Colors.red,
           ),
         );
@@ -2783,7 +2980,6 @@ void _calculateAmounts() {
         return;
       }
 
-      // Utiliser montantBankily si paiement via Bankily, sinon montantTotal
       final double montantAPayer = selectedPaymentMethod == 'ebankily' 
           ? montantBankily 
           : montantTotal ?? 0;
@@ -2794,7 +2990,9 @@ void _calculateAmounts() {
         'date_fin': dateFinController.text,
         'moyen_paiement': selectedPaymentMethod,
         'notes': notesController.text,
-        'montant_total': montantAPayer, // Envoyer le montant approprié
+        'montant_total': montantAPayer,
+        'language': Localizations.localeOf(context).languageCode,
+        'password': password,
       };
 
       if (selectedPaymentMethod == 'ebankily') {
@@ -2821,15 +3019,160 @@ void _calculateAmounts() {
         });
 
         await _updateImmobilierStatus(false);
+
+        // Afficher le dialog de succès avec case à cocher et bouton confirmer
+        bool hasChecked = false;
+        final reservation = responseData['reservation'];
+        final payment = responseData['payment_details'];
+        final reservationId = reservation != null ? reservation['id'] : null;
+        final reservationUrl = reservationId != null ? 'https://akarina.online/akareena/reservations/$reservationId/' : null;
+        final transactionId = payment != null ? payment['transaction_id'] : null;
+        
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) {
+              return StatefulBuilder(
+                builder: (context, setState) {
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 60),
+                        const SizedBox(height: 16),
+                        Text(
+                          getTranslated(context, "update")!,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (transactionId != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            "${getTranslated(context, "ID de la transaction")!}: $transactionId",
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                        if (reservationId != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            "${getTranslated(context, "reservation_id")!}: $reservationId",
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                        // if (reservationUrl != null) ...[
+                        //   const SizedBox(height: 8),
+                        //   InkWell(
+                        //     onTap: () async {
+                        //       final url = Uri.parse(reservationUrl);
+                        //       if (await canLaunchUrl(url)) {
+                        //         await launchUrl(url, mode: LaunchMode.externalApplication);
+                        //       }
+                        //     },
+                        //     child: Text(
+                              
+                        //       getTranslated(context, "Voir la réservation")!,
+                        //       style: const TextStyle(
+                        //         color: Colors.blue,
+                        //         decoration: TextDecoration.underline,
+                        //         fontWeight: FontWeight.w600,
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ],
+                        
+                        const SizedBox(height: 12),
+                        Text(
+                          getTranslated(context, "merci_capture")!,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: hasChecked,
+                              onChanged: (val) {
+                                setState(() {
+                                  hasChecked = val ?? false;
+                                });
+                              },
+                            ),
+                            Expanded(
+                              child: Text(getTranslated(context, "capture_ok")!),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: hasChecked
+                              ? () async {
+                                  // Fermer les dialogues
+                                  Navigator.of(context, rootNavigator: true).pop(); // Ferme le dialog actuel
+                                  Navigator.of(context).pop(); // Ferme le dialog de réservation
+
+                                  // Réinitialiser l'état local
+                                  if (mounted) {
+                                    setState(() {
+                                      showPaymentDetails = false;
+                                      reservationResponse = null;
+                                    });
+                                  }
+
+                                  // Rafraîchir la page principale
+                                  if (context.mounted) {
+                                    // Afficher le message de confirmation
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(getTranslated(context, "page_refresh")!),
+                                        backgroundColor: Colors.green,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+
+                                    // Solution 1: Si vous utilisez une StatefulWidget pour la page principale
+                                    if (context.findAncestorStateOfType<_ImmobDetailsState>() != null) {
+                                      context.findAncestorStateOfType<_ImmobDetailsState>()!._initializeData();
+                                    }
+
+                                    // Solution 2: Rechargement complet de la page (alternative)
+                                    // await Future.delayed(const Duration(seconds: 2)); // Attendre que le SnackBar disparaisse
+                                    // if (context.mounted) {
+                                    //   Navigator.pushReplacement(
+                                    //     context,
+                                    //     MaterialPageRoute(
+                                    //       builder: (context) => ImmobDetailsPage(
+                                    //         key: UniqueKey(), // Force le rechargement
+                                    //         immobilierId: widget.immobilierId,
+                                    //       ),
+                                    //     ),
+                                    //   );
+                                    // }
+                                  }
+                                }
+                              : null,
+                          child: Text(getTranslated(context, "Confirmer")!),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        }
+        return;
       } else {
         final errorData = jsonDecode(response.body);
         setState(() {
           isLoading = false;
         });
-        print('==================+++++++++$errorData');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorData['message'] ?? "Erreur lors de la création de la réservation"),
+            content: Text(errorData['message'] ?? getTranslated(context, "reservation_error")!),
             backgroundColor: Colors.red,
           ),
         );
@@ -2841,7 +3184,7 @@ void _calculateAmounts() {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Erreur: $e"),
+          content: Text("${getTranslated(context, "error")!}: $e"),
           backgroundColor: Colors.red,
         ),
       );
@@ -2866,10 +3209,11 @@ void _calculateAmounts() {
         }),
       );
     } catch (e) {
-      print("Erreur mise à jour statut immobilier: $e");
+      debugPrint("Erreur mise à jour statut immobilier: $e");
     }
   }
 }
+
 
 class AddReviewDialog extends StatefulWidget {
   final Function(int rating, String comment) onSubmit;

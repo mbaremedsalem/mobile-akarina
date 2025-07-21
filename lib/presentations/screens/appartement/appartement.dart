@@ -256,7 +256,7 @@ class _AppartementState extends State<Appartement> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
                         
                         // Ville
                         Text(
@@ -267,7 +267,7 @@ class _AppartementState extends State<Appartement> {
                             color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 3),
                         isLoadingCities
                             ? const Center(child: CircularProgressIndicator())
                             : Container(
@@ -294,45 +294,46 @@ class _AppartementState extends State<Appartement> {
                                   ),
                                 ),
                               ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 4),
                         
                         // Quartier
-                        Text(
-                          getTranslated(context, 'Quartier')!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: DropdownButtonFormField<String>(
-                            value: selectedQuarter,
-                            hint: Text(getTranslated(context, 'Quartier')!),
-                            items: <String>['Tevragh Zeina', 'Ksar', 'Sebkha', 'Nouakchott Ouest', 'Nouakchott Nord']
-                                .map<DropdownMenuItem<String>>((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedQuarter = value;
-                              });
-                            },
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
+                        // Text(
+                        //   getTranslated(context, 'Quartier')!,
+                        //   style: const TextStyle(
+                        //     fontSize: 16,
+                        //     fontWeight: FontWeight.bold,
+                        //     color: Colors.black87,
+                        //   ),
+                        // ),
+                        // const SizedBox(height: 8),
+                        
+                        // Container(
+                        //   decoration: BoxDecoration(
+                        //     borderRadius: BorderRadius.circular(12),
+                        //     border: Border.all(color: Colors.grey.shade300),
+                        //   ),
+                        //   child: DropdownButtonFormField<String>(
+                        //     value: selectedQuarter,
+                        //     hint: Text(getTranslated(context, 'Quartier')!),
+                        //     items: <String>['Tevragh Zeina', 'Ksar', 'Sebkha', 'Nouakchott Ouest', 'Nouakchott Nord']
+                        //         .map<DropdownMenuItem<String>>((String value) {
+                        //       return DropdownMenuItem<String>(
+                        //         value: value,
+                        //         child: Text(value),
+                        //       );
+                        //     }).toList(),
+                        //     onChanged: (value) {
+                        //       setState(() {
+                        //         selectedQuarter = value;
+                        //       });
+                        //     },
+                        //     decoration: const InputDecoration(
+                        //       border: InputBorder.none,
+                        //       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        //     ),
+                        //   ),
+                        // ),
+                        // const SizedBox(height: 20),
                         
                         // Prix
                         Text(
@@ -343,7 +344,7 @@ class _AppartementState extends State<Appartement> {
                             color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
                             Expanded(
@@ -464,7 +465,7 @@ class _AppartementState extends State<Appartement> {
                                   ),
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                 ),
-                                child: Text(getTranslated(context, "Appliquer")!),
+                                child: Text(getTranslated(context, "apply")!),
                               ),
                             ),
                           ],

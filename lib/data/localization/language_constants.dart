@@ -50,6 +50,11 @@ Future<String> getCurrentLanguage(BuildContext context) async {
   return await storage.read(key: LAGUAGE_CODE) ?? ARABIC; // Retourne 'ar' par défaut
 }
 
+// Nouvelle fonction pour la direction du texte basée sur votre système
+TextDirection getAppTextDirection(BuildContext context) {
+  final locale = Localizations.localeOf(context);
+  return locale.languageCode == ARABIC ? TextDirection.rtl : TextDirection.ltr;
+}
 // String getCurrentLanguage(BuildContext context) {
 //   Locale myLocale = Localizations.localeOf(context);
 //   return myLocale.languageCode; // Retourne "fr" ou "ar"

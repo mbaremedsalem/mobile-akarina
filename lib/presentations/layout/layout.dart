@@ -8,9 +8,32 @@ import 'package:akarina/presentations/screens/localisation/localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class Layout extends StatelessWidget {
   const Layout({super.key});
+
+  Future<void> _handleAddAnnonceTap(BuildContext context, Function(int) onSuccess) async {
+    final storage = FlutterSecureStorage();
+    String? role = await storage.read(key: "role");
+    if (role == 'owner') {
+      onSuccess(2);
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(getTranslated(context, 'Accès refusé')!),
+          content: Text(getTranslated(context, 'Vous devez être connecté en tant que propriétaire (owner) pour ajouter une maison.')!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(getTranslated(context, 'OK')!),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +78,12 @@ class Layout extends StatelessWidget {
             ),
             body: cubit.bottomScreen[cubit.currentIndex],
             bottomNavigationBar: BottomNavigationBar(
-              onTap: (index)
-              {
-                cubit.changeBottom(index);
+              onTap: (index) async {
+                if (index == 2) {
+                  await _handleAddAnnonceTap(context, (i) => cubit.changeBottom(i));
+                } else {
+                  cubit.changeBottom(index);
+                }
               },
               currentIndex: cubit.currentIndex,
               selectedItemColor: Colors.black,

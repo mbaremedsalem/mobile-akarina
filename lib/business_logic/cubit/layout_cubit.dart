@@ -6,6 +6,7 @@ import 'package:akarina/presentations/screens/immobillier/add_immobilier.dart';
 import 'package:akarina/presentations/screens/profile/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LayoutCubit extends Cubit<LayoutStates>
 {

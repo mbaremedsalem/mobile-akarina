@@ -17,6 +17,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'package:akarina/data/services/connectivity_service.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -611,7 +612,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Icon(Icons.warning, color: Colors.red, size: 28),
               const SizedBox(width: 8),
               Text(
-                getTranslated(context, "Supprimer le compte")!,
+                getTranslated(context, "delete_account")!,
                 style: const TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.bold,
@@ -624,12 +625,12 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                getTranslated(context, "Êtes-vous sûr de vouloir supprimer votre compte ?")!,
+                getTranslated(context, "delete_account_confirm")!,
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 8),
               Text(
-                getTranslated(context, "Cette action est irréversible")!,
+                getTranslated(context, "action_irreversible")!,
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -642,7 +643,7 @@ class _ProfilePageState extends State<ProfilePage> {
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                getTranslated(context, "Non, annuler")!,
+                getTranslated(context, "ncancel")!,
                 style: const TextStyle(color: Colors.grey),
               ),
             ),
@@ -658,7 +659,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: Text(getTranslated(context, "Oui, supprimer")!),
+              child: Text(getTranslated(context, "confirm_delete")!),
             ),
           ],
         );
@@ -1472,15 +1473,15 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         return BankiliPaymentDialog(
           merchantCode: merchantCode,
           amount: amountController.text,
-          onConfirm: (phone, passcode, amount) async {
-            await _processBankiliPayment(phone, passcode, amount);
+          onConfirm: (phone, passcode, amount, password) async {
+            await _processBankiliPayment(phone, passcode, amount, password);
           },
         );
       },
     );
   }
 
-  Future<void> _processBankiliPayment(String phone, String passcode, String amount) async {
+  Future<void> _processBankiliPayment(String phone, String passcode, String amount, String password) async {
     try {
       final String? token = await storage.read(key: "access");
       if (token == null) {
@@ -1504,6 +1505,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           'passcode': passcode,
           'amount': amount,
           'language': Localizations.localeOf(context).languageCode == 'ar' ? 'AR' : 'FR',
+          'password': password,
         }),
       );
 
@@ -1560,7 +1562,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 class BankiliPaymentDialog extends StatefulWidget {
   final String merchantCode;
   final String amount;
-  final Future<void> Function(String phone, String passcode, String amount) onConfirm;
+  final Future<void> Function(String phone, String passcode, String amount, String password) onConfirm;
 
   const BankiliPaymentDialog({
     super.key,
@@ -1902,16 +1904,102 @@ class _BankiliPaymentDialogState extends State<BankiliPaymentDialog> {
                         );
                         return;
                       }
-                      
+
+                      final TextEditingController passwordController = TextEditingController();
+                      double fieldWidth = 50;
+                      String? password = await showDialog<String>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) {
+                          return StatefulBuilder(
+                            builder: (context, setState) {
+                              return AlertDialog(
+                                title: Center(child: Text(getTranslated(context, "password")!)),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(getTranslated(context, "enter_password_to_confirm")!),
+                                    const SizedBox(height: 24),
+                                    PinCodeTextField(
+                                      appContext: context,
+                                      length: 4,
+                                      obscureText: true,
+                                      animationType: AnimationType.none,
+                                      keyboardType: TextInputType.number,
+                                      pinTheme: PinTheme(
+                                        shape: PinCodeFieldShape.box,
+                                        borderRadius: BorderRadius.circular(8),
+                                        fieldHeight: fieldWidth,
+                                        fieldWidth: fieldWidth,
+                                        activeFillColor: Colors.white,
+                                        activeColor: Theme.of(context).primaryColor,
+                                        selectedColor: Theme.of(context).primaryColor,
+                                        inactiveColor: Colors.grey.shade300,
+                                      ),
+                                      onCompleted: (pin) {
+                                        Navigator.pop(context, pin);
+                                      },
+                                      onChanged: (value) {
+                                        passwordController.text = value;
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            setState(() {
+                                              isProcessing = false;
+                                            });
+                                          },
+                                          child: Text(getTranslated(context, "cancel")!),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () {
+                                            if (passwordController.text.length != 4) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(getTranslated(context, "pin_4_digits_required")!),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            Navigator.pop(context, passwordController.text);
+                                          },
+                                          child: Text(getTranslated(context, "confirm")!),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      );
+
+                      if (password == null || password.isEmpty) {
+                        // L'utilisateur a annulé ou n'a rien saisi
+                        return;
+                      }
+
                       setState(() {
                         isProcessing = true;
                       });
-                      
+
                       try {
                         await widget.onConfirm(
                           phoneController.text,
                           passcodeController.text,
                           amountController.text,
+                          password,
                         );
                       } finally {
                         setState(() {

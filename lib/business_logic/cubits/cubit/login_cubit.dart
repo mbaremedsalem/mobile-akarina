@@ -54,6 +54,8 @@ class LoginCubit extends Cubit<LoginStates> {
           keySetion=data["access"];
 
 
+
+          await storage.write(key: "role", value: data["role"]);
           await storage.write(key: "refresh", value: data["refresh"]);
           await storage.write(key: "id", value: data["id"].toString());
 
