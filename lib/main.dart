@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:akarina/business_logic/cubits/cubit/check_token_cubit.dart';
@@ -24,7 +25,14 @@ import 'package:firebase_core/firebase_core.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
+  // Ajoutez cette ligne avant runApp()
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Pour iOS - nécessaire pour WebView
+  // if (Platform.isIOS) {
+  //   WebView.platform = CupertinoWebView();
+  // }
+  
   bool isFirstLaunch = await checkFirstLaunch();
 
   PlatformDispatcher.instance.onError = (error, stack) {

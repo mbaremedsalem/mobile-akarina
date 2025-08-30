@@ -118,46 +118,7 @@ class _RegisterState extends State<Register> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Étape 1: NNI
-              // _buildStep(
-              //   stepNumber: 1,
-              //   title: getTranslated(context, "Informations d'identification")!,
-              //   isActive: _currentStep >= 0,
-              //   isCompleted: nniValid,
-              //   content: _currentStep == 0 && !nniValid
-              //       ? Form(
-              //           key: _formKey,
-              //           child: Column(
-              //             children: [
-              //               _buildTextField(
-              //                 label: getTranslated(context, "Numéro national d'identification")!,
-              //                 icon: Icons.credit_card,
-              //                 maxLength: 10,
-              //                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              //                 validator: (v) {
-              //                   if (v!.isEmpty) return getTranslated(context, "videerror")!;
-              //                   if (v.length != 10) return getTranslated(context, "nnicourt")!;
-              //                   return null;
-              //                 },
-              //                 onChanged: (v) => nni = v,
-              //               ),
-              //               const SizedBox(height: 20),
-              //               _buildNextButton(
-              //                 onPressed: () {
-              //                   if (_formKey.currentState!.validate()) {
-              //                     setState(() {
-              //                       nniValid = true;
-              //                       _currentStep += 1;
-              //                     });
-              //                   }
-              //                 },
-              //               ),
-              //             ],
-              //           ),
-              //         )
-              //       : null,
-              // ),
-
+      
               // Étape 2: Informations personnelles
               _buildStep(
                 stepNumber: 1,
@@ -206,14 +167,7 @@ class _RegisterState extends State<Register> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // _buildBackButton(
-                                //   onPressed: () {
-                                //     setState(() {
-                                //       _currentStep -= 1;
-                                //       nniValid = false;
-                                //     });
-                                //   },
-                                // ),
+
                                 _buildNextButton(
                                   onPressed: () {
                                     if (_formKey2.currentState!.validate()) {
@@ -494,6 +448,7 @@ class _RegisterState extends State<Register> {
       ),
       child: TextFormField(
         maxLength: maxLength,
+        keyboardType: TextInputType.number,
         obscureText: obscureText,
         decoration: InputDecoration(
           labelText: label,

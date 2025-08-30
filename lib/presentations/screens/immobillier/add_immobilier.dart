@@ -381,7 +381,51 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   Widget buildImmobilierForm() {
     return Column(
       children: [
-        // Type d'immobilier
+      
+      Center(
+      child: Container(
+        margin: EdgeInsets.all(0),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],  // Fond bleu clair
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.blue[200]!,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.info_outline,
+              color: Colors.blue[700],
+              size: 24,
+            ),
+            SizedBox(height: 10),
+            Text(
+              getTranslated(context, "information")!.toUpperCase(),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[700],
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              getTranslated(context, "Chaque ajout d’immobilier entraînera un prélèvement automatique de 50 MRU sur votre solde.")!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey[800],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    const SizedBox(height: 13),
         DropdownButtonFormField<String>(
           value: selectedImmoType,
           decoration: InputDecoration(

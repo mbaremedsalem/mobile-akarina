@@ -4,6 +4,7 @@ import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/chat/chat.dart';
+import 'package:akarina/webview_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -13,16 +14,26 @@ import 'package:akarina/data/models/user.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:pin_code_fields/pin_code_fields.dart';
+
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:developer';
+
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:akarina/data/services/connectivity_service.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show TextDirection; // Explicit import
+
+// import 'package:flutter/services.dart' show TextDirection; // Explicit import
 import 'package:akarina/presentations/screens/login/index_login.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+
+import 'package:html/parser.dart' show parse;
+import 'package:table_calendar/table_calendar.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
+
+// Import spécifique iOS
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 class ImmobDetails extends StatefulWidget {
   final int id;
@@ -34,6 +45,11 @@ class ImmobDetails extends StatefulWidget {
 }
 
 class _ImmobDetailsState extends State<ImmobDetails> {
+
+  // Déclare tes controllers ici
+  final TextEditingController dateDebutController = TextEditingController();
+  final TextEditingController dateFinController = TextEditingController();
+
   LatLng _initialPosition = const LatLng(48.8566, 2.3522);
   bool isLoading = true;
   Map<String, dynamic>? immobData;
@@ -54,6 +70,93 @@ class _ImmobDetailsState extends State<ImmobDetails> {
     _initializeData();
     _checkSession();
   }
+
+  // start 
+bool _showCalendar = false;
+
+void _toggleCalendar() {
+  setState(() {
+    _showCalendar = !_showCalendar;
+  });
+}
+
+// Dans votre build method, ajoutez ceci après les autres sections :
+Widget _buildCalendarSection() {
+  if (!_showCalendar) {
+    return Container(); // Retourne un container vide si le calendrier n'est pas visible
+  }
+
+  return Container(
+    margin: const EdgeInsets.symmetric(vertical: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.2),
+          blurRadius: 8,
+          spreadRadius: 2,
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          getTranslated(context, "Calendrier des réservations")!,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ReservationCalendar(
+          reservations: immobData?['reservations'] ?? [],
+          onDateSelect: (start, end) {
+            // Cette fonction est appelée quand l'utilisateur sélectionne une période
+            print('Période sélectionnée: $start - $end');
+            
+            // Vous pouvez pré-remplir les dates dans le formulaire de réservation
+            if (mounted) {
+              setState(() {
+                dateDebutController.text = DateFormat('yyyy-MM-dd').format(start);
+                dateFinController.text = DateFormat('yyyy-MM-dd').format(end);
+              });
+              
+              // Optionnel: Fermer le calendrier après sélection
+              _toggleCalendar();
+            }
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+// Ajoutez aussi un bouton pour afficher/masquer le calendrier
+Widget _buildCalendarButton() {
+  return Container(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    child: ElevatedButton.icon(
+      onPressed: _toggleCalendar,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _showCalendar ? Colors.grey : pcolor,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      icon: Icon(_showCalendar ? Icons.calendar_today : Icons.calendar_month),
+      label: Text(
+        _showCalendar 
+          ? getTranslated(context, "Masquer le calendrier")!
+          : getTranslated(context, "Voir les disponibilités")!,
+      ),
+    ),
+  );
+}
+  // end 
 
   Future<void> _checkSession() async {
     final storage = const FlutterSecureStorage();
@@ -461,6 +564,13 @@ class _ImmobDetailsState extends State<ImmobDetails> {
                             SizedBox(height: getProportionateScreenHeight(5)),
                             _buildPriceAndStatusHeader(),
                             SizedBox(height: getProportionateScreenHeight(5)),
+                            // start calander
+                            // Ajoutez le bouton calendrier ici
+                            _buildCalendarButton(),
+                            
+                            // Ajoutez la section calendrier ici
+                            _buildCalendarSection(),
+                            // end calander
                             // Section pour les images
                             _buildImageSection(immobData?['images'] ?? []),
                             SizedBox(height: getProportionateScreenHeight(5)),
@@ -2033,6 +2143,8 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
 }
 
 
+
+
 class OrderDialog extends StatefulWidget {
   final int immobilierId;
   final Map<String, dynamic>? immobilierData;
@@ -2098,7 +2210,7 @@ class _OrderDialogState extends State<OrderDialog> {
       'descriptionAr': 'الدفع عبر سداد',
       'icon': Icons.payment,
       'color': Colors.orange,
-      'disabled': true,
+      // 'disabled': true,
     },
   ];
 
@@ -2111,35 +2223,81 @@ class _OrderDialogState extends State<OrderDialog> {
     _calculateAmounts();
   }
 
-  void _calculateAmounts() {
+
+void _calculateAmounts() {
+  try {
+    // 1. Vérification données existantes
     if (widget.immobilierData == null) {
-      montantTotal = 0;
-      montantBankily = 0;
-      return;
+      throw Exception('Données immobilier manquantes');
     }
 
-    if (widget.immobilierData?['operation']?['type'] == 'louer' ||
-        widget.immobilierData?['residentiel']?['type_operation'] == 'louer') {
-      final loyer = (widget.immobilierData?['residentiel']?['loyer_mensuel'] ??
-                  widget.immobilierData?['loyer_mensuel'] ?? 0)
-                .toDouble();
-      final dateDebut = DateTime.tryParse(dateDebutController.text);
-      final dateFin = DateTime.tryParse(dateFinController.text);
+    // 2. Détection type opération (corrigé pour gérer "alouer")
+    final operationType = widget.immobilierData?['operation']?['type']?.toString()?.toLowerCase();
+    final isLocation = operationType == 'louer' || operationType == 'alouer';
 
-      if (dateDebut != null && dateFin != null) {
-        final months = (dateFin.difference(dateDebut).inDays / 30).ceil();
-        montantTotal = loyer * months;
+    print('Type opération détecté: $operationType → Location? $isLocation');
+
+    // 3. Extraction du montant selon le type
+    if (isLocation) {
+      // Pour la location - vérification des différentes possibilités de structure
+      dynamic loyer;
+      
+      // Essai 1: Dans residentiel
+      if (widget.immobilierData?['residentiel'] is Map) {
+        loyer = widget.immobilierData?['residentiel']?['loyer_mensuel'];
       }
+      
+      // Essai 2: À la racine
+      if (loyer == null) {
+        loyer = widget.immobilierData?['loyer_mensuel'];
+      }
+      
+      // Essai 3: Autres champs possibles
+      if (loyer == null) {
+        loyer = widget.immobilierData?['prix_location'];
+      }
+
+      final montantLocation = double.tryParse('$loyer') ?? 0.0;
+      print('Loyer mensuel trouvé: $montantLocation');
+
+      // Calcul durée location
+      final start = DateTime.tryParse(dateDebutController.text) ?? DateTime.now();
+      final end = DateTime.tryParse(dateFinController.text) ?? start.add(const Duration(days: 30));
+      final months = (end.difference(start).inDays / 30).ceil().clamp(1, 120);
+      
+      montantTotal = montantLocation * months;
     } else {
-      montantTotal = (widget.immobilierData?['residentiel']?['montant'] ??
-                   widget.immobilierData?['montant'] ??
-                   0)
-                  .toDouble();
+      // Pour l'achat - même approche
+      dynamic montant;
+      
+      if (widget.immobilierData?['residentiel'] is Map) {
+        montant = widget.immobilierData?['residentiel']?['montant'];
+      }
+      
+      if (montant == null) {
+        montant = widget.immobilierData?['montant'];
+      }
+      
+      if (montant == null) {
+        montant = widget.immobilierData?['prix'];
+      }
+
+      montantTotal = double.tryParse('$montant') ?? 0.0;
+      print('Montant achat trouvé: $montantTotal');
     }
 
-    montantBankily = (montantTotal ?? 0) * 2;
-  }
+    // Calcul Bankily
+    montantBankily = (montantTotal ?? 0);
 
+    print('Résultats finaux - Total: $montantTotal, Bankily: $montantBankily');
+
+  } catch (e, stackTrace) {
+    print('Erreur dans _calculateAmounts(): $e');
+    print('Stack trace: $stackTrace');
+    montantTotal = 0;
+    montantBankily = 0;
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -2311,15 +2469,14 @@ class _OrderDialogState extends State<OrderDialog> {
             ),
             if (montantTotal != null) ...[
               const SizedBox(height: 4),
+              Text(
 
-              // Text(
-
-              //   "${getTranslated(context, "amount")!}: ${montantTotal!.toStringAsFixed(0)}MRU",
-              //   style: TextStyle(
-              //     fontSize: 14,
-              //     color: Colors.grey[600],
-              //   ),
-              // ),
+                "${getTranslated(context, "amount")!}: ${montantTotal!.toStringAsFixed(0)}MRU",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
             ],
           ],
         ],
@@ -2792,23 +2949,43 @@ class _OrderDialogState extends State<OrderDialog> {
           Expanded(
             child: ElevatedButton(
               onPressed: isLoading 
-                  ? null 
-                  : () {
-                      if (selectedPaymentMethod == 'ebankily' && !showBankilyInstructions) {
-                        setState(() {
-                          showBankilyInstructions = true;
-                        });
-                      } else if (selectedPaymentMethod == 'seddad') {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(getTranslated(context, "seddad_unavailable")!),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                      } else {
-                        _showPasswordDialog();
-                      }
-                    },
+              ? null 
+              : () {
+                  if (selectedPaymentMethod == 'ebankily' && !showBankilyInstructions) {
+                    setState(() {
+                      showBankilyInstructions = true;
+                    });
+                  } else if (selectedPaymentMethod == 'seddad') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(getTranslated(context, "seddad_unavailable")!),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  } else if (selectedPaymentMethod == 'masrivi') {
+                    _showPasswordDialog(paymentMethod: 'masrivi');
+                  } else {
+                    _showPasswordDialog(paymentMethod: selectedPaymentMethod);
+                  }
+                },
+              // onPressed: isLoading 
+              //     ? null 
+              //     : () {
+              //         if (selectedPaymentMethod == 'ebankily' && !showBankilyInstructions) {
+              //           setState(() {
+              //             showBankilyInstructions = true;
+              //           });
+              //         } else if (selectedPaymentMethod == 'seddad') {
+              //           ScaffoldMessenger.of(context).showSnackBar(
+              //             SnackBar(
+              //               content: Text(getTranslated(context, "seddad_unavailable")!),
+              //               backgroundColor: Colors.orange,
+              //             ),
+              //           );
+              //         } else {
+              //           _showPasswordDialog();
+              //         }
+              //       },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
@@ -2854,7 +3031,7 @@ class _OrderDialogState extends State<OrderDialog> {
     }
   }
 
-  void _showPasswordDialog() {
+  void _showPasswordDialog({String paymentMethod = 'reception'}) {
     showDialog(
       context: context,
       builder: (context) {
@@ -2929,6 +3106,8 @@ class _OrderDialogState extends State<OrderDialog> {
                 ),
               ],
             ),
+          
+
           ],
         );
       
@@ -2936,7 +3115,7 @@ class _OrderDialogState extends State<OrderDialog> {
     );
   }
 
-  Future<void> _submitReservation({String? password}) async {
+  Future<void> _submitReservation({String? password,String paymentMethod = 'reception'}) async {
     if (nameController.text.isEmpty || phoneController.text.isEmpty || 
         dateDebutController.text.isEmpty || dateFinController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2980,17 +3159,27 @@ class _OrderDialogState extends State<OrderDialog> {
         return;
       }
 
-      final double montantAPayer = selectedPaymentMethod == 'ebankily' 
-          ? montantBankily 
-          : montantTotal ?? 0;
-
+      // final double montantAPayer = selectedPaymentMethod == 'ebankily' 
+      //     ? montantBankily 
+      //     : montantTotal ?? 0;
+      //   // Modifiez la création du corps de la requête :
+      //   final Map<String, dynamic> requestBody = {
+      //     'immobilier_id': widget.immobilierId,
+      //     'date_debut': dateDebutController.text,
+      //     'date_fin': dateFinController.text,
+      //     'moyen_paiement': paymentMethod, // Utilisez le paramètre ici
+      //     'notes': notesController.text,
+      //     'montant_total': montantTotal,
+      //     'language': Localizations.localeOf(context).languageCode,
+      //     'password': password,
+      //   };
       final Map<String, dynamic> requestBody = {
         'immobilier_id': widget.immobilierId,
         'date_debut': dateDebutController.text,
         'date_fin': dateFinController.text,
         'moyen_paiement': selectedPaymentMethod,
         'notes': notesController.text,
-        'montant_total': montantAPayer,
+        'montant_total': montantBankily.toStringAsFixed(0),
         'language': Localizations.localeOf(context).languageCode,
         'password': password,
       };
@@ -3214,6 +3403,87 @@ class _OrderDialogState extends State<OrderDialog> {
   }
 }
 
+class WebViewPaymentScreen extends StatefulWidget {
+  final String paymentUrl;
+  final Function(bool) onPaymentComplete;
+
+  const WebViewPaymentScreen({
+    Key? key,
+    required this.paymentUrl,
+    required this.onPaymentComplete,
+  }) : super(key: key);
+
+  @override
+  _WebViewPaymentScreenState createState() => _WebViewPaymentScreenState();
+}
+
+class _WebViewPaymentScreenState extends State<WebViewPaymentScreen> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            // Update loading bar
+          },
+          onPageStarted: (String url) {
+            setState(() {
+              _isLoading = true;
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false;
+            });
+            
+            // Vérifiez si l'URL indique un paiement réussi ou échoué
+            if (url.contains('success')) {
+              widget.onPaymentComplete(true);
+              Navigator.pop(context);
+            } else if (url.contains('cancel') || url.contains('error')) {
+              widget.onPaymentComplete(false);
+              Navigator.pop(context);
+            }
+          },
+          onWebResourceError: (WebResourceError error) {
+            widget.onPaymentComplete(false);
+            Navigator.pop(context);
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.paymentUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Paiement Masrivi"),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            widget.onPaymentComplete(false);
+            Navigator.pop(context);
+          },
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class AddReviewDialog extends StatefulWidget {
   final Function(int rating, String comment) onSubmit;
@@ -3336,3 +3606,181 @@ class _AddReviewDialogState extends State<AddReviewDialog> {
     );
   }
 }
+
+
+
+class ReservationCalendar extends StatefulWidget {
+  final List<dynamic> reservations;
+  final Function(DateTime, DateTime)? onDateSelect;
+
+  const ReservationCalendar({
+    super.key,
+    required this.reservations,
+    this.onDateSelect,
+  });
+
+  @override
+  State<ReservationCalendar> createState() => _ReservationCalendarState();
+}
+
+class _ReservationCalendarState extends State<ReservationCalendar> {
+  CalendarFormat _calendarFormat = CalendarFormat.month;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TableCalendar(
+          firstDay: DateTime.now(),
+          lastDay: DateTime.now().add(const Duration(days: 365)),
+          focusedDay: _focusedDay,
+          calendarFormat: _calendarFormat,
+          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          rangeStartDay: _rangeStart,
+          rangeEndDay: _rangeEnd,
+          onDaySelected: (selectedDay, focusedDay) {
+            setState(() {
+              _selectedDay = selectedDay;
+              _focusedDay = focusedDay;
+              _rangeStart = null;
+              _rangeEnd = null;
+            });
+          },
+          onRangeSelected: (start, end, focusedDay) {
+            setState(() {
+              _rangeStart = start;
+              _rangeEnd = end;
+              _focusedDay = focusedDay;
+              _selectedDay = null;
+            });
+            
+            if (widget.onDateSelect != null && start != null && end != null) {
+              widget.onDateSelect!(start, end);
+            }
+          },
+          onFormatChanged: (format) {
+            setState(() {
+              _calendarFormat = format;
+            });
+          },
+          onPageChanged: (focusedDay) {
+            _focusedDay = focusedDay;
+          },
+          calendarStyle: CalendarStyle(
+            // Style pour les jours réservés
+            disabledTextStyle: const TextStyle(color: Colors.red),
+            // Style pour les jours disponibles
+            defaultTextStyle: const TextStyle(color: Colors.green),
+            weekendTextStyle: const TextStyle(color: Colors.blue),
+          ),
+          calendarBuilders: CalendarBuilders(
+            defaultBuilder: (context, day, focusedDay) {
+              return _buildDay(day,getTranslated(context, "Disponible")!, Colors.green);
+            },
+            todayBuilder: (context, day, focusedDay) {
+              return _buildDay(day, getTranslated(context, "Aujourd'hui")!, Colors.blue);
+            },
+            selectedBuilder: (context, day, focusedDay) {
+              return _buildDay(day, getTranslated(context, "Sélectionné")!, Colors.orange);
+            },
+            disabledBuilder: (context, day, focusedDay) {
+              return _buildDay(day, getTranslated(context, "Réservé")!, Colors.red);
+            },
+          ),
+          enabledDayPredicate: (day) {
+            // Jours disponibles (non réservés)
+            return !_isDateReserved(day);
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildLegend(),
+        const SizedBox(height: 16),
+        if (_rangeStart != null && _rangeEnd != null)
+          Text(
+            '${getTranslated(context, "Période sélectionnée")}: ${DateFormat('dd/MM/yyyy').format(_rangeStart!)} - ${DateFormat('dd/MM/yyyy').format(_rangeEnd!)}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDay(DateTime day, String status, Color color) {
+    return Container(
+      margin: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              day.day.toString(),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              status,
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildLegendItem(getTranslated(context, "Disponible")!, Colors.green),
+        _buildLegendItem(getTranslated(context, "Réservé")!, Colors.red),
+        _buildLegendItem(getTranslated(context, "Aujourd'hui")!, Colors.blue),
+        _buildLegendItem(getTranslated(context, "Sélectionné")!, Colors.orange),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(String text, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          color: color.withOpacity(0.3),
+          margin: const EdgeInsets.only(right: 4),
+        ),
+        Text(
+          text,
+          style: TextStyle(fontSize: 10, color: color),
+        ),
+      ],
+    );
+  }
+
+  bool _isDateReserved(DateTime date) {
+    for (var reservation in widget.reservations) {
+      final startDate = DateTime.parse(reservation['date_debut']);
+      final endDate = DateTime.parse(reservation['date_fin']);
+      
+      if (date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+          date.isBefore(endDate.add(const Duration(days: 1)))) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+ 

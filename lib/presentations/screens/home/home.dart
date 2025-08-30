@@ -714,7 +714,7 @@ class _HomeState extends State<Home> {
                       
                       Text(
                         loyerMensuel != null
-                            ? '$loyerMensuel MRU/${periode ?? 'mois'}'
+                            ? '$loyerMensuel MRU/${getTranslated(context, "$periode") ?? 'mois'}'
                             : '${montant ?? 'N/A'} MRU',
                         style: const TextStyle(
                           fontSize: 12,

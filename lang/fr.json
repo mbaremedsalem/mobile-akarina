@@ -1,4 +1,4 @@
-"nom_inconnu": "Nom inconnu",
+"nom_inconnu":"Nom inconnu",
 "compte_verifie": "Compte vérifié",
 "telephone": "Téléphone",
 "nni": "NNI",
@@ -246,4 +246,5 @@
 "Page actualisée": "Page actualisée",
 "Confirmer": "Confirmer",
 "ID de la transaction": "ID de la transaction",
-"Voir la réservation": "Voir la réservation" 
+"Voir la réservation": "Voir la réservation",
+"Prénom du payeur":"Prénom du payeur" 

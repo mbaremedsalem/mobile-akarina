@@ -950,8 +950,24 @@
     "delete_account": "Delete account",
     "Vous devez être connecté en tant que propriétaire (owner) pour ajouter une maison.":"You must be logged in as an owner to add a house.",
     "Accès refusé":"Access denied",
-    "OK":"OK"
-
-    
-  
+    "OK":"OK",
+    "Chaque ajout d’immobilier entraînera un prélèvement automatique de 50 MRU sur votre solde.":"Each new real estate addition will automatically deduct 50 MRU from your balance.",
+    "information":"information",
+    "Prénom du payeur":"Payer's first name",
+    "Montant à payer":"Amount to pay",
+    "Paiement via Seddad":"Payment via Seddad",
+    "Téléphone du payeur":"Payer phone number",
+    "Remarque (optionnel)":"Note (optional)",
+    "Demande créée":"Request created",
+    "Votre demande de paiement Seddad a été créée avec succès":"Your Seddad payment request has been successfully created",
+    "Nom payeur":"Paying name",
+    "Donnez ce code au payeur pour effectuer le paiement via l'application Seddad":"Give this code to the payer to make payment through the Seddad app",
+    "Fermer":"Close" ,
+    "Voir les disponibilités":"View availability",
+    "Masquer le calendrier": "Hide calendar", 
+    "Calendrier des réservations": "Booking calendar",
+    "Disponible": "Available",
+    "Réservé": "Reserved", 
+    "Aujourd'hui": "Today",
+    "Sélectionné": "Selected"
 }
