@@ -971,5 +971,13 @@
     "Disponible": "متاح",
     "Réservé": "محجوز", 
     "Aujourd'hui": "اليوم",
-    "Sélectionné": "محدد"
+    "Sélectionné": "محدد",
+    "seddad_step1": "انسخ رمز التاجر أعلاه",
+    "seddad_step2": "افتح تطبيق سداد",
+    "seddad_step3": "انقر على الدفع",
+    "seddad_step4": "أضف الرمز الذي تم إنشاؤه",
+    "seddad_step5": "أدخل المبلغ :",
+    "seddad_step6": "أكد عملية الدفع",
+    "Code de paiement SEDDAD:": "رمز الدفع عبر سداد:",
+    "Réservation Confirmée": "تم تأكيد الحجز"
 }

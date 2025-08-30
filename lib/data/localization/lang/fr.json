@@ -938,6 +938,14 @@
     "bankily_step3": "Cliquez sur B-Pay",
     "bankily_step4": "Entrez le code marchand copié",
     "bankily_step5": "Entrez le montant:",
+
+    "seddad_step1": "Copiez le code marchand ci-dessus",
+    "seddad_step2": "Ouvrez l'application seddad",
+    "seddad_step3": "Cliquez sur Peiment",
+    "seddad_step4": "Ajouter le code generer",
+    "seddad_step5": "Entrez le montant:",
+    "seddad_step6": "confirmer le peiment",
+
     "bankily_step6": "Bankili vous donnera un code de confirmation",
     "bankily_step7": "Entrez le code de confirmation ci-dessous",
     "bankily_phone": "Votre numéro Bankili",
@@ -986,5 +994,7 @@
     "Disponible": "Disponible",
     "Réservé": "Réservé", 
     "Aujourd'hui": "Aujourd'hui",
-    "Sélectionné": "Sélectionné"
+    "Sélectionné": "Sélectionné",
+    "Code de paiement SEDDAD:":"Code de paiement SEDDAD:",
+    "Réservation Confirmée":"Réservation Confirmée"
 }

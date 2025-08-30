@@ -969,5 +969,13 @@
     "Disponible": "Available",
     "Réservé": "Reserved", 
     "Aujourd'hui": "Today",
-    "Sélectionné": "Selected"
+    "Sélectionné": "Selected",
+    "seddad_step1": "Copy the merchant code above",
+    "seddad_step2": "Open the SEDDAD application",
+    "seddad_step3": "Click on Payment",
+    "seddad_step4": "Add the generated code",
+    "seddad_step5": "Enter the amount:",
+    "seddad_step6": "Confirm the payment",
+    "Code de paiement SEDDAD:": "SEDDAD Payment Code:",
+    "Réservation Confirmée": "Reservation Confirmed"
 }
