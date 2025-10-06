@@ -528,10 +528,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
             if (result != null && result is Map<String, double>) {
               double latitude = result['latitude']!;
               double longitude = result['longitude']!;
-              print(
-                  'Coordonnées sélectionnées (retournées): Latitude: $latitude, Longitude: $longitude');
-              // Fais quelque chose avec les coordonnées (par exemple, les afficher dans un widget)
-              setState(() {
+             setState(() {
                 xCoordController.text = longitude.toStringAsFixed(6);
                 yCoordController.text = latitude.toStringAsFixed(6);
               });
@@ -970,9 +967,7 @@ class _MapSelectorPageState extends State<MapSelectorPage> {
     setState(() {
       _selectedLocation = latLng;
     });
-    print(
-        'Latitude sélectionnée: ${_selectedLocation!.latitude}, Longitude sélectionnée: ${_selectedLocation!.longitude}');
-    Navigator.pop(context, {
+     Navigator.pop(context, {
       'latitude': _selectedLocation!.latitude,
       'longitude': _selectedLocation!.longitude
     });

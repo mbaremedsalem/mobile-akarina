@@ -1,31 +1,17 @@
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/components/skeleton/home_skeleton.dart';
-import 'package:akarina/presentations/components/spiner.dart';
 import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
-import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/appartement/appartement.dart';
+import 'package:akarina/presentations/screens/home/video_player.dart';
 import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:akarina/data/services/connectivity_service.dart';
-
-import 'package:akarina/data/data_providers/network_service.dart';
-import 'package:akarina/data/localization/language_constants.dart';
-import 'package:akarina/presentations/components/skeleton/home_skeleton.dart';
-import 'package:akarina/presentations/constants/constants.dart';
-import 'package:akarina/presentations/constants/icon_broken.dart';
-import 'package:akarina/presentations/screens/appartement/appartement.dart';
-import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
-import 'package:akarina/size_config.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -49,6 +35,7 @@ class _HomeState extends State<Home> {
   bool isSearch = false;
   bool isLoadingCities = true;
   bool hasInternetConnection = true;
+  bool showSearchResults = false; // Nouvelle variable pour contrôler l'affichage
   IconData suffixIcon = Icons.search;
 
   @override
@@ -72,7 +59,7 @@ class _HomeState extends State<Home> {
     });
     
     if (!hasConnection) {
-      return; // Ne pas charger les données si pas de connexion
+      return;
     }
     
     await Future.wait([
@@ -89,59 +76,167 @@ class _HomeState extends State<Home> {
     });
   }
 
-  Future<void> _fetchCities() async {
+Future<void> _fetchCities() async {
+  if (!mounted) return;
+  
+  try {
+    final response = await http.get(
+      Uri.parse("https://akarina.online/akareena/villes/"),
+      headers: {'Content-Type': 'application/json; charset=utf-8'},
+    );
+
     if (!mounted) return;
-    
-    try {
-      final response = await http.get(
-        Uri.parse("https://akarina.online/akareena/villes/"),
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-      );
 
-      if (!mounted) return;
+    if (response.statusCode == 200) {
+      final rawData = json.decode(utf8.decode(response.bodyBytes));
+      
+      // Filtrer les doublons basés sur le nom de la ville
+      final List<Map<String, dynamic>> uniqueCities = [];
+      final Set<String> seenCities = Set<String>();
+      
+      for (final city in List<Map<String, dynamic>>.from(rawData)) {
+        final cityName = city['nom'];
+        if (!seenCities.contains(cityName)) {
+          seenCities.add(cityName);
+          uniqueCities.add(city);
+        } else {
 
-      if (response.statusCode == 200) {
-        setState(() {
-          availableCities = List<Map<String, dynamic>>.from(
-            json.decode(utf8.decode(response.bodyBytes)),
-          );
-          isLoadingCities = false;
-        });
-      } else {
-        if (!mounted) return;
-        setState(() => isLoadingCities = false);
-        throw Exception("Erreur lors du chargement des villes: ${response.statusCode}");
+        }
       }
-    } catch (e) {
+
+      setState(() {
+        availableCities = uniqueCities;
+        isLoadingCities = false;
+      });
+      
+    } else {
       if (!mounted) return;
       setState(() => isLoadingCities = false);
-      _showErrorSnackbar("Erreur: $e");
+      throw Exception("Erreur lors du chargement des villes: ${response.statusCode}");
     }
+  } catch (e) {
+    if (!mounted) return;
+    setState(() => isLoadingCities = false);
+    _showErrorSnackbar("Erreur: $e");
   }
+}
 
-  Future<void> _fetchProperties(String ville, String address) async {
-    if (ville.isEmpty) return;
+Future<void> _fetchProperties(String ville, String address) async {
+  if (ville.isEmpty && address.isEmpty) return;
 
-    setState(() => isSearch = true);
+  setState(() {
+    isSearch = true;
+    showSearchResults = true;
+  });
 
-    try {
-      final response = await http.get(Uri.parse(
-        'https://akarina.online/akareena/residences/filters/?nom_ville=$ville&adresse=$address'
-      ));
+  try {
+    final language = await getCurrentLanguage(context);
+    final isArabic = language == "ar";
 
-      if (response.statusCode == 200) {
-        setState(() {
-          filteredProperties = json.decode(response.body);
-          isSearch = false;
-        });
+    final params = <String, String>{};
+
+    // 1. Ville sélectionnée - utiliser la bonne valeur selon la langue
+    if (selectedCity.isNotEmpty) {
+      if (isArabic) {
+        // Trouver la ville correspondante dans availableCities pour avoir le nom_ar
+        final selectedCityData = availableCities.firstWhere(
+          (city) => city['nom'] == selectedCity,
+          orElse: () => {},
+        );
+        
+        if (selectedCityData.isNotEmpty) {
+          final villeAr = selectedCityData['nom_ar'] ?? selectedCity;
+          params['nom_ville_ar'] = villeAr;
+        } else {
+          params['nom_ville_ar'] = selectedCity;
+        }
       } else {
-        setState(() => isSearch = false);
-        _showErrorSnackbar(getTranslated(context, "Erreur lors de la recherche")!);
+        params['nom_ville'] = selectedCity;
       }
-    } catch (error) {
-      setState(() => isSearch = false);
-      _showErrorSnackbar(error.toString());
     }
+
+    // 2. Texte saisi dans la barre de recherche - utiliser comme région/quartier
+    if (address.isNotEmpty) {
+      if (isArabic) {
+        params['region_ar'] = address;
+      } else {
+        params['region'] = address;
+      }
+    }
+
+    // Construire l'URL avec encodage correct
+    final queryParams = params.entries
+        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    
+    final url = 'https://akarina.online/akareena/search/?$queryParams';
+
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    );
+
+
+
+    if (response.statusCode == 200) {
+      final responseData = json.decode(utf8.decode(response.bodyBytes));
+
+      
+      List<dynamic> propertiesList = [];
+
+      // Gestion de la réponse paginée ou non
+      if (responseData is Map<String, dynamic>) {
+
+        
+        if (responseData.containsKey('results') && responseData['results'] is List) {
+          propertiesList = responseData['results'];
+
+        } else if (responseData.containsKey('data') && responseData['data'] is List) {
+          propertiesList = responseData['data'];
+   
+        } else {
+          // Si c'est une map mais pas de clé standard, chercher la première liste
+          for (var value in responseData.values) {
+            if (value is List) {
+              propertiesList = value;
+
+              break;
+            }
+          }
+        }
+      } else if (responseData is List) {
+        propertiesList = responseData;
+    
+      }
+
+      setState(() {
+        filteredProperties = propertiesList;
+        isSearch = false;
+      });
+      
+     
+      
+    } else {
+     
+      setState(() => isSearch = false);
+      _showErrorSnackbar(getTranslated(context, "Erreur lors de la recherche")!);
+    }
+  } catch (error) {
+    
+    setState(() => isSearch = false);
+    _showErrorSnackbar(getTranslated(context, "Erreur de connexion")!);
+  }
+}
+  // Méthode pour réinitialiser la recherche
+  void _resetSearch() {
+    setState(() {
+      showSearchResults = false;
+      searchController.clear();
+      selectedCity = '';
+    });
   }
 
   Future<void> _loadCategories() async {
@@ -210,7 +305,6 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     SizeConfig().init(context);
     
-    // Afficher la page d'erreur de connexion si pas de connexion internet
     if (!hasInternetConnection) {
       return NoInternetPage(
         onRetry: () async {
@@ -234,7 +328,7 @@ class _HomeState extends State<Home> {
           child: CustomScrollView(
             slivers: [
               _buildHeaderSection(),
-              _buildCategoriesSection(),
+              if (!showSearchResults) _buildCategoriesSection(),
               _buildPropertiesSection(),
             ],
           ),
@@ -269,17 +363,31 @@ class _HomeState extends State<Home> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  getTranslated(context, "Bienvenue sur Akarina")!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      getTranslated(context, "Bienvenue sur Akarina")!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (showSearchResults) ...[
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: _resetSearch,
+                        tooltip: getTranslated(context, "Annuler la recherche"),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  getTranslated(context, "Trouvez votre maison de rêve")!,
+                  showSearchResults 
+                    ? getTranslated(context, "Résultats de votre recherche")!
+                    : getTranslated(context, "Trouvez votre maison de rêve")!,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 16,
@@ -343,44 +451,53 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildCityDropdown(String language) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: pcolor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: isLoadingCities
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedCity.isEmpty ? null : selectedCity,
-                items: availableCities.map((city) {
-                  return DropdownMenuItem<String>(
-                    value: city['nom'],
-                    child: Text(
-                      language == "ar" ? city['nom_ar'] : city['nom'],
-                      textDirection: language == "ar" ? TextDirection.rtl : TextDirection.ltr,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (String? value) => setState(() => selectedCity = value ?? ''),
-                hint: Text(
-                  getTranslated(context, "Ville")!,
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                icon: Icon(Icons.keyboard_arrow_down, color: pcolor),
-              ),
-            ),
-    );
-  }
 
+Widget _buildCityDropdown(String language) {
+  return Container(
+    margin: const EdgeInsets.all(8),
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    decoration: BoxDecoration(
+      color: pcolor.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: isLoadingCities
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : DropdownButtonHideUnderline(
+            child: DropdownButton<Map<String, dynamic>>(
+              value: selectedCity.isEmpty ? null : availableCities.firstWhere(
+                (city) => city['nom'] == selectedCity,
+                orElse: () => {},
+              ),
+              items: availableCities
+                  .map((city) {
+                    return DropdownMenuItem<Map<String, dynamic>>(
+                      value: city,
+                      child: Text(
+                        language == "ar" ? city['nom_ar'] : city['nom'],
+                        textDirection: language == "ar" ? TextDirection.rtl : TextDirection.ltr,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    );
+                  })
+                  .toList(),
+              onChanged: (Map<String, dynamic>? value) {
+                if (value != null) {
+                  setState(() => selectedCity = value['nom'] ?? '');
+         }
+              },
+              hint: Text(
+                getTranslated(context, "Ville")!,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              icon: Icon(Icons.keyboard_arrow_down, color: pcolor),
+            ),
+          ),
+  );
+}
   Widget _buildSearchButton() {
     return Container(
       margin: const EdgeInsets.all(8),
@@ -391,10 +508,10 @@ class _HomeState extends State<Home> {
       child: IconButton(
         icon: const Icon(Icons.search, color: Colors.white),
         onPressed: () {
-          if (selectedCity.isNotEmpty) {
+          if (selectedCity.isNotEmpty || searchController.text.isNotEmpty) {
             _fetchProperties(selectedCity, searchController.text);
           } else {
-            _showErrorSnackbar(getTranslated(context, "Veuillez sélectionner une ville")!);
+            _showErrorSnackbar(getTranslated(context, "Veuillez sélectionner une ville ou entrer une adresse")!);
           }
         },
       ),
@@ -515,7 +632,9 @@ class _HomeState extends State<Home> {
       children: [
         _buildSectionTitle(
           icon: Icons.home,
-          title: getTranslated(context, "Residentiel")!,
+          title: showSearchResults 
+            ? getTranslated(context, "Résultats de recherche")!
+            : getTranslated(context, "Residentiel")!,
         ),
         const Spacer(),
         Container(
@@ -525,7 +644,7 @@ class _HomeState extends State<Home> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            isSearch
+            showSearchResults
                 ? '${filteredProperties.length} ${getTranslated(context, "résultats")}'
                 : '${immobilierList.length} ${getTranslated(context, "propriétés")}',
             style: TextStyle(
@@ -540,20 +659,22 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildPropertiesContent() {
-    if (isSearch) {
+    if (showSearchResults) {
+      // Afficher les résultats de recherche
       return filteredProperties.isNotEmpty
           ? _buildModernPropertyGrid(filteredProperties)
           : _buildEmptyState();
     } else if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     } else {
+      // Afficher les propriétés résidentielles normales
       return _buildModernPropertyGrid(immobilierList);
     }
   }
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.all(40),
+      padding:  EdgeInsets.all(getProportionateScreenWidth(74)),
       child: Column(
         children: [
           Icon(
@@ -579,6 +700,15 @@ class _HomeState extends State<Home> {
             ),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _resetSearch,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: pcolor,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(getTranslated(context, "Réinitialiser la recherche")!),
+          ),
         ],
       ),
     );
@@ -602,163 +732,412 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildPropertyCard(dynamic property) {
-    final imageUrl = _resolveImageUrl(property['images']);
-    final isTerrain = property['terrain'] != null;
-    final isResidentiel = property['residentiel'] != null;
-    final operationType = property['operation']['type'];
-    final ville = property['ville']['nom'];
-    final ratings = property['ratings'] ?? '0.0';
-    final adresse = property['adresse'] ?? '';
-    final montant = isTerrain ? property['terrain']['montant']?.toString() : null;
-    final loyerMensuel = isResidentiel ? property['residentiel']['loyer_mensuel']?.toString() : null;
-    final periode = isResidentiel ? property['residentiel']['periode'] : null;
+Widget _buildPropertyCard(dynamic property) {
+  final mediaUrl = _resolveImageUrl(property);
+  final priceInfo = _extractPriceInfo(property);
+  final locationInfo = _extractLocationInfo(property);
+  
+  final operationType = priceInfo['operationType'];
+  final ville = locationInfo['ville'];
+  final ratings = property['ratings']?.toString() ?? property['rating']?.toString() ?? '0.0';
+  final adresse = locationInfo['adresse'];
+  final montant = priceInfo['montant'];
+  final loyerMensuel = priceInfo['loyerMensuel'];
+  final periode = priceInfo['periode'];
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ImmobDetails(id: property['id']),
-          ),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Image section
-                Container(
-                  height: constraints.maxWidth * 0.6,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    image: DecorationImage(
-                      image: NetworkImage(imageUrl),
-                      fit: BoxFit.cover,
-                      onError: (_, __) => const Icon(Icons.home, color: Colors.grey),
+
+  return Card(
+    elevation: 2,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Media section (image ou vidéo)
+            GestureDetector(
+              onTap: () {
+                if (_isVideo(mediaUrl)) {
+                  _openVideo(context, mediaUrl);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ImmobDetails(id: property['id']),
                     ),
-                  ),
-                  child: Stack(
-                    children: [
+                  );
+                }
+              },
+              child: Container(
+                height: constraints.maxWidth * 0.6,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  image: _isVideo(mediaUrl)
+                      ? null
+                      : DecorationImage(
+                          image: NetworkImage(mediaUrl),
+                          fit: BoxFit.cover,
+                          onError: (_, __) => Container(
+                            color: Colors.grey[200],
+                            child: Icon(Icons.home, color: Colors.grey),
+                          ),
+                        ),
+                  color: _isVideo(mediaUrl) ? Colors.black54 : null,
+                ),
+                child: Stack(
+                  children: [
+                    if (_isVideo(mediaUrl))
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.4),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                      ),
+                    
+                    if (_isVideo(mediaUrl))
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.play_arrow, size: 40, color: Colors.white),
+                        ),
+                      )
+                    else if (mediaUrl.contains('encrypted-tbn0'))
+                      const Center(
+                        child: Icon(Icons.home, size: 40, color: Colors.grey),
+                      ),
+                    
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: operationType == 'vendre' 
+                              ? Colors.red.withOpacity(0.8)
+                              : Colors.blue.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          getTranslated(context, operationType) ?? operationType,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    if (_isVideo(mediaUrl))
                       Positioned(
                         top: 8,
-                        left: 8,
+                        right: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: operationType == 'vendre' 
-                                ? Colors.red.withOpacity(0.8)
-                                : Colors.blue.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            getTranslated(context, operationType) ?? operationType,
-                            style: const TextStyle(
+                          child:  Text(
+                            getTranslated(context,"VIDÉO")!,
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: 8,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
-                
-                // Info section
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: constraints.maxWidth * 0.15,
-                        ),
-                        child: Text(
-                          adresse,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+              ),
+            ),
+            
+            // Info section
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ImmobDetails(id: property['id']),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: constraints.maxWidth * 0.15,
                       ),
-                      const SizedBox(height: 4),
-                      
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 12, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              ville,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      
-                      Text(
-                        loyerMensuel != null
-                            ? '$loyerMensuel MRU/${getTranslated(context, "$periode") ?? 'mois'}'
-                            : '${montant ?? 'N/A'} MRU',
+                      child: Text(
+                        adresse!,
                         style: const TextStyle(
-                          fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          fontSize: 12,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
-                      
-                      Row(
-                        children: [
-                          ...List.generate(5, (starIndex) => Icon(
-                            Icons.star,
-                            size: 14,
-                            color: starIndex < (double.tryParse(ratings) ?? 0).floor()
-                                ? Colors.amber
-                                : Colors.grey[300],
-                          )),
-                          const SizedBox(width: 4),
-                          Text(
-                            ratings,
-                            style: const TextStyle(fontSize: 10),
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, size: 12, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            ville!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    
+                    Text(
+                      _getPriceText(property, priceInfo),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
                       ),
-                    ],
-                  ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    
+                    Row(
+                      children: [
+                        ...List.generate(5, (starIndex) => Icon(
+                          Icons.star,
+                          size: 14,
+                          color: starIndex < (double.tryParse(ratings) ?? 0).floor()
+                              ? Colors.amber
+                              : Colors.grey[300],
+                        )),
+                        const SizedBox(width: 4),
+                        Text(
+                          ratings,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+
+// Ajoutez cette fonction helper
+String _getPriceText(dynamic property, Map<String, dynamic> priceInfo) {
+  final montant = priceInfo['montant'];
+  final loyerMensuel = priceInfo['loyerMensuel'];
+  final periode = priceInfo['periode'];
+  final operationType = priceInfo['operationType'];
+
+  if (montant != null && montant != 'null') {
+    return '$montant MRU';
+  } else if (loyerMensuel != null && loyerMensuel != 'null') {
+    return '$loyerMensuel MRU/${getTranslated(context, periode ?? "mois") ?? "mois"}';
+  } else {
+    return getTranslated(context, 'Prix sur demande')!;
+  }
+}
+  bool _isVideo(String url) {
+    if (url.isEmpty) return false;
+    
+    final videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.wmv', '.flv', '.mkv'];
+    final videoPaths = ['/videos/', '/media/videos/', 'video', 'mp4'];
+    
+    final lowerUrl = url.toLowerCase();
+    
+    return videoExtensions.any((ext) => lowerUrl.endsWith(ext)) ||
+           videoPaths.any((path) => lowerUrl.contains(path));
+  }
+
+  void _openVideo(BuildContext context, String videoUrl) {
+    String fullVideoUrl = videoUrl;
+    if (videoUrl.startsWith('/')) {
+      fullVideoUrl = 'https://akarina.online$videoUrl';
+    }
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: VideoPlayerWidget(videoUrl: fullVideoUrl),
         ),
       ),
     );
   }
 
-  String _resolveImageUrl(dynamic images) {
-    if (images != null && images.isNotEmpty) {
-      return images[0]['image'];
+String _resolveImageUrl(dynamic property) {
+  try {
+    // Essayer différents chemins d'accès aux images selon le type de propriété
+    if (property['images'] != null && property['images'].isNotEmpty) {
+      if (property['images'][0]['image'] != null && 
+          property['images'][0]['image'].toString().isNotEmpty) {
+        return property['images'][0]['image'];
+      }
+      if (property['images'][0]['video'] != null && 
+          property['images'][0]['video'].toString().isNotEmpty) {
+        return property['images'][0]['video'];
+      }
     }
+    
+    // Pour les propriétés de recherche globale, essayer d'autres chemins
+    if (property['image'] != null && property['image'].toString().isNotEmpty) {
+      return property['image'];
+    }
+    
+    if (property['featured_image'] != null && property['featured_image'].toString().isNotEmpty) {
+      return property['featured_image'];
+    }
+    
+    // Image par défaut
+    return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
+  } catch (e) {
+
     return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
   }
+}
+
+
+// Méthode pour extraire les informations de prix selon le type de propriété
+Map<String, dynamic> _extractPriceInfo(dynamic property) {
+
+  // Extraire le type d'opération
+  final operationType = property['type_operation'] ?? 
+                       property['operation']?['type'] ?? 
+                       'alouer';
+  
+  String? montant;
+  String? loyerMensuel;
+  String? periode;
+
+  // DEBUG: Afficher la structure complète de la propriété
+
+  
+  // VÉRIFIER D'ABORD DANS RÉSIDENTIEL
+  if (property['residentiel'] != null && property['residentiel'] is Map) {
+    final residentiel = property['residentiel'];
+
+    
+    if (residentiel['montant'] != null) {
+      montant = residentiel['montant'].toString();
+
+    }
+    if (residentiel['loyer_mensuel'] != null) {
+      loyerMensuel = residentiel['loyer_mensuel'].toString();
+      periode = residentiel['periode'] ?? 'mois';
+
+    }
+  }
+  
+  // Ensuite vérifier les autres chemins
+  else if (property['montant'] != null) {
+    montant = property['montant'].toString();
+
+  } 
+  else if (property['loyer_mensuel'] != null) {
+    loyerMensuel = property['loyer_mensuel'].toString();
+    periode = property['periode'] ?? 'mois';
+
+  }
+  // Vérifier dans l'objet operation
+  else if (property['operation'] != null && property['operation'] is Map) {
+    final operation = property['operation'];
+    
+    if (operation['montant'] != null) {
+      montant = operation['montant'].toString();
+
+    }
+    if (operation['loyer_mensuel'] != null) {
+      loyerMensuel = operation['loyer_mensuel'].toString();
+      periode = operation['periode'] ?? 'mois';
+    }
+  }
+  // Vérifier dans les autres sous-objets
+  else if (property['terrain'] != null && property['terrain'] is Map) {
+    if (property['terrain']['montant'] != null) {
+      montant = property['terrain']['montant'].toString();
+
+    }
+  }
+  else if (property['vendre'] != null && property['vendre'] is Map) {
+    if (property['vendre']['montant'] != null) {
+      montant = property['vendre']['montant'].toString();
+
+    }
+  }
+  else if (property['alouer'] != null && property['alouer'] is Map) {
+    if (property['alouer']['loyer_mensuel'] != null) {
+      loyerMensuel = property['alouer']['loyer_mensuel'].toString();
+      periode = property['alouer']['periode'] ?? 'mois';
+
+    }
+  }
+
+  // Si aucun prix n'est trouvé
+  if (montant == null && loyerMensuel == null) {
+
+  } else {
+  
+  }
+
+  return {
+    'operationType': operationType,
+    'montant': montant,
+    'loyerMensuel': loyerMensuel,
+    'periode': periode ?? 'mois',
+  };
+}
+// Méthode pour extraire l'adresse et la ville
+Map<String, String> _extractLocationInfo(dynamic property) {
+  String adresse = '';
+  String ville = '';
+  
+  // Essayer différents chemins d'accès
+  adresse = property['adresse'] ?? property['address'] ?? property['location'] ?? '';
+  
+  if (property['ville'] != null) {
+    if (property['ville'] is String) {
+      ville = property['ville'];
+    } else if (property['ville'] is Map) {
+      ville = property['ville']['nom'] ?? property['ville']['name'] ?? '';
+    }
+  }
+  
+  ville = ville.isEmpty ? property['city'] ?? property['nom_ville'] ?? '' : ville;
+  
+  return {
+    'adresse': adresse,
+    'ville': ville,
+  };
+}
 
   String _getImageForCategory(String categoryName) {
     switch (categoryName) {

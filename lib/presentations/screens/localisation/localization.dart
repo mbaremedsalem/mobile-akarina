@@ -18,12 +18,8 @@ class Location extends StatefulWidget {
 class _LocationState extends State<Location> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
-  // late Future<List<dynamic>> futureImmobiliers;
   bool hasInternetConnection = true;
-
-
-
-  Future<List<dynamic>> futureImmobiliers = Future.value([]); // Initialisation ici
+  Future<List<dynamic>> futureImmobiliers = Future.value([]);
 
   // URL de l'API et timeout
   final String baseUrl = 'https://akarina.online/';
@@ -44,7 +40,7 @@ class _LocationState extends State<Location> {
     if (!hasConnection) return;
     
     setState(() {
-      futureImmobiliers = fetchImmobiliers(); // Mise à jour avec setState
+      futureImmobiliers = fetchImmobiliers();
     });
   }
 
@@ -55,12 +51,12 @@ class _LocationState extends State<Location> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['results']; // Retourne la liste des immobiliers
+        return data['results'] ?? []; // Retourne la liste des immobiliers
       } else {
         throw Exception('Failed to load immobiliers: ${response.body}');
       }
     } catch (e) {
-      print('Erreur lors de la récupération des immobiliers: $e');
+
       return [];
     }
   }
@@ -69,11 +65,14 @@ class _LocationState extends State<Location> {
     _markers.clear(); // Nettoyer les anciens marqueurs
     
     for (var immobilier in immobiliers) {
-      final double? latitude = immobilier['x']?.toDouble();
-      final double? longitude = immobilier['y']?.toDouble();
+      // CORRECTION ICI : Utiliser double.tryParse() au lieu de .toDouble()
+      final double? latitude = _parseCoordinate(immobilier['x']);
+      final double? longitude = _parseCoordinate(immobilier['y']);
       
       // Si la latitude ou longitude est nulle, ignorer ce marqueur
-      if (latitude == null || longitude == null) continue;
+      if (latitude == null || longitude == null) {
+         continue;
+      }
 
       final bool isAvailable = immobilier['available'] ?? false;
       final String address = immobilier['adresse'] ?? 'Adresse inconnue';
@@ -93,21 +92,54 @@ class _LocationState extends State<Location> {
         ),
       );
     }
+    
+  }
+
+  // NOUVELLE MÉTHODE : Parser les coordonnées de manière sécurisée
+  double? _parseCoordinate(dynamic coordinate) {
+    if (coordinate == null) return null;
+    
+    try {
+      if (coordinate is double) {
+        return coordinate;
+      } else if (coordinate is int) {
+        return coordinate.toDouble();
+      } else if (coordinate is String) {
+        // Nettoyer la chaîne si nécessaire (virgules, espaces, etc.)
+        String cleaned = coordinate.toString().replaceAll(',', '.').trim();
+        return double.tryParse(cleaned);
+      }
+    } catch (e) {
+    }
+    
+    return null;
   }
 
   String _getPriceInfo(dynamic immobilier) {
-    if (immobilier['operation']?['type'] == 'vendre' || 
-        immobilier['operation']?['type'] == 'alouer') {
-      final montant = immobilier['residentiel']?['montant'] ?? immobilier['montant'];
-      final loyer = immobilier['residentiel']?['loyer_mensuel'];
-      
-      if (montant != null) {
-        return 'À vendre: ${montant.toStringAsFixed(2)} MRU';
-      } else if (loyer != null) {
-        return 'À louer: ${loyer.toStringAsFixed(2)} MRU/mois';
+    try {
+      // Essayer différents chemins pour le prix
+      if (immobilier['operation']?['type'] == 'vendre') {
+        final montant = immobilier['residentiel']?['montant'] ?? 
+                       immobilier['montant'] ?? 
+                       immobilier['operation']?['montant'];
+        
+        if (montant != null) {
+          return '${getTranslated(context, "À vendre")!}: $montant MRU';
+        }
+      } else if (immobilier['operation']?['type'] == 'alouer') {
+        final loyer = immobilier['residentiel']?['loyer_mensuel'] ?? 
+                     immobilier['loyer_mensuel'] ?? 
+                     immobilier['operation']?['loyer_mensuel'];
+        
+        if (loyer != null) {
+          return '${getTranslated(context, "À louer")!}: $loyer MRU/mois';
+        }
       }
+    } catch (e) {
+
     }
-    return 'Prix non disponible';
+    
+    return getTranslated(context, "Prix non disponible")!;
   }
 
   @override
@@ -147,9 +179,30 @@ class _LocationState extends State<Location> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Erreur: ${snapshot.error}'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red, size: 50),
+                  SizedBox(height: 16),
+                  Text(
+                    'Erreur: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _initializeData,
+                    child: Text(getTranslated(context, "Réessayer")!),
+                  ),
+                ],
+              ),
+            );
           } else if (snapshot.hasData) {
-            _addMarkers(snapshot.data!);
+            final immobiliers = snapshot.data!;
+            
+            // Ajouter les marqueurs
+            _addMarkers(immobiliers);
 
             return Stack(
               children: [
@@ -159,39 +212,105 @@ class _LocationState extends State<Location> {
                     zoom: 12,
                   ),
                   markers: _markers,
-                  onMapCreated: (controller) => _mapController = controller,
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+ },
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
                 ),
+                
+                // Légende des couleurs
                 Positioned(
                   bottom: 20,
                   right: 20,
-                  child: Column(
-                    children: [
-                      FloatingActionButton(
-                        heroTag: 'available',
-                        onPressed: () {},
-                        backgroundColor: Colors.green,
-                        child: Icon(Icons.circle, size: 20),
-                      ),
-                      SizedBox(height: 10),
-                      Text(getTranslated(context, "Disponible")!),
-                      SizedBox(height: 20),
-                      FloatingActionButton(
-                        heroTag: 'unavailable',
-                        onPressed: () {},
-                        backgroundColor: Colors.red,
-                        child: Icon(Icons.circle, size: 20),
-                      ),
-                      SizedBox(height: 10),
-                      Text(getTranslated(context, "Non disponible")!),
-                    ],
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLegendItem(
+                          Colors.green,
+                          getTranslated(context, "Disponible")!,
+                        ),
+                        SizedBox(height: 8),
+                        _buildLegendItem(
+                          Colors.red,
+                          getTranslated(context, "Non disponible")!,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Bouton de recentrage
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  child: FloatingActionButton(
+                    heroTag: 'recenter',
+                    onPressed: () {
+                      _mapController.animateCamera(
+                        CameraUpdate.newLatLngZoom(LatLng(18.0735, -15.9582), 12),
+                      );
+                    },
+                    backgroundColor: pcolor,
+                    child: Icon(Icons.my_location, color: Colors.white),
                   ),
                 ),
               ],
             );
           }
-          return Center(child: Text('Aucun immobilier trouvé.'));
+          
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.home_work, size: 50, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  getTranslated(context, "Aucun immobilier trouvé")!,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          );
         },
       ),
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

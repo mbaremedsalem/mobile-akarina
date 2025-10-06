@@ -1,5 +1,3 @@
-
-// import 'package:bcipay/presentation/customs/custom_new_version.dart';
 import 'package:akarina/data/data_providers/exception.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
@@ -59,36 +57,7 @@ class Services {
   }
 }
 
-// class LocationService {
-//   Future<l.LocationData?> getLocation() async {
-//     l.Location location = new l.Location();
-//     bool _serviceEnabled;
-//     l.PermissionStatus _permissionGranted;
-//     l.LocationData _locationData;
 
-//     _permissionGranted = await location.hasPermission();
-//     if (_permissionGranted == l.PermissionStatus.denied) {
-//       _permissionGranted = await location.requestPermission();
-//     }
-
-//     if (_permissionGranted == l.PermissionStatus.granted) {
-//       // throw Exception();
-//       _serviceEnabled = await location.serviceEnabled();
-//       if (!_serviceEnabled) {
-//         _serviceEnabled = await location.requestService();
-//         if (!_serviceEnabled) {
-//         } else {
-//           _locationData = await location.getLocation();
-//           return _locationData;
-//         }
-//       } else {
-//         _locationData = await location.getLocation();
-//         return _locationData;
-//       }
-//     }
-//     return null;
-//   }
-// }
 
 class Mylocalstorage {
   FlutterSecureStorage flutterSecureStorage = FlutterSecureStorage();
@@ -102,29 +71,7 @@ class Mylocalstorage {
   }
 }
 
-// class ContactPermission {
-//   Future<Contact?> contactPermissions() async {
-//     final FlutterContactPicker contactPicker = new FlutterContactPicker();
 
-//     PermissionStatus permissionStatus = await _getContactPermission();
-//     if (permissionStatus == PermissionStatus.granted) {
-//       Contact? contact = await contactPicker.selectContact();
-//       return contact;
-//     } else {
-//       return null;
-//     }
-//   }
-
-//   Future<PermissionStatus> _getContactPermission() async {
-//     PermissionStatus permission = await Permission.contacts.status;
-//     if (permission != PermissionStatus.granted) {
-//       PermissionStatus permissionStatus = await Permission.contacts.request();
-//       return permissionStatus;
-//     } else {
-//       return permission;
-//     }
-//   }
-// }
 
 class CameraPermission {
   Future<void> cameraPermissions() async {
@@ -146,33 +93,7 @@ class StoragePermission {
   }
 }
 
-// void checkVersion(BuildContext context) async {
-//   final newVersion = NewVersion(
-//     iOSId: 'mr.next.bcipaymr',
-//     androidId: 'mr.next.bcipaymr',
-//   );
-//   try {
-//     final _status = await (newVersion.getVersionStatus());
-//     if (_status!.canUpdate)
-//       newVersion.showUpdateDialog(
-//         context: context,
-//         versionStatus: _status,
-//         allowDismissal: false,
-//         dialogTitle: getTranslated(context, "update!")!,
-//         dismissButtonText: getTranslated(context, "ignorer"),
-//         dialogText: getTranslated(context, "please update"),
-//         dismissAction: () {
-//           Navigator.pop(context);
-//         },
-//         updateButtonText: getTranslated(context, "lets update")!,
-//       );
 
-//     print("DEVICE : " + _status.localVersion!);
-//     print("STORE : " + _status.storeVersion!);
-//   } catch (e) {
-//     print('error');
-//   }
-// }
 
 
 

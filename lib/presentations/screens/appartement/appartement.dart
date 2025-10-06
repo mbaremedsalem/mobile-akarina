@@ -6,14 +6,41 @@ import 'package:akarina/presentations/components/refreshable_widget.dart';
 import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
+import 'package:akarina/presentations/screens/home/video_player.dart';
 import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:akarina/data/services/connectivity_service.dart';
 
+// Classe helper pour gérer la lecture vidéo
+class VideoHelper {
+  static void playVideo(BuildContext context, String videoUrl) {
+    
+    try {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: EdgeInsets.all(20),
+          child: SizedBox(
+            width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: VideoPlayerWidget(videoUrl: videoUrl),
+          ),
+        ),
+      );
+    } catch (e) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: Impossible de lire la vidéo')),
+      );
+    }
+  }
+}
+
 class Appartement extends StatefulWidget {
-  final String apiUrl; // URL de base de l'API
+  final String apiUrl;
   final int count;
 
   const Appartement({super.key, required this.apiUrl, required this.count});
@@ -23,18 +50,26 @@ class Appartement extends StatefulWidget {
 }
 
 class _AppartementState extends State<Appartement> {
+  // Variables principales
   List<dynamic> apartments = [];
   bool isLoading = true;
   bool isLoadingCities = true;
   bool hasInternetConnection = true;
+  bool hasSearched = false;
 
   // Variables pour les filtres
   String? selectedVille;
   String? selectedQuarter;
-  bool isFurnished = false;
-  TextEditingController minPriceController = TextEditingController();
-  TextEditingController maxPriceController = TextEditingController();
-  String operationType = 'alouer'; // Valeur par défaut
+  int? _meublerFilter; // null = tous, 0 = non meublé, 1 = meublé
+  String? _selectedOperation;
+  double? _prixMin;
+  double? _prixMax;
+
+  // Contrôleurs
+  TextEditingController _minPriceController = TextEditingController();
+  TextEditingController _maxPriceController = TextEditingController();
+  TextEditingController _searchController = TextEditingController();
+  bool _showSearchBar = false;
 
   List<Map<String, dynamic>> availableCities = [];
   List<String> availableQuarters = [];
@@ -42,24 +77,37 @@ class _AppartementState extends State<Appartement> {
   @override
   void initState() {
     super.initState();
+
     _initializeData();
   }
 
+  @override
+  void dispose() {
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeData() async {
-    // Vérifier la connectivité internet d'abord
+
     final hasConnection = await ConnectivityService.hasInternetConnection();
+    
     setState(() {
       hasInternetConnection = hasConnection;
     });
     
     if (!hasConnection) {
-      return; // Ne pas charger les données si pas de connexion
+      return;
     }
     
-    await Future.wait([
-      _loadApartments(),
-      fetchCities(),
-    ]);
+    try {
+      await Future.wait([
+        _loadApartments(),
+        fetchCities(),
+      ]);
+    } catch (e) {
+    }
   }
 
   Future<void> _loadApartments({
@@ -67,17 +115,18 @@ class _AppartementState extends State<Appartement> {
     String? adresse,
     bool? meubler,
     String? operation,
-    double? montantMin,
-    double? montantMax,
     double? prixMin,
     double? prixMax,
+    String? searchQuery,
   }) async {
+
+    
     setState(() {
       isLoading = true;
+      hasSearched = true;
     });
 
     try {
-      // Construire l'URL avec les paramètres de filtre
       Uri uri = Uri.parse(widget.apiUrl);
       Map<String, String> queryParams = {};
 
@@ -86,391 +135,719 @@ class _AppartementState extends State<Appartement> {
         queryParams.addAll(uri.queryParameters);
       }
 
-      // Ajouter les nouveaux paramètres de filtre
-      if (ville != null && ville.isNotEmpty) {
-        queryParams['nom_ville'] = ville;
+      // === FILTRES AMÉLIORÉS ===
+      
+      // Filtre par recherche texte
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        queryParams['search'] = searchQuery;
       }
+      
+      // Filtre par ville
+      if (ville != null && ville.isNotEmpty) {
+        queryParams['ville'] = ville;
+      }
+      
+      // Filtre par adresse
       if (adresse != null && adresse.isNotEmpty) {
         queryParams['adresse'] = adresse;
       }
+      
+      // Filtre meublé
       if (meubler != null) {
         queryParams['meubler'] = meubler.toString();
       }
+      
+      // Filtre opération
       if (operation != null && operation.isNotEmpty) {
-        queryParams['type_operation'] = operation;
+        queryParams['operation'] = operation;
       }
-      if (prixMin != null) {
-        queryParams['loyer_min'] = prixMin.toStringAsFixed(0);
+      
+      // Filtres prix
+      if (prixMin != null && prixMin > 0) {
+        queryParams['prix_min'] = prixMin.toStringAsFixed(0);
       }
-      if (prixMax != null) {
-        queryParams['loyer_max'] = prixMax.toStringAsFixed(0);
+      if (prixMax != null && prixMax > 0) {
+        queryParams['prix_max'] = prixMax.toStringAsFixed(0);
       }
-      // if (montantMin != null) {
-      //   queryParams['montant_min'] = montantMin.toStringAsFixed(0);
-      // }
-      // if (montantMax != null) {
-      //   queryParams['montant_max'] = montantMax.toStringAsFixed(0);
-      // }
-      // Construire la nouvelle URL avec les paramètres
+
+
+      // Construire l'URL finale
       Uri newUri = uri.replace(queryParameters: queryParams);
+
 
       final response = await http.get(newUri);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
+        
+        List<dynamic> apartmentsList = [];
+        
+        if (data is Map<String, dynamic> && data.containsKey('results')) {
+          apartmentsList = data['results'];
+        } else if (data is List) {
+          apartmentsList = data;
+        } else {
+          throw Exception('Format de réponse inconnu');
+        }
+        
         setState(() {
-          apartments = data;
+          apartments = apartmentsList;
           isLoading = false;
         });
+        
+        
       } else {
-        throw Exception('Erreur lors du chargement des données : ${response.statusCode}');
+        throw Exception('Erreur HTTP: ${response.statusCode}');
       }
     } catch (e) {
       setState(() {
         isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
-  Future<void> fetchCities() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://akarina.online/akareena/villes/'),
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      );
+  // === FONCTIONS DE GESTION DES FILTRES ===
 
-      if (response.statusCode == 200) {
-        setState(() {
-          availableCities = List<Map<String, dynamic>>.from(
-            jsonDecode(utf8.decode(response.bodyBytes)),
-          );
-          isLoadingCities = false;
-        });
-      } else {
-        throw Exception('Erreur lors du chargement des villes : ${response.statusCode}');
+  void _applyFilters() {
+    
+    bool? meublerFilter;
+    if (_meublerFilter != null) {
+      meublerFilter = _meublerFilter == 1;
+    }
+    
+    _loadApartments(
+      ville: selectedVille,
+      adresse: selectedQuarter,
+      meubler: meublerFilter,
+      operation: _selectedOperation,
+      prixMin: _prixMin,
+      prixMax: _prixMax,
+      searchQuery: _searchController.text.isNotEmpty ? _searchController.text : null,
+    );
+  }
+
+  void _resetAllFilters() {
+
+    setState(() {
+      selectedVille = null;
+      selectedQuarter = null;
+      _meublerFilter = null;
+      _selectedOperation = null;
+      _prixMin = null;
+      _prixMax = null;
+      _minPriceController.clear();
+      _maxPriceController.clear();
+      _searchController.clear();
+      _showSearchBar = false;
+    });
+    
+    _loadApartments();
+  }
+
+  void _performSearch() {
+    if (_searchController.text.isNotEmpty) {
+
+      _loadApartments(searchQuery: _searchController.text);
+    }
+  }
+
+  void _toggleSearchBar() {
+    setState(() {
+      _showSearchBar = !_showSearchBar;
+      if (!_showSearchBar) {
+        _searchController.clear();
+        _loadApartments();
       }
-    } catch (e) {
-      setState(() {
-        isLoadingCities = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e')),
-      );
-    }
+    });
   }
 
-  String getCityName(Map<String, dynamic> city) {
-    final currentLang = Localizations.localeOf(context).languageCode;
-    return currentLang == 'ar' ? city['nom_ar'] : city['nom'];
+  // === WIDGETS POUR LES FILTRES ===
+
+  Widget _buildSearchSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: getTranslated(context, "Rechercher par adresse, ville..."),
+          prefixIcon: Icon(Icons.search_rounded, color: pcolor),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear_rounded, color: Colors.grey.shade400),
+                  onPressed: () {
+                    _searchController.clear();
+                    _loadApartments();
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        onSubmitted: (value) => _performSearch(),
+      ),
+    );
   }
+
+  Widget _buildMeublerFilter() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.chair_rounded, color: pcolor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                getTranslated(context, "Meublé")!,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterChip(
+                  label: getTranslated(context, "Tous")!,
+                  isSelected: _meublerFilter == null,
+                  onTap: () {
+                    setState(() {
+                      _meublerFilter = null;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildFilterChip(
+                  label: getTranslated(context, "Meublé")!,
+                  isSelected: _meublerFilter == 1,
+                  onTap: () {
+                    setState(() {
+                      _meublerFilter = 1;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildFilterChip(
+                  label: getTranslated(context, "Non meublé")!,
+                  isSelected: _meublerFilter == 0,
+                  onTap: () {
+                    setState(() {
+                      _meublerFilter = 0;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? pcolor : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? pcolor : Colors.grey.shade300,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection({required IconData icon, required String title, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: pcolor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
+    );
+  }
+
+  // === DIALOGUE DE FILTRES MODERNE ===
 
   void _showFilterDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
+          elevation: 10,
           child: Container(
-            constraints: const BoxConstraints(maxHeight: 600),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header avec titre et bouton fermer
+                // Header avec dégradé
                 Container(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.all(24.0),
                   decoration: BoxDecoration(
-                    color: pcolor,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [pcolor, Colors.blue.shade700],
+                    ),
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20.0),
-                      topRight: Radius.circular(20.0),
+                      topLeft: Radius.circular(24.0),
+                      topRight: Radius.circular(24.0),
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        getTranslated(context, "Filtres")!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.tune_rounded, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          getTranslated(context, "Filtres Avancés")!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white),
+                        icon: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 
                 // Contenu des filtres
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Type d'opération
-                        Text(
-                          getTranslated(context, 'Type d\'opération')!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: DropdownButtonFormField<String>(
-                            value: operationType,
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                operationType = newValue ?? 'alouer';
-                              });
-                            },
-                            items: [
-                              DropdownMenuItem(
-                                value: 'alouer',
-                                child: Text(getTranslated(context, 'alouer')!),
-                              ),
-                              DropdownMenuItem(
-                                value: 'vendre',
-                                child: Text(getTranslated(context, 'vendre')!),
-                              ),
-                            ],
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        
-                        // Ville
-                        Text(
-                          getTranslated(context, 'Ville')!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        isLoadingCities
-                            ? const Center(child: CircularProgressIndicator())
-                            : Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                ),
-                                child: DropdownButtonFormField<String>(
-                                  value: selectedVille,
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      selectedVille = newValue;
-                                    });
-                                  },
-                                  items: availableCities.map<DropdownMenuItem<String>>((ville) {
-                                    return DropdownMenuItem<String>(
-                                      value: ville['nom'],
-                                      child: Text(getCityName(ville)),
-                                    );
-                                  }).toList(),
-                                  decoration: const InputDecoration(
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                Expanded(
+                  child: Container(
+                    color: Colors.grey[50],
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Barre de recherche
+                          _buildSearchSection(),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Type d'opération
+                          _buildFilterSection(
+                            icon: Icons.business_center_rounded,
+                            title: getTranslated(context, 'Type opération')!,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
-                                ),
+                                ],
                               ),
-                        const SizedBox(height: 4),
-                        
-                        // Quartier
-                        // Text(
-                        //   getTranslated(context, 'Quartier')!,
-                        //   style: const TextStyle(
-                        //     fontSize: 16,
-                        //     fontWeight: FontWeight.bold,
-                        //     color: Colors.black87,
-                        //   ),
-                        // ),
-                        // const SizedBox(height: 8),
-                        
-                        // Container(
-                        //   decoration: BoxDecoration(
-                        //     borderRadius: BorderRadius.circular(12),
-                        //     border: Border.all(color: Colors.grey.shade300),
-                        //   ),
-                        //   child: DropdownButtonFormField<String>(
-                        //     value: selectedQuarter,
-                        //     hint: Text(getTranslated(context, 'Quartier')!),
-                        //     items: <String>['Tevragh Zeina', 'Ksar', 'Sebkha', 'Nouakchott Ouest', 'Nouakchott Nord']
-                        //         .map<DropdownMenuItem<String>>((String value) {
-                        //       return DropdownMenuItem<String>(
-                        //         value: value,
-                        //         child: Text(value),
-                        //       );
-                        //     }).toList(),
-                        //     onChanged: (value) {
-                        //       setState(() {
-                        //         selectedQuarter = value;
-                        //       });
-                        //     },
-                        //     decoration: const InputDecoration(
-                        //       border: InputBorder.none,
-                        //       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        //     ),
-                        //   ),
-                        // ),
-                        // const SizedBox(height: 20),
-                        
-                        // Prix
-                        Text(
-                          getTranslated(context, 'Prix')!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                ),
-                                child: TextField(
-                                  controller: minPriceController,
-                                  decoration: InputDecoration(
-                                    hintText: getTranslated(context, "De"),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedOperation,
+                                onChanged: (String? newValue) {
+                                  setState(() {
+                                    _selectedOperation = newValue;
+                                  });
+                                },
+                                items: [
+                                  DropdownMenuItem(
+                                    value: null,
+                                    child: Text(getTranslated(context, 'Tous les types')!),
                                   ),
-                                  keyboardType: TextInputType.number,
+                                  DropdownMenuItem(
+                                    value: 'vendre',
+                                    child: Text(getTranslated(context, 'vendre')!),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'alouer',
+                                    child: Text(getTranslated(context, 'alouer')!),
+                                  ),
+                                ],
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                ),
-                                child: TextField(
-                                  controller: maxPriceController,
-                                  decoration: InputDecoration(
-                                    hintText: getTranslated(context, "À"),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Ville
+                          _buildFilterSection(
+                            icon: Icons.location_city_rounded,
+                            title: getTranslated(context, 'Ville')!,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
-                                  keyboardType: TextInputType.number,
+                                ],
+                              ),
+                              child: isLoadingCities
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                      child: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(pcolor),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            getTranslated(context, 'Chargement...')!,
+                                            style: TextStyle(color: Colors.grey.shade600),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : DropdownButtonFormField<String>(
+                                      value: selectedVille,
+                                      onChanged: (String? newValue) {
+                                        setState(() {
+                                          selectedVille = newValue;
+                                        });
+                                      },
+                                      items: [
+                                        DropdownMenuItem(
+                                          value: null,
+                                          child: Text(
+                                            getTranslated(context, 'Toutes les villes')!,
+                                            style: TextStyle(color: Colors.grey.shade500),
+                                          ),
+                                        ),
+                                        ...availableCities.map<DropdownMenuItem<String>>((ville) {
+                                          return DropdownMenuItem<String>(
+                                            value: ville['nom'],
+                                            child: Text(
+                                              getCityName(ville),
+                                              style: const TextStyle(fontSize: 16),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ],
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Filtre Meublé
+                          _buildMeublerFilter(),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Prix
+                          _buildFilterSection(
+                            icon: Icons.attach_money_rounded,
+                            title: getTranslated(context, 'Prix')!,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                getTranslated(context, "Prix minimum")!,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade50,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: TextField(
+                                                  controller: _minPriceController,
+                                                  decoration: InputDecoration(
+                                                    hintText: "0",
+                                                    border: InputBorder.none,
+                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                    prefixIcon: Icon(Icons.arrow_upward_rounded, 
+                                                        color: Colors.green.shade600, size: 18),
+                                                  ),
+                                                  keyboardType: TextInputType.number,
+                                                  onChanged: (value) {
+                                                    _prixMin = double.tryParse(value);
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                getTranslated(context, "Prix maximum")!,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade50,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: TextField(
+                                                  controller: _maxPriceController,
+                                                  decoration: InputDecoration(
+                                                    hintText: "1000000",
+                                                    border: InputBorder.none,
+                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                    prefixIcon: Icon(Icons.arrow_downward_rounded, 
+                                                        color: Colors.red.shade600, size: 18),
+                                                  ),
+                                                  keyboardType: TextInputType.number,
+                                                  onChanged: (value) {
+                                                    _prixMax = double.tryParse(value);
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      getTranslated(context, "Laissez vide pour aucun filtre de prix")!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // Meublé
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          
+                          const SizedBox(height: 32),
+                          
+                          // Boutons d'action
+                          Row(
                             children: [
-                              Text(
-                                getTranslated(context, "Meubler")!,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                              Expanded(
+                                child: Container(
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                    gradient: LinearGradient(
+                                      colors: [Colors.grey.shade100, Colors.grey.shade50],
+                                    ),
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: _resetAllFilters,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.refresh_rounded, 
+                                              color: Colors.grey.shade700, size: 20),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            getTranslated(context, "Effacer")!,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade800,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Switch(
-                                value: isFurnished,
-                                onChanged: (value) {
-                                  setState(() {
-                                    isFurnished = value;
-                                  });
-                                },
-                                activeColor: pcolor,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Container(
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: LinearGradient(
+                                      colors: [pcolor, Colors.blue.shade600],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: pcolor.withOpacity(0.3),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () {
+                                        _applyFilters();
+                                        Navigator.pop(context);
+                                      },
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.search_rounded, 
+                                              color: Colors.white, size: 20),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            getTranslated(context, "Rechercher")!,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        // Boutons d'action
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    selectedVille = null;
-                                    selectedQuarter = null;
-                                    minPriceController.clear();
-                                    maxPriceController.clear();
-                                    isFurnished = false;
-                                    operationType = 'alouer';
-                                  });
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                ),
-                                child: Text(getTranslated(context, "Effacer")!),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  _loadApartments(
-                                    ville: selectedVille,
-                                    adresse: selectedQuarter,
-                                    meubler: isFurnished,
-                                    operation: operationType,
-                                    prixMin: double.tryParse(minPriceController.text),
-                                    prixMax: double.tryParse(maxPriceController.text),
-                                  );
-                                  Navigator.pop(context);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: pcolor,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                ),
-                                child: Text(getTranslated(context, "apply")!),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -482,8 +859,64 @@ class _AppartementState extends State<Appartement> {
     );
   }
 
+  // === FONCTIONS EXISTANTES (gardez celles-ci) ===
+
+  Future<void> fetchCities() async {
+
+    try {
+      final url = 'https://akarina.online/akareena/villes/';
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      );
+
+
+      if (response.statusCode == 200) {
+        try {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          
+          if (data is List) {
+            setState(() {
+              availableCities = List<Map<String, dynamic>>.from(data);
+              isLoadingCities = false;
+            });
+
+          } else {
+
+            throw Exception('Format de données villes invalide');
+          }
+        } catch (e) {
+          throw Exception('Erreur de décodage JSON des villes: $e');
+        }
+      } else {
+
+        throw Exception('Erreur lors du chargement des villes : ${response.statusCode}');
+      }
+    } catch (e) {
+
+      setState(() {
+        isLoadingCities = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur villes : $e')),
+      );
+    }
+  }
+
+  String getCityName(Map<String, dynamic> city) {
+    final currentLang = Localizations.localeOf(context).languageCode;
+    final name = currentLang == 'ar' ? city['nom_ar'] : city['nom'];
+    return name;
+  }
+
+  // === BUILD METHOD AMÉLIORÉE ===
+
   @override
   Widget build(BuildContext context) {
+
     if (!hasInternetConnection) {
       return NoInternetPage();
     }
@@ -497,83 +930,144 @@ class _AppartementState extends State<Appartement> {
               : IconBroken.Arrow___Left_2,
               color: kBlackColor,
           ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(getTranslated(context, "Recherche Maison")!, style: TextStyle(color: kBlackColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(_showSearchBar ? Icons.close : Icons.search),
+            onPressed: _toggleSearchBar,
+          ),
+        ],
       ),
       body: Column(
         children: [
+          // Barre de recherche principale
+          if (_showSearchBar)
+            Padding(
+              padding: EdgeInsets.all(getProportionateScreenWidth(16)),
+              child: _buildSearchSection(),
+            ),
+
+          // Barre d'outils de filtres
           Padding(
             padding: EdgeInsets.all(getProportionateScreenWidth(16)),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      _showFilterDialog(context);
-                    },
-                    icon: Icon(Icons.filter_list, size: getProportionateScreenWidth(16)),
-                    label: Text(
-                      getTranslated(context, "Filtres")!,
-                      style: TextStyle(fontSize: getProportionateScreenWidth(12)),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: pcolor,
-                      side: const BorderSide(color: pcolor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30.0),
+                  // Bouton Filtres
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [pcolor, Colors.blue.shade600],
                       ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: getProportionateScreenWidth(12),
-                        vertical: getProportionateScreenHeight(8),
-                      ),
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: [
+                        BoxShadow(
+                          color: pcolor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ),
-                  SizedBox(width: getProportionateScreenWidth(8)),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        selectedVille = null;
-                        selectedQuarter = null;
-                        minPriceController.clear();
-                        maxPriceController.clear();
-                        isFurnished = false;
-                        operationType = 'alouer';
-                      });
-                      _loadApartments();
-                    },
-                    icon: Icon(Icons.clear, size: getProportionateScreenWidth(16)),
-                    label: Text(
-                      getTranslated(context, "Effacer les filtres")!,
-                      style: TextStyle(fontSize: getProportionateScreenWidth(12)),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30.0),
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: getProportionateScreenWidth(12),
-                        vertical: getProportionateScreenHeight(8),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(25),
+                        onTap: () => _showFilterDialog(context),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: getProportionateScreenWidth(16),
+                            vertical: getProportionateScreenHeight(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.filter_alt_rounded, color: Colors.white, size: getProportionateScreenWidth(16)),
+                              SizedBox(width: getProportionateScreenWidth(8)),
+                              Text(
+                                getTranslated(context, "Filtres")!,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: getProportionateScreenWidth(14),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  SizedBox(width: getProportionateScreenWidth(8)),
-                  Text(
-                    '${apartments.length} ${getTranslated(context, "résultats")}', 
-                    style: TextStyle(fontSize: getProportionateScreenWidth(14))
+
+                  SizedBox(width: getProportionateScreenWidth(12)),
+
+                  // Bouton Effacer
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(25),
+                        onTap: _resetAllFilters,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: getProportionateScreenWidth(16),
+                            vertical: getProportionateScreenHeight(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.refresh_rounded, color: Colors.grey.shade700, size: getProportionateScreenWidth(16)),
+                              SizedBox(width: getProportionateScreenWidth(8)),
+                              Text(
+                                getTranslated(context, "Effacer")!,
+                                style: TextStyle(
+                                  color: Colors.grey.shade800,
+                                  fontSize: getProportionateScreenWidth(14),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(width: getProportionateScreenWidth(12)),
+
+                  // Compteur de résultats
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: getProportionateScreenWidth(16),
+                      vertical: getProportionateScreenHeight(10),
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Text(
+                      '${apartments.length} ${getTranslated(context, "résultats")}',
+                      style: TextStyle(
+                        color: Colors.blue.shade800,
+                        fontSize: getProportionateScreenWidth(14),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
+
+          // Contenu principal
           Expanded(
             child: RefreshableWidget(
               onRefresh: () async {
@@ -583,9 +1077,30 @@ class _AppartementState extends State<Appartement> {
                   ? const Center(child: CircularProgressIndicator())
                   : apartments.isEmpty
                       ? Center(
-                          child: Text(
-                            getTranslated(context, "Aucun résultat trouvé")!,
-                            style: const TextStyle(fontSize: 18),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                hasSearched ? Icons.search_off_rounded : Icons.home_work_rounded,
+                                size: 80,
+                                color: Colors.grey.shade400,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                hasSearched 
+                                    ? getTranslated(context, "Aucun résultat trouvé")!
+                                    : getTranslated(context, "Aucun bien disponible")!,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              if (hasSearched)
+                                TextButton(
+                                  onPressed: _resetAllFilters,
+                                  child: Text(getTranslated(context, "Réinitialiser les filtres")!),
+                                ),
+                            ],
                           ),
                         )
                       : GridView.builder(
@@ -594,7 +1109,7 @@ class _AppartementState extends State<Appartement> {
                             crossAxisCount: 2,
                             crossAxisSpacing: getProportionateScreenWidth(8),
                             mainAxisSpacing: getProportionateScreenHeight(8),
-                            childAspectRatio: 0.75, // Ajusté pour éviter le débordement
+                            childAspectRatio: 0.75,
                           ),
                           itemCount: apartments.length,
                           itemBuilder: (context, index) {
@@ -610,6 +1125,10 @@ class _AppartementState extends State<Appartement> {
   }
 }
 
+// Gardez les classes ApartmentCardModern, IconInfo et VideoHelper existantes
+// (Elles sont déjà bien optimisées dans votre code original)
+
+// ... (Vos classes ApartmentCardModern, IconInfo restent inchangées)
 // Nouvelle carte moderne pour appartement
 class ApartmentCardModern extends StatelessWidget {
   final dynamic apartment;
@@ -618,6 +1137,8 @@ class ApartmentCardModern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
+    
     double rating = 0.0;
     if (apartment['ratings'] != null) {
       rating = double.tryParse(apartment['ratings'].toString()) ?? 0.0;
@@ -627,9 +1148,28 @@ class ApartmentCardModern extends StatelessWidget {
     final operation = apartment['type_operation'] ?? 'alouer';
     final badgeColor = operation == 'vendre' ? Colors.red.shade100 : Colors.blue.shade100;
     final badgeTextColor = operation == 'vendre' ? Colors.red : Colors.blue;
-    final imageUrl = (apartment['images'] != null && apartment['images'].isNotEmpty)
-        ? apartment['images'][0]['image']
-        : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
+    
+    // Vérifier s'il y a des vidéos
+    final hasVideos = apartment['videos'] != null && apartment['videos'].isNotEmpty;
+    final hasImages = apartment['images'] != null && apartment['images'].isNotEmpty;
+    
+    String mediaUrl = '';
+    bool isVideo = false;
+    
+    // Priorité aux vidéos
+    if (hasVideos) {
+      mediaUrl = apartment['videos'][0]['video'] ?? '';
+      isVideo = true;
+    } else if (hasImages) {
+      mediaUrl = apartment['images'][0]['image'] ?? '';
+    } else {
+      mediaUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
+    }
+
+    // S'assurer que l'URL est absolue
+    if (mediaUrl.startsWith('/')) {
+      mediaUrl = 'https://akarina.online$mediaUrl';
+    }
 
     return InkWell(
       onTap: () {
@@ -649,22 +1189,20 @@ class ApartmentCardModern extends StatelessWidget {
           children: [
             Stack(
               children: [
+                // Conteneur pour l'image ou la vidéo
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Image.network(
-                    imageUrl,
+                  child: Container(
                     height: getProportionateScreenHeight(100),
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: getProportionateScreenHeight(100),
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.image, color: Colors.grey),
-                      );
-                    },
+                    color: Colors.grey[300],
+                    child: isVideo
+                        ? _buildVideoThumbnail(mediaUrl, context)
+                        : _buildImage(mediaUrl),
                   ),
                 ),
+                
+                // Badge de disponibilité
                 Positioned(
                   top: 4,
                   left: 4,
@@ -686,6 +1224,37 @@ class ApartmentCardModern extends StatelessWidget {
                     ),
                   ),
                 ),
+                
+                // Badge vidéo si c'est une vidéo
+                if (isVideo)
+                  Positioned(
+                    top: 4,
+                    right: 40, // Décalé pour laisser de la place au favori
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.videocam, color: Colors.white, size: getProportionateScreenWidth(8)),
+                          SizedBox(width: 2),
+                          Text(
+                            getTranslated(context, "Video") ?? "VIDEO",
+                            style: TextStyle(
+                              color: Colors.white, 
+                              fontSize: getProportionateScreenWidth(7), 
+                              fontWeight: FontWeight.bold
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                
+                // Bouton favori
                 Positioned(
                   top: 4,
                   right: 4,
@@ -821,6 +1390,73 @@ class ApartmentCardModern extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Widget pour afficher une image
+  Widget _buildImage(String imageUrl) {
+    return Image.network(
+      imageUrl,
+      height: getProportionateScreenHeight(100),
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+
+        return Container(
+          height: getProportionateScreenHeight(100),
+          color: Colors.grey[300],
+          child: const Icon(Icons.image, color: Colors.grey),
+        );
+      },
+    );
+  }
+
+  // Widget pour afficher une miniature vidéo avec bouton de lecture
+  Widget _buildVideoThumbnail(String videoUrl, BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        VideoHelper.playVideo(context, videoUrl);
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Fond de la miniature avec une couleur de fond
+          Container(
+            color: Colors.black.withOpacity(0.7),
+            child: Icon(
+              Icons.videocam, 
+              color: Colors.white.withOpacity(0.6), 
+              size: getProportionateScreenWidth(30)
+            ),
+          ),
+          
+          // Bouton play centré
+          Positioned.fill(
+            child: Center(
+              child: Container(
+                width: getProportionateScreenWidth(40),
+                height: getProportionateScreenWidth(40),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.play_arrow, 
+                  color: Colors.white, 
+                  size: getProportionateScreenWidth(24)
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

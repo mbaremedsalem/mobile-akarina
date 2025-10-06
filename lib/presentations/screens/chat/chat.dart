@@ -157,7 +157,7 @@ class _ChatPageState extends State<ChatPage> {
       final url = Uri.parse(
           'https://akarina.online/user/conversation/delete/$conversationId/');
       final response = await http.delete(url);
-      print('================${response.statusCode}');
+ 
       if (response.statusCode == 204) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Utilisateur bloqué avec succès')),

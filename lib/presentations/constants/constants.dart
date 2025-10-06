@@ -105,26 +105,6 @@ final textformdecoration = InputDecoration(
       fontWeight: FontWeight.w400,
       fontSize: getProportionateScreenWidth(12)),
   border: InputBorder.none,
-  // focusedBorder: OutlineInputBorder(
-  //   borderSide: BorderSide(color: Colors.grey.shade500),
-  //   borderRadius:
-  //       BorderRadius.all(Radius.circular(getProportionateScreenWidth(12))),
-  // ),
-  // errorBorder: OutlineInputBorder(
-  //   borderSide: BorderSide(color: kredcolor),
-  //   borderRadius:
-  //       BorderRadius.all(Radius.circular(getProportionateScreenWidth(12))),
-  // ),
-  // focusedErrorBorder: OutlineInputBorder(
-  //   borderSide: BorderSide(color: kredcolor),
-  //   borderRadius:
-  //       BorderRadius.all(Radius.circular(getProportionateScreenWidth(12))),
-  // ),
-  // enabledBorder: OutlineInputBorder(
-  //   borderSide: BorderSide(color: Colors.grey.shade300),
-  //   borderRadius:
-  //       BorderRadius.all(Radius.circular(getProportionateScreenWidth(12))),
-  // ),
 
   fillColor: kWhiteColor,
   filled: true,

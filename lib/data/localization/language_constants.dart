@@ -55,7 +55,3 @@ TextDirection getAppTextDirection(BuildContext context) {
   final locale = Localizations.localeOf(context);
   return locale.languageCode == ARABIC ? TextDirection.rtl : TextDirection.ltr;
 }
-// String getCurrentLanguage(BuildContext context) {
-//   Locale myLocale = Localizations.localeOf(context);
-//   return myLocale.languageCode; // Retourne "fr" ou "ar"
-// }

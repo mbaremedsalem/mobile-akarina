@@ -42,13 +42,6 @@ class Nonetwork extends StatelessWidget {
                   color: Colors.red,
                 ),
               ),
-              // Defaultbutton(
-              //   width: getProportionateScreenWidth(120),
-              //   onTap: onpress as void Function()?,
-              //   color: klightgoldColor,
-              //   height: getProportionateScreenHeight(32),
-              //   text: getTranslated(context, 'Ressayer'),
-              // ),
             ],
           ),
         ),

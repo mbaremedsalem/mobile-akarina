@@ -23,8 +23,6 @@ class NetworkService {
   int timeout = 60;
   String baseUrl = "https://akarina.online/";
 
-  // String baseUrl = "https://akarina-location-b65cbbb9833c.herokuapp.com/";
-
   Future<dynamic> login(String phone, String? password) async {
     // ignore: prefer_typing_uninitialized_variables
     var responseJson;
@@ -139,6 +137,7 @@ class NetworkService {
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
+        print(data);
         return data['results']; // Retourne uniquement la liste des résultats
       } else {
         throw Exception('Failed to load properties: ${response.body}');
@@ -205,45 +204,6 @@ class NetworkService {
       return [];
     }
   }
-// --------- chat
-// Fonction pour vérifier si le token est valide ou expiré
-// Future<bool> isTokenValid(String? token) async {
-//   if (token == null || token.isEmpty) return false;
-
-//   try {
-//     // Utiliser JwtDecoder pour vérifier si le token est expiré
-//     return !JwtDecoder.isExpired(token);
-//   } catch (e) {
-//     // Gérer les cas où le token est mal formé ou non décodable
-//     return false;
-//   }
-// }
-
-// Fonction pour afficher une alerte si le token est invalide ou expiré
-// void _showInvalidTokenAlert(BuildContext context) {
-//   showDialog(
-//     context: context,
-//     barrierDismissible: false, // Empêche de fermer l'alerte sans action
-//     builder: (BuildContext context) {
-//       return AlertDialog(
-//         title: const Text("Session Expirée"),
-//         content: const Text("Votre session a expiré. Veuillez vous reconnecter pour continuer."),
-//         actions: [
-//           TextButton(
-//             onPressed: () {
-//               // Rediriger vers l'écran de connexion
-//               Navigator.pushReplacement(
-//                 context,
-//                 MaterialPageRoute(builder: (context) => const IndexLogin()),
-//               );
-//             },
-//             child: const Text("OK"),
-//           ),
-//         ],
-//       );
-//     },
-//   );
-// }
 
   Future<void> sendImages(
       int conversationId, List<File> images, BuildContext context) async {
@@ -289,13 +249,7 @@ class NetworkService {
     }
   }
 
-// --------- chat
-// Fonction pour vérifier si le token est valide ou expiré
 
-// Vérifier si le token est valide
-
-// Afficher une alerte si l'utilisateur n'est pas connecté ou si le token est expiré
-// Vérifier si le token est valide
   Future<bool> isTokenValid(String? token) async {
     if (token == null || token.isEmpty) return false;
     return !JwtDecoder.isExpired(
@@ -331,87 +285,37 @@ class NetworkService {
       },
     );
   }
+Future<List<User>> fetchUsers(BuildContext context) async {
+  final url = Uri.parse('https://akarina.online/user/owners/');
+  
+  try {
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    );
 
-// Fonction pour récupérer les utilisateurs
-
-// Fonction pour récupérer les utilisateurs
-  Future<List<User>> fetchUsers(BuildContext context) async {
-    final url = Uri.parse('https://akarina.online/user/clients/');
-    
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        // Si la requête réussit, on parse la réponse
-        List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => User.fromJson(json)).toList();
-      } else {
-        // Gérer les autres erreurs
-        print('Erreur API : ${response.body}');
-        throw Exception(
-            '${getTranslated(context, "Échec du chargement des utilisateurs ")}: ${response.body}');
-      }
-    } catch (e) {
-      print('Erreur : $e');
-      rethrow;
+    if (response.statusCode == 200) {
+      // Parser la réponse comme un Map, pas comme une List
+      Map<String, dynamic> data = jsonDecode(response.body);
+      
+      // Extraire la liste des utilisateurs depuis la propriété "results"
+      List<dynamic> usersList = data['results'];
+      
+      // Convertir chaque élément en objet User
+      return usersList.map((json) => User.fromJson(json)).toList();
+    } else {
+      // Gérer les autres erreurs
+      print('Erreur API : ${response.body}');
+      throw Exception(
+          '${getTranslated(context, "Échec du chargement des utilisateurs ")}: ${response.body}');
     }
+  } catch (e) {
+    print('Erreur : $e');
+    rethrow;
   }
-
-// Future<List<User>> fetchUsers(BuildContext context) async {
-//   final url = Uri.parse('https://akarina.online/user/clients/');
-//   String? token = await storage.read(key: "access");
-
-//   // Vérifier si l'utilisateur est connecté
-//   if (token == null || token.isEmpty) {
-//     _showTokenAlert(context, isExpired: false); // Afficher l'alerte "Non Connecté"
-//     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-//     throw Exception("Utilisateur non connecté");
-//   }
-
-//   // Vérifier si le token est expiré
-//   if (await isTokenValid(token)) {
-//     _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
-//     await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-//     throw Exception("Token expiré");
-//   }
-
-//   try {
-//     final response = await http.get(
-//       url,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Authorization': 'Bearer $token',
-//       },
-//     );
-
-//     if (response.statusCode == 200) {
-//       // Si la requête réussit, on parse la réponse
-//       List<dynamic> data = jsonDecode(response.body);
-//       return data.map((json) => User.fromJson(json)).toList();
-//     } else if (response.statusCode == 401) {
-//       // Si le token est invalide ou expiré (401 Unauthorized)
-//       final responseBody = jsonDecode(response.body);
-//       if (responseBody['code'] == "token_not_valid") {
-//         _showTokenAlert(context, isExpired: true); // Afficher l'alerte "Session Expirée"
-//         await Future.delayed(const Duration(milliseconds: 500)); // Délai pour afficher l'alerte
-//         throw Exception("Le token est invalide ou expiré.");
-//       }
-//     }
-
-//     // Gérer les autres erreurs
-//     print('Erreur API : ${response.body}');
-//     throw Exception('Échec du chargement des utilisateurs : ${response.body}');
-//   } catch (e) {
-//     print('Erreur : $e');
-//     rethrow;
-//   }
-// }
-
+}
 // Fonction pour créer ou récupérer une conversation
   Future<Map<String, dynamic>> getConversation(
       int participantId, BuildContext context) async {
@@ -668,8 +572,6 @@ class NetworkService {
         Uri.parse("${baseParPays(pays!)}api/user/facturier/list/"),
         headers: {"Authorization": "JWT $token"},
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _response(response);
       // print(token);
     } catch (e) {
@@ -718,8 +620,7 @@ class NetworkService {
               },
               body: jsonEncode({"date_1": startDate, "date_2": endDate}))
           .timeout(const Duration(seconds: 70));
-      // print(response.statusCode);
-      // print(response.body);
+
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -737,7 +638,7 @@ class NetworkService {
     String? token = await storage.read(key: "token");
     String? pays = await storage.read(key: 'country');
     var responseJson;
-    // print('here..');
+
     try {
       final response = await get(
         Uri.parse("${baseParPays(pays!)}api/transaction/list/last/"),
@@ -747,8 +648,7 @@ class NetworkService {
         },
       ).timeout(const Duration(seconds: 70));
       responseJson = _response(response);
-      // print(response.statusCode);
-      // print(response.body);
+
     } on BadRequestException {
       throw Failure();
     } on UnauthorisedException {
@@ -842,8 +742,6 @@ class NetworkService {
         },
         body: jsonEncode({"code": qrcode}),
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -916,8 +814,6 @@ class NetworkService {
           "type_comptable": "11"
         }),
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -936,7 +832,6 @@ class NetworkService {
     String? token = await storage.read(key: "token");
     String? myid = await storage.read(key: "id");
     String? pays = await storage.read(key: 'country');
-    // print(codeComptable);
     var responseJson;
     var url =
         Uri.parse("${baseParPays(pays!)}api/func/client_digiPay/payement/");
@@ -1051,8 +946,6 @@ class NetworkService {
           "type_comptable": "01"
         }),
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -1124,8 +1017,6 @@ class NetworkService {
             "langue": langue
           })).timeout(Duration(seconds: timeout));
 
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _responseAll(response);
     } on BadRequestException {
       throw Failure();
@@ -1155,8 +1046,6 @@ class NetworkService {
         },
       ).timeout(Duration(seconds: timeout));
       responseJson = _response(response);
-      // print(response.statusCode);
-      // print(response.body);
     } on BadRequestException {
       throw Failure();
     } on UnauthorisedException {
@@ -1185,7 +1074,6 @@ class NetworkService {
         },
         body: jsonEncode({"tel": tel}),
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -1257,8 +1145,6 @@ class NetworkService {
           "cagnote": idcagnotte,
         }),
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -1358,9 +1244,6 @@ class NetworkService {
               },
               body: jsonEncode({"cagnote": id}))
           .timeout(Duration(seconds: timeout));
-
-      // print(response.statusCode);
-      // print(response.body);
       responseJson = _response(response);
     } on BadRequestException {
       throw Failure();
@@ -2988,8 +2871,7 @@ class NetworkService {
               "${baseParPays(pays!)}api/core_banking/check_infos_default_account/"),
           headers: {"Authorization": "JWT $token"},
           body: jsonEncode({"id": id})).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
+
       responseJson = _responsedata(response);
     } on BadRequestException {
       throw Failure();
@@ -3016,8 +2898,7 @@ class NetworkService {
         headers: {"Authorization": "JWT $token"},
         body: jsonEncode({"id": id, "montant": montant, "note": note}),
       ).timeout(Duration(seconds: timeout));
-      // print(response.statusCode);
-      // print(response.body);
+ 
       responseJson = _responseAll(response);
     } on BadRequestException {
       throw Failure();

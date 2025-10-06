@@ -90,17 +90,14 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
     
     try {
       final fetchedRecommendations = await networkService.fetchRecommendations();
-      print('Recommandations récupérées: ${fetchedRecommendations.length} éléments');
       if (fetchedRecommendations.isNotEmpty) {
-        print('Premier élément: ${fetchedRecommendations.first}');
       }
       setState(() {
         recommendations = fetchedRecommendations;
         isLoadingRecommendations = false;
       });
     } catch (e) {
-      print('Erreur lors du chargement des recommandations: $e');
-      print('Type d\'erreur: ${e.runtimeType}');
+
       setState(() {
         isLoadingRecommendations = false;
       });
@@ -353,7 +350,6 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      print('Erreur lors de l\'extraction des données de recommandation: $e');
       // Valeurs par défaut en cas d'erreur
       imageUrl = null;
       title = 'Propriété';
@@ -514,6 +510,7 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
     );
   }
 
+  
   void _navigateToPropertyDetail(Map<String, dynamic> property) {
     // Extraire l'ID de la propriété avec gestion de type
     int? propertyId;
@@ -543,7 +540,6 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
         );
       }
     } catch (e) {
-      print('Erreur lors de l\'extraction de l\'ID: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(getTranslated(context, "Impossible d'ouvrir les détails") ?? "Impossible d'ouvrir les détails"),
@@ -795,6 +791,3 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
     );
   }
 }
-
-
-

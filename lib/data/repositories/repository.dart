@@ -9,17 +9,6 @@ class Repository {
 
   Repository({this.networkService});
 
-  // Future<List<Transactionmodel>> ftechtransactions() async {
-  //   final trans = await (networkService!.fetchtransactions());
-  //   return trans!.map((e) => Transactionmodel.fromJson(e)).toList();
-  // }
-
-  // Future<List<Transactionmodel>> serash(
-  //     String startDate, String endDate) async {
-  //   final trans = await (networkService!.searsh(startDate, endDate));
-  //   return trans!.map((e) => Transactionmodel.fromJson(e)).toList();
-  // }
-
   Future<dynamic> validvendor(String qrcode) async {
     final validvendor = await networkService!.validvendor(qrcode);
     return validvendor;
@@ -85,26 +74,6 @@ class Repository {
     return fetchbalance;
   }
 
-  // Future<List<Notfications>> fetchnotfications() async {
-  //   final trans = await (networkService!.fetchnotfications());
-
-  //   return trans!.map((e) => Notfications.fromJson(e)).toList();
-  // }
-
-  // Future<List<Agence>> fetchagence() async {
-  //   final agences = await (networkService!.fetchagences());
-
-  //   return agences!.map((e) => Agence.fromJson(e)).toList();
-  // }
-
-  // Future<List<CagnoteModel>> fetchcagnotte() async {
-  //   // print('fetching.............');
-  //   final cagnottes = await (networkService!.fetchcagnotte());
-  //   final prettyString = JsonEncoder.withIndent('  ').convert(cagnottes);
-
-  //   // print(prettyString);
-  //   return cagnottes!.map((e) => CagnoteModel.fromJson(e)).toList();
-  // }
 
   Future<dynamic> checkclient(int tel) async {
     final checkclient = await networkService!.checkclient(tel);
@@ -138,27 +107,12 @@ class Repository {
     return deltecagnoote;
   }
 
-  // Future<List<Groupe>> listgroupe() async {
-  //   final listgroupe = await (networkService!.listGroupe());
-  //   return listgroupe!.map((e) => Groupe.fromJson(e)).toList();
-  // }
-
-  // Future<List<MembeModel>> fetchbenfecaires(int? groupepaiement) async {
-  //   final fetchbenfecaires =
-  //       await (networkService!.fetchbenfecaires(groupepaiement));
-  //   return fetchbenfecaires!.map((e) => MembeModel.fromJson(e)).toList();
-  // }
 
   Future<List<Factures>> facturier() async {
     final facturier = await (networkService!.facturier());
     // print(facturier);
     return facturier!.map((e) => Factures.fromJson(e)).toList();
   }
-
-  // Future<List<Listparticipant>> fetchparticapnts(int? id) async {
-  //   final fetchparticapnts = await (networkService!.fetchparticapnts(id));
-  //   return fetchparticapnts!.map((e) => Listparticipant.fromJson(e)).toList();
-  // }
 
   Future<dynamic> cloturer(int? id) async {
     final cloturer = await networkService!.cloturer(id);
@@ -240,11 +194,6 @@ class Repository {
         await networkService!.checkreferencefacture(reference, service);
     return confirmecode;
   }
-
-  // Future<List<Benefecairelist>> benfecairelist(String? groupe) async {
-  //   final benfecairelist = await (networkService!.benfecairelist(groupe));
-  //   return benfecairelist!.map((e) => Benefecairelist.fromJson(e)).toList();
-  // }
 
   Future<dynamic> consultmauritel(String? number) async {
     final consultmauritel = await networkService!.consultmauritel(number);
