@@ -151,10 +151,13 @@ class _RegisterState extends State<Register> {
                               onChanged: (v) => email = v,
                             ),
                             const SizedBox(height: 16),
+
                             _buildTextField(
                               label: getTranslated(context, "Numéro de Téléphone")!,
                               icon: Icons.phone,
                               maxLength: 8,
+                              keyboardType: TextInputType.phone,
+                              TextInputType: TextInputType.number,
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               validator: (v) {
                                 if (v!.isEmpty) return getTranslated(context, "videerror")!;
@@ -406,7 +409,10 @@ class _RegisterState extends State<Register> {
   Widget _buildTextField({
     required String label,
     required IconData icon,
+    TextInputType? TextInputType,
+    TextInputType? keyboardType, 
     int? maxLength,
+    Widget? suffixIcon, 
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
@@ -420,6 +426,7 @@ class _RegisterState extends State<Register> {
       child: TextFormField(
         maxLength: maxLength,
         inputFormatters: inputFormatters,
+        keyboardType: keyboardType, // ✅ Utilisé ici
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),

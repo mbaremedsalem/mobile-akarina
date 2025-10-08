@@ -77,344 +77,422 @@ class _MyHomeState extends State<MyHome> {
   }
 
   // Fonction pour afficher la boîte de dialogue des filtres
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: SingleChildScrollView(
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,
-                    Colors.grey[50]!,
+void _showFilterDialog() {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  Colors.grey[50]!,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // En-tête avec icône
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [pcolor, Colors.blue.shade400],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.tune_rounded, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            getTranslated(context, "Filtres Avancés")!,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            getTranslated(context, "Affinez votre recherche")!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: Colors.grey[600]),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // En-tête avec icône
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [pcolor, Colors.blue.shade400],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+
+                const SizedBox(height: 24),
+
+                // Type de propriété avec label
+                _buildFilterSection(
+                  title: getTranslated(context, "Type de propriété")!,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<PropertyType?>(
+                        value: selectedProperty,
+                        icon: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          child: Icon(Icons.arrow_drop_down_rounded, color: pcolor, size: 28),
+                        ),
+                        isExpanded: true,
+                        hint: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            getTranslated(context, 'Selectionner le Type')!,
+                            style: TextStyle(color: Colors.grey[500]),
                           ),
-                          shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.tune_rounded, color: Colors.white, size: 24),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              getTranslated(context, "Filtres Avancés")!,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                        onChanged: (PropertyType? newValue) {
+                          setState(() {
+                            selectedProperty = newValue;
+                          });
+                        },
+                        items: propertyTypes.map((PropertyType? item) {
+                          return DropdownMenuItem<PropertyType?>(
+                            value: item,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                getTranslated(context, item?.name ?? '')!,
+                                style: const TextStyle(fontSize: 16),
                               ),
                             ),
-                            Text(
-                              getTranslated(context, "Affinez votre recherche")!,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        }).toList(),
+                        dropdownColor: Colors.white,
+                        style: const TextStyle(color: Colors.black87),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: Colors.grey[600]),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
+                    ),
                   ),
+                ),
 
-                  const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-                  // Type de propriété avec label
-                  _buildFilterSection(
-                    title: getTranslated(context, "Type de propriété")!,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<PropertyType?>(
-                          value: selectedProperty,
-                          icon: Container(
-                            margin: const EdgeInsets.only(right: 12),
-                            child: Icon(Icons.arrow_drop_down_rounded, color: pcolor, size: 28),
-                          ),
-                          isExpanded: true,
-                          hint: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              getTranslated(context, 'Selectionner le Type')!,
-                              style: TextStyle(color: Colors.grey[500]),
-                            ),
-                          ),
-                          onChanged: (PropertyType? newValue) {
-                            setState(() {
-                              selectedProperty = newValue;
-                            });
-                          },
-                          items: propertyTypes.map((PropertyType? item) {
-                            return DropdownMenuItem<PropertyType?>(
-                              value: item,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  getTranslated(context, item?.name ?? '')!,
+                // Ligne Montant et Localisation - CORRIGÉ
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth > 400) {
+                      // Disposition en ligne pour les écrans larges
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: _buildFilterSection(
+                              title: getTranslated(context, "Budget maximum")!,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.grey[200]!),
+                                ),
+                                child: TextField(
+                                  controller: montantController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: getTranslated(context, 'Ex: 50000')!,
+                                    hintStyle: TextStyle(color: Colors.grey[500]),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                    prefixIcon: Container(
+                                      width: 40,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'MRU',
+                                        style: TextStyle(
+                                          color: pcolor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    suffixIcon: montantController.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: Icon(Icons.clear, color: Colors.black, size: 18),
+                                            onPressed: () => montantController.clear(),
+                                          )
+                                        : null,
+                                  ),
                                   style: const TextStyle(fontSize: 16),
                                 ),
                               ),
-                            );
-                          }).toList(),
-                          dropdownColor: Colors.white,
-                          style: const TextStyle(color: Colors.black87),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Ligne Montant et Localisation
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 20,
-                  children: [
-                    Expanded(
-                      child: _buildFilterSection(
-                        title: getTranslated(context, "Budget maximum")!,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[200]!),
+                            ),
                           ),
-                          child: TextField(
-                            controller: montantController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              hintText: getTranslated(context, 'Ex: 50000')!,
-                              hintStyle: TextStyle(color: Colors.grey[500]),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              prefixIcon: Container(
-                              width: 40,
-                              alignment: Alignment.center,
-                              child: Text(
-                              'MRU',
-                              style: TextStyle(
-                                  color: pcolor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildFilterSection(
+                              title: getTranslated(context, "Ville")!,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.grey[200]!),
+                                ),
+                                child: TextField(
+                                  controller: locationController,
+                                  decoration: InputDecoration(
+                                    hintText: getTranslated(context, 'Nom de la ville')!,
+                                    hintStyle: TextStyle(color: Colors.grey[500]),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                    prefixIcon: Icon(IconBroken.Location, color: pcolor, size: 20),
+                                    suffixIcon: locationController.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: Icon(Icons.clear, color: Colors.black, size: 18),
+                                            onPressed: () => locationController.clear(),
+                                          )
+                                        : null,
                                   ),
+                                  style: const TextStyle(fontSize: 16),
                                 ),
                               ),
-                              // Icon(Icons.currency_exchange_rounded, color: pcolor, size: 20),
-                              suffixIcon: montantController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: Icon(Icons.clear, color: Colors.black, size: 18),
-                                      onPressed: () => montantController.clear(),
-                                    )
-                                  : null,
                             ),
-                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      );
+                    } else {
+                      // Disposition en colonne pour les écrans étroits
+                      return Column(
+                        children: [
+                          _buildFilterSection(
+                            title: getTranslated(context, "Budget maximum")!,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey[200]!),
+                              ),
+                              child: TextField(
+                                controller: montantController,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  hintText: getTranslated(context, 'Ex: 50000')!,
+                                  hintStyle: TextStyle(color: Colors.grey[500]),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  prefixIcon: Container(
+                                    width: 40,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      'MRU',
+                                      style: TextStyle(
+                                        color: pcolor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  suffixIcon: montantController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: Icon(Icons.clear, color: Colors.black, size: 18),
+                                          onPressed: () => montantController.clear(),
+                                        )
+                                      : null,
+                                ),
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildFilterSection(
+                            title: getTranslated(context, "Ville")!,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey[200]!),
+                              ),
+                              child: TextField(
+                                controller: locationController,
+                                decoration: InputDecoration(
+                                  hintText: getTranslated(context, 'Nom de la ville')!,
+                                  hintStyle: TextStyle(color: Colors.grey[500]),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  prefixIcon: Icon(IconBroken.Location, color: pcolor, size: 20),
+                                  suffixIcon: locationController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: Icon(Icons.clear, color: Colors.black, size: 18),
+                                          onPressed: () => locationController.clear(),
+                                        )
+                                      : null,
+                                ),
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
+                // Région/Quartier
+                _buildFilterSection(
+                  title: getTranslated(context, "Région ou Quartier")!,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: TextField(
+                      controller: regionController,
+                      decoration: InputDecoration(
+                        hintText: getTranslated(context, 'Ex: Tevragh-Zeina, Arafat...')!,
+                        hintStyle: TextStyle(color: Colors.grey[500]),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        prefixIcon: Icon(IconBroken.Home, color: pcolor, size: 20),
+                        suffixIcon: regionController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(Icons.clear, color: Colors.black, size: 18),
+                                onPressed: () => regionController.clear(),
+                              )
+                            : null,
+                      ),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                // Boutons d'action
+                Row(
+                  children: [
+                    // Bouton Effacer
+                    Expanded(
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey[300]!),
+                          gradient: LinearGradient(
+                            colors: [Colors.grey[100]!, Colors.grey[50]!],
+                          ),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              setState(() {
+                                selectedProperty = null;
+                                montantController.clear();
+                                locationController.clear();
+                                regionController.clear();
+                              });
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.refresh_rounded, color: Colors.grey[600], size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  getTranslated(context, "Effacer")!,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 16),
+                    
+                    // Bouton Rechercher
                     Expanded(
-                      child: _buildFilterSection(
-                        title: getTranslated(context, "Ville")!,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[200]!),
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [pcolor, Colors.blue.shade600],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          child: TextField(
-                            controller: locationController,
-                            decoration: InputDecoration(
-                              hintText: getTranslated(context, 'Nom de la ville')!,
-                              hintStyle: TextStyle(color: Colors.grey[500]),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              prefixIcon: Icon(IconBroken.Location, color: pcolor, size: 20),
-                              suffixIcon: locationController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: Icon(Icons.clear, color: Colors.black, size: 18),
-                                      onPressed: () => locationController.clear(),
-                                    )
-                                  : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: pcolor.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                            style: const TextStyle(fontSize: 16),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              Navigator.of(context).pop(); // Fermer la boîte de dialogue
+                              fetchProperties(); // Lancer la recherche
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.search_rounded, color: Colors.white, size: 22),
+                                const SizedBox(width: 8),
+                                Text(
+                                  getTranslated(context, "Rechercher")!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                  const SizedBox(height: 20),
-
-                  // Région/Quartier
-                  _buildFilterSection(
-                    title: getTranslated(context, "Région ou Quartier")!,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: TextField(
-                        controller: regionController,
-                        decoration: InputDecoration(
-                          hintText: getTranslated(context, 'Ex: Tevragh-Zeina, Arafat...')!,
-                          hintStyle: TextStyle(color: Colors.grey[500]),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          prefixIcon: Icon(IconBroken.Home, color: pcolor, size: 20),
-                          suffixIcon: regionController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: Icon(Icons.clear, color: Colors.black, size: 18),
-                                  onPressed: () => regionController.clear(),
-                                )
-                              : null,
-                        ),
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // Boutons d'action
-                  Row(
-                    children: [
-                      // Bouton Effacer
-                      Expanded(
-                        child: Container(
-                          height: 56,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[300]!),
-                            gradient: LinearGradient(
-                              colors: [Colors.grey[100]!, Colors.grey[50]!],
-                            ),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () {
-                                setState(() {
-                                  selectedProperty = null;
-                                  montantController.clear();
-                                  locationController.clear();
-                                  regionController.clear();
-                                });
-                              },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.refresh_rounded, color: Colors.grey[600], size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    getTranslated(context, "Effacer")!,
-                                    style: TextStyle(
-                                      color: Colors.grey[700],
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      
-                      // Bouton Rechercher
-                      Expanded(
-                        child: Container(
-                          height: 56,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: LinearGradient(
-                              colors: [pcolor, Colors.blue.shade600],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: pcolor.withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () {
-                                Navigator.of(context).pop(); // Fermer la boîte de dialogue
-                                fetchProperties(); // Lancer la recherche
-                              },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.search_rounded, color: Colors.white, size: 22),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    getTranslated(context, "Rechercher")!,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
-        );
-      },
-    );
-  }
-
+        ),
+      );
+    },
+  );
+}
   Future<void> fetchProperties() async {
     final type = selectedProperty?.name;
     final montant = montantController.text.trim();

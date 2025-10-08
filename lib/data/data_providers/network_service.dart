@@ -113,7 +113,7 @@ class NetworkService {
       ).timeout(Duration(seconds: timeout));
 
       if (response.statusCode == 200) {
-        print("#########${response.body}");
+        
         return jsonDecode(response.body);
       } else {
         throw Exception('Failed to load categories : ${response.body}');
@@ -137,7 +137,7 @@ class NetworkService {
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
-        print(data);
+        
         return data['results']; // Retourne uniquement la liste des résultats
       } else {
         throw Exception('Failed to load properties: ${response.body}');
