@@ -757,22 +757,22 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
                                     String apiUrl;
                                     switch (categoryName.toLowerCase()) {
                                       case 'appartement':
-                                        apiUrl = 'https://akarina.online/akareena/appartements/';
+                                        apiUrl = 'https://akarina.shop/akareena/appartements/';
                                         break;
                                       case 'duplex':
-                                        apiUrl = 'https://akarina.online/akareena/duplexes/';
+                                        apiUrl = 'https://akarina.shop/akareena/duplexes/';
                                         break;
                                       case 'commercial':
-                                        apiUrl = 'https://akarina.online/akareena/commerciaux/';
+                                        apiUrl = 'https://akarina.shop/akareena/commerciaux/';
                                         break;
                                       case 'terrain':
-                                        apiUrl = 'https://akarina.online/akareena/terrains/';
+                                        apiUrl = 'https://akarina.shop/akareena/terrains/';
                                         break;
                                       case 'residentiel':
-                                        apiUrl = 'https://akarina.online/akareena/residentiels/';
+                                        apiUrl = 'https://akarina.shop/akareena/residentiels/';
                                         break;
       case 'maisonceremonie':
-        apiUrl = 'https://akarina.online/akareena/maison_ceremonie';
+        apiUrl = 'https://akarina.shop/akareena/maison_ceremonie';
                                         break;
                                       default:
         apiUrl = '';

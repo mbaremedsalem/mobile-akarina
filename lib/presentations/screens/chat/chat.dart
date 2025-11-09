@@ -155,7 +155,7 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       final url = Uri.parse(
-          'https://akarina.online/user/conversation/delete/$conversationId/');
+          'https://akarina.shop/user/conversation/delete/$conversationId/');
       final response = await http.delete(url);
  
       if (response.statusCode == 204) {

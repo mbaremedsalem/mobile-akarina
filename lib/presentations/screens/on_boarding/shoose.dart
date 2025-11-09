@@ -5,18 +5,11 @@ import 'package:akarina/presentations/components/default_button.dart';
 import 'package:akarina/presentations/components/show_buttom_toast.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/layout/layout.dart';
-import 'package:akarina/presentations/screens/on_boarding/onboarding.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-// import 'package:mobiledigital/data/localization/language_constants.dart';
-// import 'package:mobiledigital/data/models/language.dart';
-// import 'package:mobiledigital/main.dart';
-// import 'package:mobiledigital/presentation/components/default_buttom.dart';
-// import 'package:mobiledigital/presentation/components/show_button_toaster.dart';
-// import 'package:mobiledigital/presentation/constants/constants.dart';
-// import 'package:mobiledigital/size_config.dart';
+
 
 class Choose extends StatefulWidget {
   const Choose({super.key});

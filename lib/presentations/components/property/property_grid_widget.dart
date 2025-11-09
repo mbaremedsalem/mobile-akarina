@@ -270,7 +270,7 @@ class PropertyGridWidget extends StatelessWidget {
   void _openVideo(BuildContext context, String videoUrl) {
     String fullVideoUrl = videoUrl;
     if (videoUrl.startsWith('/')) {
-      fullVideoUrl = 'https://akarina.online$videoUrl';
+      fullVideoUrl = 'https://akarina.shop$videoUrl';
     }
     showDialog(
       context: context,

@@ -87,7 +87,8 @@ class _LoginState extends State<Login> {
                                   border: Border.all(color: kgrey300),
                                   borderRadius: BorderRadius.circular(
                                       getProportionateScreenWidth(12))),
-                              child: TextFormField(
+                              child: 
+                              TextFormField(
                                 maxLength: 8,
                                 inputFormatters: <TextInputFormatter>[
                                   FilteringTextInputFormatter.allow(
@@ -142,6 +143,7 @@ class _LoginState extends State<Login> {
                                       getTranslated(context, 'Numéro de Téléphone'),
                                 ),
                               ),
+                            
                             ),
                           ],
                         ),

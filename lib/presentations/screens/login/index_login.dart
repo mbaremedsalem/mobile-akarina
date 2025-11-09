@@ -205,6 +205,7 @@ class _IndexLoginState extends State<IndexLogin> {
                           ],
                         ),
                       ),
+                      
                       SizedBox(
                           height: SizeConfig.screenHeight / 1.5,
                           child: currentState == 0

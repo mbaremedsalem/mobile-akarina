@@ -35,7 +35,7 @@ class LoginCubit extends Cubit<LoginStates> {
     try {
       final currentLanguage = await getCurrentLanguage();
       final response = await http.post(
-        Uri.parse('https://akarina.online/user/api/login/'),
+        Uri.parse('https://akarina.shop/user/api/login/'),
         headers: {'Content-Type': 'application/json; charset=utf-8'},
         
         body: jsonEncode({

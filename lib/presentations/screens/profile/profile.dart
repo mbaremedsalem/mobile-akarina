@@ -97,7 +97,7 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       final response = await http.delete(
-        Uri.parse("https://akarina.online/user/delete/$userId/"),
+        Uri.parse("https://akarina.shop/user/delete/$userId/"),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -137,7 +137,7 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       final response = await http.get(
-        Uri.parse("https://akarina.online/user/profile/"),
+        Uri.parse("https://akarina.shop/user/profile/"),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -986,7 +986,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     try {
-      final uri = Uri.parse("https://akarina.online/user/update-profile/");
+      final uri = Uri.parse("https://akarina.shop/user/update-profile/");
       final request = http.MultipartRequest("PUT", uri);
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['nom_complet'] = nameController.text;
@@ -1585,7 +1585,7 @@ Widget _buildPaymentMethodCard(Map<String, dynamic> method, bool isSelected, boo
       }
 
       final response = await http.post(
-        Uri.parse('https://akarina.online/akareena/account/deposit/'),
+        Uri.parse('https://akarina.shop/akareena/account/deposit/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -1748,7 +1748,7 @@ Widget _buildPaymentMethodCard(Map<String, dynamic> method, bool isSelected, boo
       }
 
       final response = await http.post(
-        Uri.parse('https://akarina.online/user/seddad/demande-peiment/'),
+        Uri.parse('https://akarina.shop/user/seddad/demande-peiment/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

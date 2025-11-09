@@ -22,7 +22,7 @@ class _LocationState extends State<Location> {
   Future<List<dynamic>> futureImmobiliers = Future.value([]);
 
   // URL de l'API et timeout
-  final String baseUrl = 'https://akarina.online/';
+  final String baseUrl = 'https://akarina.shop/';
   final int timeout = 10;
 
   @override

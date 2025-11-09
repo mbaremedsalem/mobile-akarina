@@ -207,7 +207,7 @@ Widget _buildCalendarSection() {
     try {
       final response = await http.get(
         Uri.parse(
-            'https://akarina.online/akareena/immobilier/${widget.id}/reviews/'),
+            'https://akarina.shop/akareena/immobilier/${widget.id}/reviews/'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -259,7 +259,7 @@ Widget _buildCalendarSection() {
       }
 
       final response = await http.post(
-        Uri.parse('https://akarina.online/akareena/${widget.id}/reviews/'),
+        Uri.parse('https://akarina.shop/akareena/${widget.id}/reviews/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -1041,7 +1041,7 @@ String _getMediaUrl(dynamic media) {
   if (media['image'] != null && media['image'].toString().isNotEmpty) {
     String url = media['image'];
     if (url.startsWith('/')) {
-      return 'https://akarina.online$url';
+      return 'https://akarina.shop$url';
     }
     return url;
   }
@@ -1049,7 +1049,7 @@ String _getMediaUrl(dynamic media) {
   else if (media['video'] != null && media['video'].toString().isNotEmpty) {
     String url = media['video'];
     if (url.startsWith('/')) {
-      return 'https://akarina.online$url';
+      return 'https://akarina.shop$url';
     }
     return url;
   }
@@ -1193,7 +1193,7 @@ Widget _buildMediaContent(String mediaUrl, bool isVideo) {
 void _openVideo(BuildContext context, String videoUrl) {
   String fullVideoUrl = videoUrl;
   if (videoUrl.startsWith('/')) {
-    fullVideoUrl = 'https://akarina.online$videoUrl';
+    fullVideoUrl = 'https://akarina.shop$videoUrl';
   }
   
   showDialog(

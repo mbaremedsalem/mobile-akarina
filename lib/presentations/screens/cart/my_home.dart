@@ -513,7 +513,7 @@ void _showFilterDialog() {
     });
 
     try {
-      final baseUrl = 'https://akarina.online/akareena/models/filter/$type/';
+      final baseUrl = 'https://akarina.shop/akareena/models/filter/$type/';
       final params = <String>[];
       
       if (region.isNotEmpty) params.add('ville__region=$region');

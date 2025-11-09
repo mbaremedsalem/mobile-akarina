@@ -81,7 +81,7 @@ Future<void> _fetchCities() async {
   
   try {
     final response = await http.get(
-      Uri.parse("https://akarina.online/akareena/villes/"),
+      Uri.parse("https://akarina.shop/akareena/villes/"),
       headers: {'Content-Type': 'application/json; charset=utf-8'},
     );
 
@@ -168,9 +168,8 @@ Future<void> _fetchProperties(String ville, String address) async {
     final queryParams = params.entries
         .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
         .join('&');
-    
-    final url = 'https://akarina.online/akareena/search/?$queryParams';
-
+            
+    final url = 'https://akarina.shop/akareena/search/?$queryParams';
 
     final response = await http.get(
       Uri.parse(url),
@@ -601,12 +600,12 @@ Widget _buildCityDropdown(String language) {
 
   String _getApiUrlForCategory(String categoryName) {
     switch (categoryName.toLowerCase()) {
-      case 'appartement': return 'https://akarina.online/akareena/appartements/';
-      case 'duplex': return 'https://akarina.online/akareena/duplexes/';
-      case 'commercial': return 'https://akarina.online/akareena/commerciaux/';
-      case 'terrain': return 'https://akarina.online/akareena/terrains/';
-      case 'residentiel': return 'https://akarina.online/akareena/residentiels/';
-      case 'maisonceremonie': return 'https://akarina.online/akareena/maison_ceremonie';
+      case 'appartement': return 'https://akarina.shop/akareena/appartements/';
+      case 'duplex': return 'https://akarina.shop/akareena/duplexes/';
+      case 'commercial': return 'https://akarina.shop/akareena/commerciaux/';
+      case 'terrain': return 'https://akarina.shop/akareena/terrains/';
+      case 'residentiel': return 'https://akarina.shop/akareena/residentiels/';
+      case 'maisonceremonie': return 'https://akarina.shop/akareena/maison_ceremonie';
       default: return '';
     }
   }
@@ -742,8 +741,8 @@ Widget _buildPropertyCard(dynamic property) {
   final ratings = property['ratings']?.toString() ?? property['rating']?.toString() ?? '0.0';
   final adresse = locationInfo['adresse'];
   final montant = priceInfo['montant'];
-  final loyerMensuel = priceInfo['loyerMensuel'];
-  final periode = priceInfo['periode'];
+  // final loyerMensuel = priceInfo['loyerMensuel'];
+  // final periode = priceInfo['periode'];
 
 
   return Card(
@@ -951,9 +950,27 @@ Widget _buildPropertyCard(dynamic property) {
 
 // Ajoutez cette fonction helper
 String _getPriceText(dynamic property, Map<String, dynamic> priceInfo) {
-  final montant = priceInfo['montant'];
-  final loyerMensuel = priceInfo['loyerMensuel'];
-  final periode = priceInfo['periode'];
+  print(priceInfo);
+  
+  // ⭐ CORRECTION ICI : Chercher le montant dans le bon sous-objet
+  final dynamic montant = property['terrain'] != null 
+      ? property['terrain']['montant']  // Pour les terrains
+      : property['residentiel'] != null 
+          ? property['residentiel']['montant']  // Pour les résidentiels
+          : null;
+
+  final dynamic loyerMensuel = property['terrain'] != null 
+      ? property['terrain']['loyer_mensuel'] 
+      : property['residentiel'] != null 
+          ? property['residentiel']['loyer_mensuel'] 
+          : null;
+
+  final dynamic periode = property['terrain'] != null 
+      ? property['terrain']['periode'] 
+      : property['residentiel'] != null 
+          ? property['residentiel']['periode'] 
+          : null;
+
   final operationType = priceInfo['operationType'];
 
   if (montant != null && montant != 'null') {
@@ -964,7 +981,9 @@ String _getPriceText(dynamic property, Map<String, dynamic> priceInfo) {
     return getTranslated(context, 'Prix sur demande')!;
   }
 }
-  bool _isVideo(String url) {
+
+
+bool _isVideo(String url) {
     if (url.isEmpty) return false;
     
     final videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.wmv', '.flv', '.mkv'];
@@ -979,7 +998,7 @@ String _getPriceText(dynamic property, Map<String, dynamic> priceInfo) {
   void _openVideo(BuildContext context, String videoUrl) {
     String fullVideoUrl = videoUrl;
     if (videoUrl.startsWith('/')) {
-      fullVideoUrl = 'https://akarina.online$videoUrl';
+      fullVideoUrl = 'https://akarina.shop$videoUrl';
     }
     showDialog(
       context: context,

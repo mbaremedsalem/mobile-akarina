@@ -864,7 +864,7 @@ class _AppartementState extends State<Appartement> {
   Future<void> fetchCities() async {
 
     try {
-      final url = 'https://akarina.online/akareena/villes/';
+      final url = 'https://akarina.shop/akareena/villes/';
       
       final response = await http.get(
         Uri.parse(url),
@@ -1168,7 +1168,7 @@ class ApartmentCardModern extends StatelessWidget {
 
     // S'assurer que l'URL est absolue
     if (mediaUrl.startsWith('/')) {
-      mediaUrl = 'https://akarina.online$mediaUrl';
+      mediaUrl = 'https://akarina.shop$mediaUrl';
     }
 
     return InkWell(

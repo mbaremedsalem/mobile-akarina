@@ -1171,7 +1171,7 @@ Future<void> _submitReservation({String? password}) async {
 
     // DEBUG: Afficher la requête COMPLÈTE
     final response = await http.post(
-      Uri.parse('https://akarina.online/akareena/reservations/create/'),
+      Uri.parse('https://akarina.shop/akareena/reservations/create/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -1361,7 +1361,7 @@ void _showSuccessDialog(Map<String, dynamic> responseData) {
       if (token == null) return;
 
       await http.patch(
-        Uri.parse('https://akarina.online/akareena/imobiers/${widget.immobilierId}/'),
+        Uri.parse('https://akarina.shop/akareena/imobiers/${widget.immobilierId}/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

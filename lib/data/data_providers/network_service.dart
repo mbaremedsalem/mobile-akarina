@@ -21,7 +21,7 @@ import '../../presentations/screens/login/index_login.dart';
 class NetworkService {
   final storage = const FlutterSecureStorage();
   int timeout = 60;
-  String baseUrl = "https://akarina.online/";
+  String baseUrl = "https://akarina.shop/";
 
   Future<dynamic> login(String phone, String? password) async {
     // ignore: prefer_typing_uninitialized_variables
@@ -286,7 +286,7 @@ class NetworkService {
     );
   }
 Future<List<User>> fetchUsers(BuildContext context) async {
-  final url = Uri.parse('https://akarina.online/user/owners/');
+  final url = Uri.parse('https://akarina.shop/user/owners/');
   
   try {
     final response = await http.get(
@@ -580,6 +580,7 @@ Future<List<User>> fetchUsers(BuildContext context) async {
 
     return responseJson;
   }
+
 
   Future<List<dynamic>?> fetchnotfications() async {
     String? token = await storage.read(key: "token");

@@ -403,12 +403,6 @@ class Repository {
     return compte;
   }
 
-  // Future<List<Transactionmodel>> searchTransactions(String code) async {
-  //   final trans = await (networkService!.searchTransaction(code));
-  //   List<Transactionmodel> list = [Transactionmodel.fromJson(trans)];
-  //   print(list[0].id);
-  //   return list;
-  // }
   Future<Response> searchTransaction(String code) async {
     final trans = await (networkService!.searchTransaction(code));
     return trans;

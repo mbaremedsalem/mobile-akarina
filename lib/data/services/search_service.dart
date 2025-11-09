@@ -6,7 +6,7 @@ class SearchService {
   factory SearchService() => _instance;
   SearchService._internal();
 
-  static const String baseUrl = 'https://akarina.online/akareena';
+  static const String baseUrl = 'https://akarina.shop/akareena';
 
   // Recherche de propriétés
   Future<List<dynamic>> searchProperties({

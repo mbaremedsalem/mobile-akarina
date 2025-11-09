@@ -2,7 +2,6 @@ import 'package:akarina/data/data_providers/exception.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -210,21 +209,6 @@ String baseParPays(String pays) {
   }
 }
 
-// String baseParPays(String pays) {
-//   // print(pays);
-//   switch (pays) {
-//     case 'Mauritania':
-//       return return "https://api.bcipaymr.com/";
-//     case 'Guinee':
-//       return "https://bcipaygn-dev.nw.r.appspot.com/";
-//     case 'Mali':
-//       return "https://icash-379023.ey.r.appspot.com/";
-//     case 'Senegal':
-//       return "https://icash-379023.ey.r.appspot.com/";
-//     default:
-//       return "https://bcipay-mr-dev.nw.r.appspot.com/";
-//   }
-// }
 
 String currencyParPay(String pays) {
   // print(pays);
@@ -233,10 +217,6 @@ String currencyParPay(String pays) {
       return "Mru";
     case 'Guinee':
       return "GNF";
-    // case 'Mali':
-    //   return "";
-    // case 'Senegal':
-    //   return "";
     default:
       return "Mru";
   }
