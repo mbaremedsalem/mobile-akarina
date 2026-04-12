@@ -12,11 +12,13 @@ import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:akarina/data/services/connectivity_service.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 // Classe helper pour gérer la lecture vidéo
 class VideoHelper {
   static void playVideo(BuildContext context, String videoUrl) {
-    
     try {
       showDialog(
         context: context,
@@ -31,7 +33,6 @@ class VideoHelper {
         ),
       );
     } catch (e) {
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: Impossible de lire la vidéo')),
       );
@@ -77,7 +78,6 @@ class _AppartementState extends State<Appartement> {
   @override
   void initState() {
     super.initState();
-
     _initializeData();
   }
 
@@ -90,7 +90,6 @@ class _AppartementState extends State<Appartement> {
   }
 
   Future<void> _initializeData() async {
-
     final hasConnection = await ConnectivityService.hasInternetConnection();
     
     setState(() {
@@ -119,8 +118,6 @@ class _AppartementState extends State<Appartement> {
     double? prixMax,
     String? searchQuery,
   }) async {
-
-    
     setState(() {
       isLoading = true;
       hasSearched = true;
@@ -130,39 +127,25 @@ class _AppartementState extends State<Appartement> {
       Uri uri = Uri.parse(widget.apiUrl);
       Map<String, String> queryParams = {};
 
-      // Ajouter les paramètres existants de l'URL de base
       if (uri.queryParameters.isNotEmpty) {
         queryParams.addAll(uri.queryParameters);
       }
-
-      // === FILTRES AMÉLIORÉS ===
       
-      // Filtre par recherche texte
       if (searchQuery != null && searchQuery.isNotEmpty) {
         queryParams['search'] = searchQuery;
       }
-      
-      // Filtre par ville
       if (ville != null && ville.isNotEmpty) {
         queryParams['ville'] = ville;
       }
-      
-      // Filtre par adresse
       if (adresse != null && adresse.isNotEmpty) {
         queryParams['adresse'] = adresse;
       }
-      
-      // Filtre meublé
       if (meubler != null) {
         queryParams['meubler'] = meubler.toString();
       }
-      
-      // Filtre opération
       if (operation != null && operation.isNotEmpty) {
         queryParams['operation'] = operation;
       }
-      
-      // Filtres prix
       if (prixMin != null && prixMin > 0) {
         queryParams['prix_min'] = prixMin.toStringAsFixed(0);
       }
@@ -170,11 +153,7 @@ class _AppartementState extends State<Appartement> {
         queryParams['prix_max'] = prixMax.toStringAsFixed(0);
       }
 
-
-      // Construire l'URL finale
       Uri newUri = uri.replace(queryParameters: queryParams);
-
-
       final response = await http.get(newUri);
 
       if (response.statusCode == 200) {
@@ -184,6 +163,7 @@ class _AppartementState extends State<Appartement> {
         
         if (data is Map<String, dynamic> && data.containsKey('results')) {
           apartmentsList = data['results'];
+          print(apartmentsList);
         } else if (data is List) {
           apartmentsList = data;
         } else {
@@ -192,10 +172,9 @@ class _AppartementState extends State<Appartement> {
         
         setState(() {
           apartments = apartmentsList;
+          print(apartmentsList);
           isLoading = false;
         });
-        
-        
       } else {
         throw Exception('Erreur HTTP: ${response.statusCode}');
       }
@@ -212,10 +191,7 @@ class _AppartementState extends State<Appartement> {
     }
   }
 
-  // === FONCTIONS DE GESTION DES FILTRES ===
-
   void _applyFilters() {
-    
     bool? meublerFilter;
     if (_meublerFilter != null) {
       meublerFilter = _meublerFilter == 1;
@@ -233,7 +209,6 @@ class _AppartementState extends State<Appartement> {
   }
 
   void _resetAllFilters() {
-
     setState(() {
       selectedVille = null;
       selectedQuarter = null;
@@ -252,7 +227,6 @@ class _AppartementState extends State<Appartement> {
 
   void _performSearch() {
     if (_searchController.text.isNotEmpty) {
-
       _loadApartments(searchQuery: _searchController.text);
     }
   }
@@ -267,7 +241,17 @@ class _AppartementState extends State<Appartement> {
     });
   }
 
-  // === WIDGETS POUR LES FILTRES ===
+  // === FONCTION POUR COMPTER LES FILTRES ACTIFS ===
+  int _getActiveFiltersCount() {
+    int count = 0;
+    if (selectedVille != null && selectedVille!.isNotEmpty) count++;
+    if (selectedQuarter != null && selectedQuarter!.isNotEmpty) count++;
+    if (_meublerFilter != null) count++;
+    if (_selectedOperation != null && _selectedOperation!.isNotEmpty) count++;
+    if (_prixMin != null && _prixMin! > 0) count++;
+    if (_prixMax != null && _prixMax! > 0) count++;
+    return count;
+  }
 
   Widget _buildSearchSection() {
     return Container(
@@ -417,452 +401,520 @@ class _AppartementState extends State<Appartement> {
     );
   }
 
-  Widget _buildFilterSection({required IconData icon, required String title, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: pcolor, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
+
+
+// === DIALOGUE DE FILTRES MODERNISÉ AVEC GESTION DU CLAVIER ===
+
+void _showFilterDialog(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setStateBottom) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        child,
-      ],
-    );
-  }
-
-  // === DIALOGUE DE FILTRES MODERNE ===
-
-  void _showFilterDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
-          elevation: 10,
-          child: Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header avec dégradé
+                // Handle (indicateur de glissement)
                 Container(
-                  padding: const EdgeInsets.all(24.0),
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [pcolor, Colors.blue.shade700],
-                    ),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(24.0),
-                      topRight: Radius.circular(24.0),
-                    ),
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+                
+                // Header avec titre et icône
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [pcolor, pcolor.withOpacity(0.7)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Icon(Icons.tune_rounded, color: Colors.white, size: 24),
+                        child: const Icon(
+                          Icons.filter_list_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           getTranslated(context, "Filtres Avancés")!,
                           style: const TextStyle(
-                            color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(Icons.close, color: Colors.grey[600], size: 20),
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                // Contenu des filtres
+                // Contenu des filtres avec SingleChildScrollView pour éviter le cache du clavier
                 Expanded(
-                  child: Container(
-                    color: Colors.grey[50],
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Barre de recherche
-                          _buildSearchSection(),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Type d'opération
-                          _buildFilterSection(
-                            icon: Icons.business_center_rounded,
-                            title: getTranslated(context, 'Type opération')!,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                      left: 20,
+                      right: 20,
+                      top: 8,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Barre de recherche moderne
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 20),
+                          child: _buildModernSearchSection(),
+                        ),
+                        
+                        // Type d'opération
+                        _buildModernFilterCard(
+                          icon: Icons.business_center_rounded,
+                          title: getTranslated(context, 'Type opération')!,
+                          child: _buildModernDropdown(
+                            value: _selectedOperation,
+                            hint: getTranslated(context, 'Tous les types')!,
+                            items: [
+                              {'value': null, 'label': getTranslated(context, 'Tous les types')!},
+                              {'value': 'vendre', 'label': getTranslated(context, 'vendre')!},
+                              {'value': 'alouer', 'label': getTranslated(context, 'alouer')!},
+                            ],
+                            onChanged: (value) {
+                              setStateBottom(() {
+                                _selectedOperation = value;
+                              });
+                              setState(() {});
+                            },
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Ville
+                        _buildModernFilterCard(
+                          icon: Icons.location_city_rounded,
+                          title: getTranslated(context, 'Ville')!,
+                          child: isLoadingCities
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
                                   ),
-                                ],
-                              ),
-                              child: DropdownButtonFormField<String>(
-                                value: _selectedOperation,
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _selectedOperation = newValue;
-                                  });
-                                },
-                                items: [
-                                  DropdownMenuItem(
-                                    value: null,
-                                    child: Text(getTranslated(context, 'Tous les types')!),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'vendre',
-                                    child: Text(getTranslated(context, 'vendre')!),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'alouer',
-                                    child: Text(getTranslated(context, 'alouer')!),
-                                  ),
-                                ],
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                )
+                              : _buildModernDropdown(
+                                  value: selectedVille,
+                                  hint: getTranslated(context, 'Toutes les villes')!,
+                                  items: [
+                                    {'value': null, 'label': getTranslated(context, 'Toutes les villes')!},
+                                    ...availableCities.map((ville) => {
+                                      'value': ville['nom'],
+                                      'label': getCityName(ville),
+                                    }),
+                                  ],
+                                  onChanged: (value) {
+                                    setStateBottom(() {
+                                      selectedVille = value;
+                                    });
+                                    setState(() {});
+                                  },
                                 ),
-                              ),
-                            ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Meublé
+                        _buildModernFilterCard(
+                          icon: Icons.chair_rounded,
+                          title: getTranslated(context, 'Meublé')!,
+                          child: _buildModernChips(
+                            options: [
+                              {'value': null, 'label': getTranslated(context, "Tous")!},
+                              {'value': 1, 'label': getTranslated(context, "Meublé")!},
+                              {'value': 0, 'label': getTranslated(context, "Non meublé")!},
+                            ],
+                            selectedValue: _meublerFilter,
+                            onChanged: (value) {
+                              setStateBottom(() {
+                                _meublerFilter = value;
+                              });
+                              setState(() {});
+                            },
                           ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Ville
-                          _buildFilterSection(
-                            icon: Icons.location_city_rounded,
-                            title: getTranslated(context, 'Ville')!,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                        ),
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Prix
+                        _buildModernFilterCard(
+                          icon: Icons.attach_money_rounded,
+                          title: getTranslated(context, 'Prix')!,
+                          child: _buildModernPriceRange(),
+                        ),
+                        
+                        const SizedBox(height: 32),
+                        
+                        // Boutons d'action
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  _resetAllFilters();
+                                  Navigator.pop(context);
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  side: BorderSide(color: Colors.grey[300]!),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
-                                ],
-                              ),
-                              child: isLoadingCities
-                                  ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(pcolor),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            getTranslated(context, 'Chargement...')!,
-                                            style: TextStyle(color: Colors.grey.shade600),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : DropdownButtonFormField<String>(
-                                      value: selectedVille,
-                                      onChanged: (String? newValue) {
-                                        setState(() {
-                                          selectedVille = newValue;
-                                        });
-                                      },
-                                      items: [
-                                        DropdownMenuItem(
-                                          value: null,
-                                          child: Text(
-                                            getTranslated(context, 'Toutes les villes')!,
-                                            style: TextStyle(color: Colors.grey.shade500),
-                                          ),
-                                        ),
-                                        ...availableCities.map<DropdownMenuItem<String>>((ville) {
-                                          return DropdownMenuItem<String>(
-                                            value: ville['nom'],
-                                            child: Text(
-                                              getCityName(ville),
-                                              style: const TextStyle(fontSize: 16),
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ],
-                                      decoration: const InputDecoration(
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Filtre Meublé
-                          _buildMeublerFilter(),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Prix
-                          _buildFilterSection(
-                            icon: Icons.attach_money_rounded,
-                            title: getTranslated(context, 'Prix')!,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                getTranslated(context, "Prix minimum")!,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey.shade600,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade50,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: TextField(
-                                                  controller: _minPriceController,
-                                                  decoration: InputDecoration(
-                                                    hintText: "0",
-                                                    border: InputBorder.none,
-                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                    prefixIcon: Icon(Icons.arrow_upward_rounded, 
-                                                        color: Colors.green.shade600, size: 18),
-                                                  ),
-                                                  keyboardType: TextInputType.number,
-                                                  onChanged: (value) {
-                                                    _prixMin = double.tryParse(value);
-                                                  },
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                getTranslated(context, "Prix maximum")!,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey.shade600,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade50,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: TextField(
-                                                  controller: _maxPriceController,
-                                                  decoration: InputDecoration(
-                                                    hintText: "1000000",
-                                                    border: InputBorder.none,
-                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                    prefixIcon: Icon(Icons.arrow_downward_rounded, 
-                                                        color: Colors.red.shade600, size: 18),
-                                                  ),
-                                                  keyboardType: TextInputType.number,
-                                                  onChanged: (value) {
-                                                    _prixMax = double.tryParse(value);
-                                                  },
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
+                                    Icon(Icons.refresh_rounded, size: 18, color: Colors.grey[700]),
+                                    const SizedBox(width: 8),
                                     Text(
-                                      getTranslated(context, "Laissez vide pour aucun filtre de prix")!,
+                                      getTranslated(context, "Effacer tout")!,
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade500,
+                                        color: Colors.grey[700],
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                          ),
-                          
-                          const SizedBox(height: 32),
-                          
-                          // Boutons d'action
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  height: 56,
-                                  decoration: BoxDecoration(
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  _applyFilters();
+                                  Navigator.pop(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: pcolor,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                    gradient: LinearGradient(
-                                      colors: [Colors.grey.shade100, Colors.grey.shade50],
-                                    ),
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: _resetAllFilters,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.refresh_rounded, 
-                                              color: Colors.grey.shade700, size: 20),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            getTranslated(context, "Effacer")!,
-                                            style: TextStyle(
-                                              color: Colors.grey.shade800,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Container(
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    gradient: LinearGradient(
-                                      colors: [pcolor, Colors.blue.shade600],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: pcolor.withOpacity(0.3),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: () {
-                                        _applyFilters();
-                                        Navigator.pop(context);
-                                      },
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.search_rounded, 
-                                              color: Colors.white, size: 20),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            getTranslated(context, "Rechercher")!,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.search_rounded, color: Colors.white, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      getTranslated(context, "Rechercher")!,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-        );
-      },
-    );
-  }
+          );
+        },
+      );
+    },
+  );
+}
 
-  // === FONCTIONS EXISTANTES (gardez celles-ci) ===
+// Widget pour un champ de prix moderne avec focus
+Widget _buildModernPriceField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  required IconData icon,
+  required Color iconColor,
+  required Function(String) onChanged,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[600],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: hint,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            prefixIcon: Icon(icon, color: iconColor, size: 18),
+          ),
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          onChanged: onChanged,
+          onEditingComplete: () {
+            FocusScope.of(context).unfocus();
+          },
+        ),
+      ),
+    ],
+  );
+}
+
+// Widget pour la barre de recherche moderne
+Widget _buildModernSearchSection() {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.grey[50],
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.grey[200]!),
+    ),
+    child: TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: getTranslated(context, "Rechercher par adresse, ville..."),
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+        prefixIcon: Icon(Icons.search_rounded, color: pcolor, size: 20),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: Icon(Icons.clear_rounded, color: Colors.grey[400], size: 18),
+                onPressed: () {
+                  _searchController.clear();
+                  _loadApartments();
+                },
+              )
+            : null,
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      onSubmitted: (value) => _performSearch(),
+    ),
+  );
+}
+
+// Widget pour une carte de filtre moderne
+Widget _buildModernFilterCard({
+  required IconData icon,
+  required String title,
+  required Widget child,
+}) {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.grey[50],
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.grey[200]!, width: 1),
+    ),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: pcolor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: pcolor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        child,
+      ],
+    ),
+  );
+}
+
+// Widget pour un dropdown moderne
+Widget _buildModernDropdown({
+  required dynamic value,
+  required String hint,
+  required List<Map<String, dynamic>> items,
+  required Function(dynamic) onChanged,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey[200]!),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<dynamic>(
+        value: value,
+        isExpanded: true,
+        hint: Text(
+          hint,
+          style: TextStyle(color: Colors.grey[500], fontSize: 14),
+        ),
+        items: items.map((item) {
+          return DropdownMenuItem<dynamic>(
+            value: item['value'],
+            child: Text(
+              item['label'],
+              style: const TextStyle(fontSize: 14),
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+        icon: Icon(Icons.keyboard_arrow_down, color: pcolor, size: 20),
+      ),
+    ),
+  );
+}
+
+// Widget pour les chips modernes
+Widget _buildModernChips({
+  required List<Map<String, dynamic>> options,
+  required dynamic selectedValue,
+  required Function(dynamic) onChanged,
+}) {
+  return Row(
+    children: options.map((option) {
+      final isSelected = selectedValue == option['value'];
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: GestureDetector(
+            onTap: () => onChanged(option['value']),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected ? pcolor : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? pcolor : Colors.grey[200]!,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  option['label'],
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.grey[700],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList(),
+  );
+}
+
+// Widget pour la plage de prix moderne
+Widget _buildModernPriceRange() {
+  return Column(
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: _buildModernPriceField(
+              controller: _minPriceController,
+              label: getTranslated(context, "Min")!,
+              hint: "0",
+              icon: Icons.arrow_upward_rounded,
+              iconColor: Colors.green,
+              onChanged: (value) {
+                _prixMin = double.tryParse(value);
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildModernPriceField(
+              controller: _maxPriceController,
+              label: getTranslated(context, "Max")!,
+              hint: "1,000,000",
+              icon: Icons.arrow_downward_rounded,
+              iconColor: Colors.red,
+              onChanged: (value) {
+                _prixMax = double.tryParse(value);
+              },
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Text(
+        getTranslated(context, "Laissez vide pour aucun filtre de prix")!,
+        style: TextStyle(
+          fontSize: 11,
+          color: Colors.grey[500],
+        ),
+      ),
+    ],
+  );
+}
+
 
   Future<void> fetchCities() async {
-
     try {
       final url = 'https://akarina.shop/akareena/villes/';
       
@@ -873,7 +925,6 @@ class _AppartementState extends State<Appartement> {
         },
       );
 
-
       if (response.statusCode == 200) {
         try {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -883,20 +934,16 @@ class _AppartementState extends State<Appartement> {
               availableCities = List<Map<String, dynamic>>.from(data);
               isLoadingCities = false;
             });
-
           } else {
-
             throw Exception('Format de données villes invalide');
           }
         } catch (e) {
           throw Exception('Erreur de décodage JSON des villes: $e');
         }
       } else {
-
         throw Exception('Erreur lors du chargement des villes : ${response.statusCode}');
       }
     } catch (e) {
-
       setState(() {
         isLoadingCities = false;
       });
@@ -912,11 +959,8 @@ class _AppartementState extends State<Appartement> {
     return name;
   }
 
-  // === BUILD METHOD AMÉLIORÉE ===
-
   @override
   Widget build(BuildContext context) {
-
     if (!hasInternetConnection) {
       return NoInternetPage();
     }
@@ -944,27 +988,29 @@ class _AppartementState extends State<Appartement> {
       ),
       body: Column(
         children: [
-          // Barre de recherche principale
           if (_showSearchBar)
             Padding(
               padding: EdgeInsets.all(getProportionateScreenWidth(16)),
               child: _buildSearchSection(),
             ),
 
-          // Barre d'outils de filtres
+          // Barre d'outils de filtres MODERNISÉE
           Padding(
             padding: EdgeInsets.all(getProportionateScreenWidth(16)),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Bouton Filtres
-                  Container(
+            child: Row(
+              children: [
+                // Bouton Filtres avec badge
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 48,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [pcolor, Colors.blue.shade600],
+                        colors: [pcolor, pcolor.withOpacity(0.8)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(25),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
                           color: pcolor.withOpacity(0.3),
@@ -976,94 +1022,115 @@ class _AppartementState extends State<Appartement> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(16),
                         onTap: () => _showFilterDialog(context),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: getProportionateScreenWidth(16),
-                            vertical: getProportionateScreenHeight(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.filter_alt_rounded, color: Colors.white, size: getProportionateScreenWidth(16)),
-                              SizedBox(width: getProportionateScreenWidth(8)),
-                              Text(
-                                getTranslated(context, "Filtres")!,
-                                style: TextStyle(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.filter_alt_rounded,
+                              color: Colors.white,
+                              size: getProportionateScreenWidth(18),
+                            ),
+                            SizedBox(width: getProportionateScreenWidth(8)),
+                            Text(
+                              getTranslated(context, "Filtres")!,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: getProportionateScreenWidth(14),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_getActiveFiltersCount() > 0)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
                                   color: Colors.white,
-                                  fontSize: getProportionateScreenWidth(14),
-                                  fontWeight: FontWeight.w600,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _getActiveFiltersCount().toString(),
+                                  style: TextStyle(
+                                    color: pcolor,
+                                    fontSize: getProportionateScreenWidth(10),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
                   ),
+                ),
 
-                  SizedBox(width: getProportionateScreenWidth(12)),
+                SizedBox(width: getProportionateScreenWidth(12)),
 
-                  // Bouton Effacer
-                  Container(
+                // Bouton Effacer
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.grey.shade300),
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(16),
                         onTap: _resetAllFilters,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: getProportionateScreenWidth(16),
-                            vertical: getProportionateScreenHeight(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.refresh_rounded, color: Colors.grey.shade700, size: getProportionateScreenWidth(16)),
-                              SizedBox(width: getProportionateScreenWidth(8)),
-                              Text(
-                                getTranslated(context, "Effacer")!,
-                                style: TextStyle(
-                                  color: Colors.grey.shade800,
-                                  fontSize: getProportionateScreenWidth(14),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.refresh_rounded,
+                              color: Colors.grey.shade700,
+                              size: getProportionateScreenWidth(18),
+                            ),
+                            SizedBox(width: getProportionateScreenWidth(6)),
+                            Text(
+                              getTranslated(context, "Effacer")!,
+                              style: TextStyle(
+                                color: Colors.grey.shade800,
+                                fontSize: getProportionateScreenWidth(12),
+                                fontWeight: FontWeight.w600,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
+                ),
 
-                  SizedBox(width: getProportionateScreenWidth(12)),
+                SizedBox(width: getProportionateScreenWidth(12)),
 
-                  // Compteur de résultats
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: getProportionateScreenWidth(16),
-                      vertical: getProportionateScreenHeight(10),
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.blue.shade100),
-                    ),
+                // Compteur de résultats modernisé
+                Container(
+                  height: 48,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: getProportionateScreenWidth(16),
+                  ),
+                  decoration: BoxDecoration(
+                    color: pcolor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: pcolor.withOpacity(0.2)),
+                  ),
+                  child: Center(
                     child: Text(
-                      '${apartments.length} ${getTranslated(context, "résultats")}',
+                      '${apartments.length}',
                       style: TextStyle(
-                        color: Colors.blue.shade800,
-                        fontSize: getProportionateScreenWidth(14),
-                        fontWeight: FontWeight.w600,
+                        color: pcolor,
+                        fontSize: getProportionateScreenWidth(18),
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
@@ -1125,338 +1192,307 @@ class _AppartementState extends State<Appartement> {
   }
 }
 
-// Gardez les classes ApartmentCardModern, IconInfo et VideoHelper existantes
-// (Elles sont déjà bien optimisées dans votre code original)
-
-// ... (Vos classes ApartmentCardModern, IconInfo restent inchangées)
 // Nouvelle carte moderne pour appartement
 class ApartmentCardModern extends StatelessWidget {
   final dynamic apartment;
 
   const ApartmentCardModern({super.key, required this.apartment});
 
-  @override
-  Widget build(BuildContext context) {
+  bool _isVideo(String url) {
+    if (url.isEmpty) return false;
+    
+    final videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.wmv', '.flv', '.mkv'];
+    final videoPaths = ['/videos/', '/media/videos/', 'video', 'mp4'];
+    
+    final lowerUrl = url.toLowerCase();
+    
+    return videoExtensions.any((ext) => lowerUrl.endsWith(ext)) ||
+           videoPaths.any((path) => lowerUrl.contains(path));
+  }
 
-    
-    double rating = 0.0;
-    if (apartment['ratings'] != null) {
-      rating = double.tryParse(apartment['ratings'].toString()) ?? 0.0;
+  void _openVideo(BuildContext context, String videoUrl) {
+    String fullVideoUrl = videoUrl;
+    if (fullVideoUrl.startsWith('/')) {
+      fullVideoUrl = 'https://akarina.shop$fullVideoUrl';
     }
-    final isAvailable = apartment['available'] == true;
-    final isFurnished = apartment['meubler'] == true;
-    final operation = apartment['type_operation'] ?? 'alouer';
-    final badgeColor = operation == 'vendre' ? Colors.red.shade100 : Colors.blue.shade100;
-    final badgeTextColor = operation == 'vendre' ? Colors.red : Colors.blue;
-    
-    // Vérifier s'il y a des vidéos
-    final hasVideos = apartment['videos'] != null && apartment['videos'].isNotEmpty;
-    final hasImages = apartment['images'] != null && apartment['images'].isNotEmpty;
-    
-    String mediaUrl = '';
-    bool isVideo = false;
-    
-    // Priorité aux vidéos
-    if (hasVideos) {
-      mediaUrl = apartment['videos'][0]['video'] ?? '';
-      isVideo = true;
-    } else if (hasImages) {
-      mediaUrl = apartment['images'][0]['image'] ?? '';
-    } else {
-      mediaUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
-    }
-
-    // S'assurer que l'URL est absolue
-    if (mediaUrl.startsWith('/')) {
-      mediaUrl = 'https://akarina.shop$mediaUrl';
-    }
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ImmobDetails(id: apartment['id']),
-          ),
-        );
-      },
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              children: [
-                // Conteneur pour l'image ou la vidéo
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Container(
-                    height: getProportionateScreenHeight(100),
-                    width: double.infinity,
-                    color: Colors.grey[300],
-                    child: isVideo
-                        ? _buildVideoThumbnail(mediaUrl, context)
-                        : _buildImage(mediaUrl),
-                  ),
-                ),
-                
-                // Badge de disponibilité
-                Positioned(
-                  top: 4,
-                  left: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isAvailable ? Colors.green : Colors.red,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      isAvailable
-                          ? getTranslated(context, "Available")!
-                          : getTranslated(context, "Unavailable")!,
-                      style: TextStyle(
-                        color: Colors.white, 
-                        fontSize: getProportionateScreenWidth(8), 
-                        fontWeight: FontWeight.bold
-                      ),
-                    ),
-                  ),
-                ),
-                
-                // Badge vidéo si c'est une vidéo
-                if (isVideo)
-                  Positioned(
-                    top: 4,
-                    right: 40, // Décalé pour laisser de la place au favori
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade600,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.videocam, color: Colors.white, size: getProportionateScreenWidth(8)),
-                          SizedBox(width: 2),
-                          Text(
-                            getTranslated(context, "Video") ?? "VIDEO",
-                            style: TextStyle(
-                              color: Colors.white, 
-                              fontSize: getProportionateScreenWidth(7), 
-                              fontWeight: FontWeight.bold
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                
-                // Bouton favori
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: CircleAvatar(
-                    backgroundColor: Colors.white,
-                    radius: getProportionateScreenWidth(12),
-                    child: Icon(
-                      Icons.favorite_border, 
-                      color: Colors.red, 
-                      size: getProportionateScreenWidth(14)
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.all(getProportionateScreenWidth(6)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Badges
-                    Wrap(
-                      spacing: 2,
-                      runSpacing: 1,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: badgeColor,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            getTranslated(context, operation) ?? operation,
-                            style: TextStyle(
-                              fontSize: getProportionateScreenWidth(7), 
-                              color: badgeTextColor, 
-                              fontWeight: FontWeight.bold
-                            ),
-                          ),
-                        ),
-                        if (isFurnished)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              getTranslated(context, "Meubler")!,
-                              style: TextStyle(
-                                fontSize: getProportionateScreenWidth(7), 
-                                color: Colors.orange, 
-                                fontWeight: FontWeight.bold
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: getProportionateScreenHeight(3)),
-                    
-                    // Adresse
-                    Flexible(
-                      child: Text(
-                        apartment['adresse'] ?? getTranslated(context, 'Maison')!,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: getProportionateScreenWidth(10)
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    
-                    SizedBox(height: getProportionateScreenHeight(2)),
-                    
-                    // Rating
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ...List.generate(5, (starIndex) => Icon(
-                          Icons.star,
-                          color: starIndex < rating ? Colors.amber : Colors.grey.shade300,
-                          size: getProportionateScreenWidth(8),
-                        )),
-                        SizedBox(width: getProportionateScreenWidth(2)),
-                        Text(
-                          rating.toStringAsFixed(1), 
-                          style: TextStyle(
-                            fontSize: getProportionateScreenWidth(7), 
-                            fontWeight: FontWeight.w600
-                          )
-                        ),
-                      ],
-                    ),
-                    
-                    const Spacer(),
-                    
-                    // Prix
-                    Flexible(
-                      child: Text(
-                        apartment['montant'] != null
-                            ? '${apartment['montant']} ${getTranslated(context, "MRU") ?? "MRU"}'
-                            : apartment['loyer_mensuel'] != null
-                                ? '${apartment['loyer_mensuel']} ${getTranslated(context, "MRU") ?? "MRU"} / ${getTranslated(context, apartment['periode'] ?? "Inconnu") ?? apartment['periode'] ?? "Inconnu"}'
-                                : getTranslated(context, 'Prix sur demande')!,
-                        style: TextStyle(
-                          fontSize: getProportionateScreenWidth(10), 
-                          fontWeight: FontWeight.bold, 
-                          color: Colors.green
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    
-                    SizedBox(height: getProportionateScreenHeight(4)),
-                    
-                    // Icônes d'information
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconInfo(icon: Icons.bed, value: apartment['nombre_de_chambres']?.toString() ?? "-"),
-                        IconInfo(icon: Icons.bathtub_outlined, value: apartment['nombre_de_salles_de_bain']?.toString() ?? "-"),
-                        IconInfo(icon: Icons.square_foot, value: apartment['surface']?.toString() ?? "-"),
-                        IconInfo(icon: Icons.account_balance_outlined, value: apartment['etage']?.toString() ?? "-"),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(20),
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: VideoPlayerWidget(videoUrl: fullVideoUrl),
         ),
       ),
     );
   }
 
-  // Widget pour afficher une image
-  Widget _buildImage(String imageUrl) {
-    return Image.network(
-      imageUrl,
-      height: getProportionateScreenHeight(100),
-      width: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
+  String _resolveMediaUrl(dynamic apartment) {
+    final hasImages = apartment['images'] != null && apartment['images'].isNotEmpty;
+    
+    String mediaUrl = '';
+    
+    if (hasImages) {
+      final firstMedia = apartment['images'][0];
+      
+      if (firstMedia['video'] != null && firstMedia['video'].toString().isNotEmpty) {
+        mediaUrl = firstMedia['video'];
+      } 
+      else if (firstMedia['image'] != null && firstMedia['image'].toString().isNotEmpty) {
+        mediaUrl = firstMedia['image'];
+      }
+    }
+    
+    if (mediaUrl.isEmpty) {
+      mediaUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
+    }
 
-        return Container(
-          height: getProportionateScreenHeight(100),
-          color: Colors.grey[300],
-          child: const Icon(Icons.image, color: Colors.grey),
-        );
-      },
-    );
+    if (mediaUrl.startsWith('/')) {
+      mediaUrl = 'https://akarina.shop$mediaUrl';
+    }
+    
+    return mediaUrl;
   }
 
-  // Widget pour afficher une miniature vidéo avec bouton de lecture
-  Widget _buildVideoThumbnail(String videoUrl, BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        VideoHelper.playVideo(context, videoUrl);
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Fond de la miniature avec une couleur de fond
-          Container(
-            color: Colors.black.withOpacity(0.7),
-            child: Icon(
-              Icons.videocam, 
-              color: Colors.white.withOpacity(0.6), 
-              size: getProportionateScreenWidth(30)
-            ),
-          ),
-          
-          // Bouton play centré
-          Positioned.fill(
-            child: Center(
-              child: Container(
-                width: getProportionateScreenWidth(40),
-                height: getProportionateScreenWidth(40),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
+  @override
+  Widget build(BuildContext context) {
+    final mediaUrl = _resolveMediaUrl(apartment);
+    final isVideo = _isVideo(mediaUrl);
+    final operationType = apartment['type_operation'] ?? 'alouer';
+    final ratings = apartment['ratings']?.toString() ?? '0.0';
+    final adresse = apartment['adresse'] ?? getTranslated(context, 'Maison')!;
+    final ville = apartment['nom_ville'] ?? '';
+    final montant = apartment['montant'] ?? apartment['loyer_mensuel'];
+    final periode = apartment['periode'] ?? 'mois';
+    final chambres = apartment['nombre_de_chambres'] ?? 0;
+    final sdb = apartment['nombre_de_salles_de_bain'] ?? 0;
+    final surface = apartment['surface'] ?? '';
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  if (isVideo) {
+                    _openVideo(context, mediaUrl);
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ImmobDetails(id: apartment['id']),
+                      ),
+                    );
+                  }
+                },
+                child: SizedBox(
+                  height: constraints.maxWidth * 0.55,
+                  width: double.infinity,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (isVideo)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(
+                              child: Icon(Icons.videocam, size: 40, color: Colors.white54),
+                            ),
+                          )
+                        else
+                          Image.network(
+                            mediaUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: Icon(Icons.home, size: 40, color: Colors.grey),
+                                ),
+                              );
+                            },
+                          ),
+                        if (isVideo)
+                          Container(
+                            color: Colors.black.withOpacity(0.3),
+                          ),
+                        if (isVideo)
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.play_arrow, size: 32, color: Colors.white),
+                            ),
+                          ),
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: operationType == 'vendre' 
+                                  ? Colors.red.withOpacity(0.8)
+                                  : Colors.blue.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              getTranslated(context, operationType) ?? operationType,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (isVideo)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                getTranslated(context, "VIDÉO")!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.play_arrow, 
-                  color: Colors.white, 
-                  size: getProportionateScreenWidth(24)
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ImmobDetails(id: apartment['id']),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        adresse,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on, size: 10, color: Colors.grey[600]),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              ville,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        montant != null
+                            ? '$montant MRU/${getTranslated(context, periode) ?? periode}'
+                            : getTranslated(context, 'Prix sur demande')!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        children: [
+                          if (chambres > 0)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bed, size: 10, color: Colors.grey[600]),
+                                const SizedBox(width: 2),
+                                Text(chambres.toString(), style: const TextStyle(fontSize: 9)),
+                              ],
+                            ),
+                          if (sdb > 0)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bathtub, size: 10, color: Colors.grey[600]),
+                                const SizedBox(width: 2),
+                                Text(sdb.toString(), style: const TextStyle(fontSize: 9)),
+                              ],
+                            ),
+                          if (surface.isNotEmpty && surface != '0' && surface != '0.0')
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.square_foot, size: 10, color: Colors.grey[600]),
+                                const SizedBox(width: 2),
+                                Text('${surface}m²', style: const TextStyle(fontSize: 9)),
+                              ],
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          ...List.generate(5, (starIndex) => Icon(
+                            Icons.star,
+                            size: 12,
+                            color: starIndex < (double.tryParse(ratings) ?? 0).floor()
+                                ? Colors.amber
+                                : Colors.grey[300],
+                          )),
+                          const SizedBox(width: 2),
+                          Text(
+                            ratings,
+                            style: const TextStyle(fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

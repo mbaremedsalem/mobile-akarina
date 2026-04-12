@@ -8,6 +8,7 @@ import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/login/index_login.dart';
+
 import 'package:akarina/presentations/screens/profile/settings.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';

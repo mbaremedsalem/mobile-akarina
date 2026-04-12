@@ -71,6 +71,83 @@ class Defaultbutton extends StatelessWidget {
   }
 }
 
+
+
+class Defaultbutton1 extends StatelessWidget {
+  const Defaultbutton1({
+    this.color,
+    this.height,
+    this.width,
+    this.onTap,
+    this.textcolor,
+    this.text,
+    this.suffixIcon,
+    this.hasborder,
+    this.borderColor,
+    this.borderRadius,
+    this.hasIcon,
+    this.isLoading = false, // AJOUTÉ
+    super.key,
+  });
+
+  final void Function()? onTap;
+  final double? height;
+  final double? width;
+  final Color? color;
+  final String? text;
+  final Color? textcolor;
+  final Widget? suffixIcon;
+  final bool? hasborder;
+  final Color? borderColor;
+  final bool? hasIcon;
+  final double? borderRadius;
+  final bool isLoading; // AJOUTÉ
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: isLoading ? null : onTap, // DÉSACTIVÉ SI LOADING
+      child: Container(
+          padding:
+              EdgeInsets.symmetric(horizontal: getProportionateScreenWidth(10)),
+          width: width,
+          height: height ?? getProportionateScreenHeight(30),
+          decoration: BoxDecoration(
+            color: isLoading ? (color ?? pcolor).withOpacity(0.7) : color,
+            border: (hasborder ?? false)
+                ? Border.all(color: borderColor ?? colorBorder)
+                : null,
+            borderRadius: BorderRadius.circular(borderRadius ?? 10)
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center, // CENTRÉ
+            children: [
+              if (isLoading) // AFFICHER LOADING SI TRUE
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(textcolor ?? kWhiteColor),
+                  ),
+                ),
+              if (isLoading) SizedBox(width: getProportionateScreenWidth(10)),
+              Text(
+                isLoading ? '' : text ?? '', // CACHER TEXTE SI LOADING
+                textScaleFactor: 1.0,
+                style: maintextstyle.copyWith(
+                    color: textcolor ?? kBlackColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: getProportionateScreenWidth(14)),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          )),
+    );
+  }
+}
+
+
 Widget defaultTextField({
   required TextEditingController controller,
   bool isPassword = false,

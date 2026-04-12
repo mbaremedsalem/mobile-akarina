@@ -276,7 +276,7 @@ class PropertyGridWidget extends StatelessWidget {
       context: context,
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.all(20),
-        child: Container(
+        child: SizedBox(
           width: MediaQuery.of(context).size.width,
           height: MediaQuery.of(context).size.height * 0.7,
           child: VideoPlayerWidget(videoUrl: fullVideoUrl),

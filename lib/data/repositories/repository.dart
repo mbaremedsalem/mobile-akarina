@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/models/facture.dart';
 import 'package:akarina/data/models/profile.dart';
 import 'package:http/http.dart';
-
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
 class Repository {
   final NetworkService? networkService;
@@ -22,6 +25,18 @@ class Repository {
   Future<dynamic> envoi(String tel, double montant) async {
     final envoi = await networkService!.envoi(tel, montant);
     return envoi;
+  }
+
+
+  Future<http.Response> requestOtp(String phone) async {
+    final response = await networkService!.requestOtp(phone);
+    return response;
+  }
+
+  // Dans votre repository.dart
+  Future<http.Response> verifyOtp(String phone, String otp) async {
+    final response = await networkService!.verifyOtp(phone, otp);
+    return response;
   }
 
   Future<dynamic> paycommercent(
@@ -107,6 +122,30 @@ class Repository {
     return deltecagnoote;
   }
 
+  Future<http.Response?> userSignup({
+      required String email,
+      required String nomComplet,
+      required String numeroTelephone,
+      required String password,
+      required String confirmPassword,
+      required String clientType,
+      required String nni,
+      required String emplacement,
+      File? carteIdentiteFile,
+    }) async {
+      final response = await networkService?.userSignup(
+        email: email,
+        nomComplet: nomComplet,
+        numeroTelephone: numeroTelephone,
+        password: password,
+        confirmPassword: confirmPassword,
+        clientType: clientType,
+        nni: nni,
+        emplacement: emplacement,
+        carteIdentiteFile: carteIdentiteFile,
+      );
+      return response;
+    }
 
   Future<List<Factures>> facturier() async {
     final facturier = await (networkService!.facturier());

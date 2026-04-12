@@ -92,7 +92,7 @@ Future<void> _fetchCities() async {
       
       // Filtrer les doublons basés sur le nom de la ville
       final List<Map<String, dynamic>> uniqueCities = [];
-      final Set<String> seenCities = Set<String>();
+      final Set<String> seenCities = <String>{};
       
       for (final city in List<Map<String, dynamic>>.from(rawData)) {
         final cityName = city['nom'];
@@ -1004,7 +1004,7 @@ bool _isVideo(String url) {
       context: context,
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.all(20),
-        child: Container(
+        child: SizedBox(
           width: MediaQuery.of(context).size.width,
           height: MediaQuery.of(context).size.height * 0.7,
           child: VideoPlayerWidget(videoUrl: fullVideoUrl),

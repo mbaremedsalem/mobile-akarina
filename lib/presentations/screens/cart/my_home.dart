@@ -22,7 +22,7 @@ class VideoHelper {
         builder: (context) => Dialog(
           backgroundColor: Colors.black,
           insetPadding: EdgeInsets.all(20),
-          child: Container(
+          child: SizedBox(
             width: double.infinity,
             height: MediaQuery.of(context).size.height * 0.7,
             child: VideoPlayerWidget(videoUrl: videoUrl),

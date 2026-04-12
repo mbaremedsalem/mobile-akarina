@@ -9,7 +9,7 @@ import 'package:akarina/presentations/screens/immobillier/add_reviwe.dart';
 import 'package:akarina/presentations/screens/immobillier/full_images.dart';
 import 'package:akarina/presentations/screens/immobillier/order_dialog.dart';
 import 'package:akarina/presentations/screens/immobillier/reservation.dart';
-
+import 'package:akarina/presentations/screens/login/index_login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -23,16 +23,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:akarina/data/services/connectivity_service.dart';
-import 'package:akarina/presentations/screens/login/index_login.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 
-import 'package:html/parser.dart' show parse;
-import 'package:table_calendar/table_calendar.dart';
-import 'package:syncfusion_flutter_calendar/calendar.dart';
 
-// Import spécifique iOS
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 class ImmobDetails extends StatefulWidget {
   final int id;
@@ -130,29 +123,6 @@ Widget _buildCalendarSection() {
   );
 }
 
-// Ajoutez aussi un bouton pour afficher/masquer le calendrier
-  Widget _buildCalendarButton() {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ElevatedButton.icon(
-        onPressed: _toggleCalendar,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _showCalendar ? Colors.grey : pcolor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: Icon(_showCalendar ? Icons.calendar_today : Icons.calendar_month),
-        label: Text(
-          _showCalendar 
-            ? getTranslated(context, "Masquer le calendrier")!
-            : getTranslated(context, "Voir les disponibilités")!,
-        ),
-      ),
-    );
-  }
-    // end 
 
   Future<void> _checkSession() async {
     final storage = const FlutterSecureStorage();
@@ -508,7 +478,8 @@ Widget _buildCalendarSection() {
         SnackBar(content: Text("Erreur : $e")),
       );
     }
-          _showOrderDialog();
+          // _showOrderDialog();
+          _showReservationDialog();
         },
         backgroundColor: pcolor,
         foregroundColor: Colors.white,
@@ -536,19 +507,12 @@ Widget _buildCalendarSection() {
                             SizedBox(height: getProportionateScreenHeight(5)),
                             _buildPriceAndStatusHeader(),
                             SizedBox(height: getProportionateScreenHeight(5)),
-                            // start calander
-                            // Ajoutez le bouton calendrier ici
-                            _buildCalendarButton(),
-                            
                             // Ajoutez la section calendrier ici
                             _buildCalendarSection(),
                             // end calander
                             // Section pour les images
                             _buildImageSection(immobData?['images'] ?? []),
-                            SizedBox(height: getProportionateScreenHeight(5)),
-                            // Section pour les utilisateurs
-                            _buildUsersSection(),
-                            SizedBox(height: getProportionateScreenHeight(25)),
+            
                             // Disponibilité
                             // Informations principales (icônes des caractéristiques)
                             _buildFeatureInfo(),
@@ -881,6 +845,7 @@ Widget _buildCalendarSection() {
                   ),
                 ),
               ),
+            
             ],
           ),
         );
@@ -1200,7 +1165,7 @@ void _openVideo(BuildContext context, String videoUrl) {
     context: context,
     builder: (context) => Dialog(
       insetPadding: EdgeInsets.all(20),
-      child: Container(
+      child: SizedBox(
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height * 0.7,
         child: VideoPlayerWidget(videoUrl: fullVideoUrl),
@@ -1754,18 +1719,473 @@ bool isValidImageUrl(String? url) {
     );
   }
 
-  void _showOrderDialog() {
+void _showReservationDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (BuildContext context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9, // 90% de la largeur
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8, // Max 80% de la hauteur
+          ),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Titre
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pcolor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.receipt,
+                  size: 40,
+                  color: pcolor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                getTranslated(context, "Frais de réservation")!,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "10 MRU",
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: pcolor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                getTranslated(context, "Choisissez votre moyen de paiement")!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              
+              // Grille des moyens de paiement (responsive)
+              Expanded(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: MediaQuery.of(context).size.width < 400 ? 0.9 : 1.0,
+                  ),
+                  itemCount: 4,
+                  itemBuilder: (context, index) {
+                    final paymentMethods = [
+                      {
+                        'imagePath': 'assets/images/bankily.png',
+                        'name': getTranslated(context, "Bankily")!,
+                        'method': 'bankily',
+                      },
+                      {
+                        'imagePath': 'assets/images/saddad.png',
+                        'name': getTranslated(context, "Seddade")!,
+                        'method': 'seddade',
+                      },
+                      {
+                        'imagePath': 'assets/images/masrivi.png',
+                        'name': getTranslated(context, "Masrivi")!,
+                        'method': 'masrivi',
+                      },
+                      {
+                        'imagePath': 'assets/images/click.png',
+                        'name': getTranslated(context, "Click")!,
+                        'method': 'click',
+                      },
+                    ];
+                    
+                    final payment = paymentMethods[index];
+                    
+                    return _buildPaymentMethodCard(
+                      context,
+                      imagePath: payment['imagePath']!,
+                      name: payment['name']!,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _processPayment(payment['method']!);
+                      },
+                    );
+                  },
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              // Bouton annuler
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  getTranslated(context, "Annuler")!,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _buildPaymentMethodCard(
+  BuildContext context, {
+  required String imagePath,
+  required String name,
+  required VoidCallback onTap,
+}) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      // Ajuster la taille en fonction de l'espace disponible
+      final isSmallScreen = MediaQuery.of(context).size.width < 400;
+      final imageSize = isSmallScreen ? 50.0 : 60.0;
+      final fontSize = isSmallScreen ? 12.0 : 14.0;
+      
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                Colors.grey.shade50,
+              ],
+            ),
+            border: Border.all(
+              color: Colors.grey.shade200,
+              width: 1.5,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Image du moyen de paiement
+              Container(
+                width: imageSize,
+                height: imageSize,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    imagePath,
+                    width: imageSize,
+                    height: imageSize,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.payment,
+                        size: imageSize * 0.6,
+                        color: Colors.grey[400],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Nom du moyen de paiement
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Indicateur de sélection
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: pcolor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  getTranslated(context, "Sélectionner")!,
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 8 : 10,
+                    color: pcolor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+
+void _processPayment(String method) {
+  // Afficher un dialogue de confirmation
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: pcolor),
+            const SizedBox(width: 8),
+            Text(getTranslated(context, "Confirmation")!),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              getTranslated(context, "Vous allez payer 10 MRU")!,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              getTranslated(context, "Moyen de paiement")! + ": ${_getPaymentMethodName(method)}",
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.amber[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      getTranslated(context, "Vous serez redirigé vers l'application de paiement")!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text(
+              getTranslated(context, "Annuler")!,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Fermer le dialogue de confirmation
+              _confirmPayment(method);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: pcolor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(getTranslated(context, "Confirmer")!),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+String _getPaymentMethodName(String method) {
+  switch (method) {
+    case 'bankily':
+      return getTranslated(context, "Bankily")!;
+    case 'seddade':
+      return getTranslated(context, "Seddade")!;
+    case 'masrivi':
+      return getTranslated(context, "Masrivi")!;
+    case 'click':
+      return getTranslated(context, "Click")!;
+    default:
+      return getTranslated(context, "Autre")!;
+  }
+}
+
+void _confirmPayment(String method) {
+  // Afficher un dialogue de chargement
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return Dialog(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: pcolor),
+              const SizedBox(height: 16),
+              Text(
+                getTranslated(context, "Traitement du paiement...")!,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  // Simuler un délai de traitement
+  Future.delayed(const Duration(seconds: 2), () {
+    Navigator.pop(context); // Fermer le dialogue de chargement
+    
+    // Afficher un dialogue de succès
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return OrderDialog(
-          immobilierId: widget.id,
-          immobilierData: immobData,
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              const SizedBox(width: 8),
+              Text(getTranslated(context, "Paiement réussi")!),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.celebration,
+                size: 60,
+                color: Colors.green,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                getTranslated(context, "Votre réservation a été confirmée avec succès!")!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                getTranslated(context, "Un email de confirmation vous a été envoyé")!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Fermer le dialogue de succès
+                // Optionnel: Naviguer vers une autre page ou rafraîchir
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: pcolor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(getTranslated(context, "OK")!),
+            ),
+          ],
         );
       },
     );
-  }
+  });
+}
+
+
+  // void _showOrderDialog() {
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (BuildContext context) {
+  //       return OrderDialog(
+  //         immobilierId: widget.id,
+  //         immobilierData: immobData,
+  //       );
+  //     },
+  //   );
+  // }
+
 
   Widget _buildReviewsSection() {
     return Column(

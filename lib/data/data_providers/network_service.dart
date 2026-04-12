@@ -14,9 +14,10 @@ import 'package:http/http.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
-import '../../presentations/screens/login/index_login.dart';
+
 
 class NetworkService {
   final storage = const FlutterSecureStorage();
@@ -61,6 +62,101 @@ class NetworkService {
       throw Exception('Failed to load property details: ${response.body}');
     }
   }
+
+
+  // Dans votre network_service.dart
+  Future<http.Response> verifyOtp(String phone, String otp) async {
+    try {
+      final response = await http.post(
+        Uri.parse("${baseUrl}otp/verify/"),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: jsonEncode({
+          "phone": phone,
+          "otp": otp,
+        }),
+      );
+
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
+
+  Future<http.Response> requestOtp(String phone) async {
+    try {
+      final response = await http.post(
+        Uri.parse("${baseUrl}otp/request/"),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: jsonEncode({
+          "phone": phone,
+        }),
+      );
+
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
+Future<http.Response> userSignup({
+    required String email,
+    required String nomComplet,
+    required String numeroTelephone,
+    required String password,
+    required String confirmPassword,
+    required String clientType,
+    required String nni,
+    required String emplacement,
+    File? carteIdentiteFile,
+  }) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse("${baseUrl}user/register/"),
+      );
+
+      // Ajout des champs texte
+      request.fields['email'] = email;
+      request.fields['nom_complet'] = nomComplet;
+      request.fields['numero_telephone'] = numeroTelephone;
+      request.fields['password'] = password;
+      request.fields['confirm_password'] = confirmPassword;
+      request.fields['client_type'] = clientType;
+      request.fields['nni'] = nni;
+      request.fields['emplacement'] = emplacement;
+
+      // Ajout du fichier si présent
+      if (carteIdentiteFile != null) {
+        var stream = http.ByteStream(carteIdentiteFile.openRead());
+        var length = await carteIdentiteFile.length();
+        
+        var multipartFile = http.MultipartFile(
+          'carte_identite_file',
+          stream,
+          length,
+          filename: carteIdentiteFile.path.split('/').last,
+          contentType: MediaType('image', 'jpeg'),
+        );
+        request.files.add(multipartFile);
+      }
+
+      final response = await request.send();
+      final responseString = await response.stream.bytesToString();
+      
+      return http.Response(responseString, response.statusCode);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
 
   // Nouvelle méthode pour récupérer les catégories
   Future<Map<String, dynamic>?> fetchCategories() async {
@@ -275,7 +371,7 @@ class NetworkService {
               onPressed: () {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => const IndexLogin()),
+                  MaterialPageRoute(builder: (context) => const Login()),
                 );
               },
               child: Text(getTranslated(context, "cnx")!),

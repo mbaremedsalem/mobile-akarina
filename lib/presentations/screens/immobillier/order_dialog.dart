@@ -100,7 +100,7 @@ class _OrderDialogState extends State<OrderDialog> {
         throw Exception('Données immobilier manquantes');
       }
 
-      final operationType = widget.immobilierData?['operation']?['type']?.toString()?.toLowerCase();
+      final operationType = widget.immobilierData?['operation']?['type']?.toString().toLowerCase();
       final isLocation = operationType == 'louer' || operationType == 'alouer';
 
       if (isLocation) {
@@ -110,13 +110,9 @@ class _OrderDialogState extends State<OrderDialog> {
           loyer = widget.immobilierData?['residentiel']?['loyer_mensuel'];
         }
         
-        if (loyer == null) {
-          loyer = widget.immobilierData?['loyer_mensuel'];
-        }
+        loyer ??= widget.immobilierData?['loyer_mensuel'];
         
-        if (loyer == null) {
-          loyer = widget.immobilierData?['prix_location'];
-        }
+        loyer ??= widget.immobilierData?['prix_location'];
 
         final montantLocation = double.tryParse('$loyer') ?? 0.0;
 
@@ -132,13 +128,9 @@ class _OrderDialogState extends State<OrderDialog> {
           montant = widget.immobilierData?['residentiel']?['montant'];
         }
         
-        if (montant == null) {
-          montant = widget.immobilierData?['montant'];
-        }
+        montant ??= widget.immobilierData?['montant'];
         
-        if (montant == null) {
-          montant = widget.immobilierData?['prix'];
-        }
+        montant ??= widget.immobilierData?['prix'];
 
         montantTotal = double.tryParse('$montant') ?? 0.0;
       }

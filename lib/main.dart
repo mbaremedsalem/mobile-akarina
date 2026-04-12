@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:ui';
-
 import 'package:akarina/business_logic/cubits/cubit/check_token_cubit.dart';
 import 'package:akarina/business_logic/cubits/cubit/login_cubit.dart';
+import 'package:akarina/business_logic/cubits/cubit/register_cubit.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/localization/localization.dart';
@@ -11,7 +10,6 @@ import 'package:akarina/data/services.dart';
 import 'package:akarina/firebase_options.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/layout/layout.dart';
-import 'package:akarina/presentations/screens/on_boarding/shoose.dart';
 import 'package:akarina/presentations/screens/splash/splash.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:akarina/router.dart';
@@ -158,6 +156,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         BlocProvider<LoginCubit>(
           create: (context) => LoginCubit(
+              repository: Repository(networkService: NetworkService())),
+        ),
+        BlocProvider<RegisterCubit>(
+          create: (context) => RegisterCubit(
               repository: Repository(networkService: NetworkService())),
         ),
         // Add other cubits here as needed

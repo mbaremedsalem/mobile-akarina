@@ -223,7 +223,7 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 24),
-             GridView.builder(
+              GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -422,7 +422,7 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
                           children: [
                       // Titre
                       Text(
-                        title ?? 'Propriété',
+                        title,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,

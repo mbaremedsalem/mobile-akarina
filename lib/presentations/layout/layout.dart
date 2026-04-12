@@ -49,6 +49,7 @@ class Layout extends StatelessWidget {
                 padding: const EdgeInsets.all(8.0),
                 child: SvgPicture.asset(
                     'assets/svg/logo.svg',
+                    color: pcolor,
                   ),
               ),
               actions: [

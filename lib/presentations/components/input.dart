@@ -1,5 +1,6 @@
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 Widget defaultInputField({
   required TextEditingController controller,
@@ -90,3 +91,116 @@ Widget defaultInputField({
         ),
       ),
     );
+
+
+
+
+
+
+
+
+
+Widget defaultInputField1({
+  required TextEditingController controller,
+  bool isPassword = false,
+  bool isClickable = true,
+  double height = 53,
+  required TextInputType type,
+  Function(String)? onSubmit,
+  Function? onTap,
+  required String text,
+  IconData? prefix,
+  IconData? suffix,
+  Function? suffixFunction,
+  String textForUnValid = 'This element is required',
+  Color? backgroundColor = kWhiteColor,
+  Color borderColor = Colors.transparent,
+  double borderRadius = 10.0, 
+  String? hintText,
+  int? maxLength,
+  String? Function(String?)? customValidator,
+  List<TextInputFormatter>? inputFormatters,
+}) =>
+    Container(
+      height: height,
+      decoration: const BoxDecoration(),
+      child: TextFormField(
+        enableSuggestions: true,
+        autocorrect: true,
+        controller: controller,
+        enabled: isClickable,
+        onTap: onTap != null ? () => onTap() : null,
+        validator: (value) {
+          // D'abord le validateur personnalisé s'il existe
+          if (customValidator != null) {
+            final customResult = customValidator(value);
+            if (customResult != null) return customResult;
+          }
+          
+          // Ensuite la validation de base
+          if (value!.isEmpty) {
+            return textForUnValid;
+          }
+          return null;
+        },
+        onChanged: (value) {
+          // SUPPRIMER l'appel à suffixFunction ici
+          // Ne rien mettre ou mettre une autre logique si nécessaire
+        },
+        onFieldSubmitted: (value) {
+          if (onSubmit != null) {
+            onSubmit(value);
+          }
+        },
+        maxLength: maxLength,
+        obscureText: isPassword,
+        keyboardType: type,
+        inputFormatters: inputFormatters,
+        // Ajouter cette propriété pour éviter la réduction de hauteur
+        buildCounter: (BuildContext context, {int? currentLength, int? maxLength, bool? isFocused}) => null,
+        decoration: InputDecoration(
+          labelText: text,
+          labelStyle: TextStyle(color: kgrey400),
+          prefixIcon: prefix != null
+              ? Icon(prefix, color: pcolor)
+              : null,
+          suffixIcon: suffix != null
+              ? IconButton(
+                  onPressed: () {
+                    if (suffixFunction != null) {
+                      suffixFunction();
+                    }
+                  },
+                  icon: Icon(suffix, color: kgrey400),
+                )
+              : null,
+          filled: true,
+          fillColor: backgroundColor,
+          contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+            borderSide: const BorderSide(
+              color: pcolor,
+              width: 1.5,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+            borderSide: const BorderSide(
+              color: pcolor,
+              width: 2.0,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+            borderSide: BorderSide(
+              color: borderColor,
+              width: 1.5,
+            ),
+          ),
+          // Pour gérer l'affichage du compteur si maxLength est défini
+          counterText: '',
+        ),
+      ),
+    );
+
