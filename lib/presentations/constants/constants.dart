@@ -136,3 +136,22 @@ Widget spaceHeight(double height) {
 Widget spaceWidth(double width) {
   return SizedBox(width: getProportionateScreenWidth(width));
 }
+
+
+
+
+class DesignTokens {
+  static const gold = Color(0xFFC9A84C);
+  static const goldLight = Color(0xFFF5E9C8);
+  static const goldDark = Color(0xFF8A6A20);
+  static const ink = Color(0xFF1A1612);
+  static const inkSoft = Color(0xFF4A4540);
+  static const surface = Color(0xFFFAF8F5);
+  static const surfaceCard = Color(0xFFFFFFFF);
+  static const border = Color(0xFFEDE9E0);
+  static const success = Color(0xFF1A7A4A);
+  static const successBg = Color(0xFFEAF7EF);
+  static const locked = Color(0xFF8A8580);
+  static const lockedBg = Color(0xFFF2F1EE);
+  static const fontDisplay = 'Georgia';
+}

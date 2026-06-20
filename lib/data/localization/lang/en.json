@@ -1088,5 +1088,17 @@
     "Veuillez entrer votre numéro de téléphone": "Please enter your phone number",
     "Veuillez entrer votre emplacement": "Please enter your location",
     "Compte Bloqué": "Account Blocked",
-    "Veuillez contacter l'administration pour réactiver votre compte": "Please contact support to reactivate your account"
-    }
+    "Veuillez contacter l'administration pour réactiver votre compte": "Please contact support to reactivate your account",
+    "NOS FORFAITS":"OUR PACKAGES",
+    "Choisissez votre accès":"Choose your access",
+    "forfaits":"packages",
+    "Gratuit":"Free",
+    "Actif":"Active",
+    "Verrouillé":"Locked",
+    "Classement":"Ranking",
+    "Accès gratuit":"Free Access",
+    "Accéder aux maisons":"Access Houses",
+    "Débloquer": "Unlock",
+    "Maisons": "Houses",
+    "Détails de la maison": "House details"
+}

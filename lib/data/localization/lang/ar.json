@@ -79,7 +79,7 @@
   "commercial":"تجاري",
   "Terrain": "قطع أرضية",
   "Residentiel": "سكني",
-  "Maisonceremonie":"بيوت الحفلات",
+  "Maisonceremonie":"منازل الحفلات",
   "Search":"بحث",
   "Commander":"طلب",
   "Moyen de paiement":"طريقة الدفع",
@@ -1091,5 +1091,17 @@
     "Veuillez entrer votre numéro de téléphone": "الرجاء إدخال رقم هاتفك",
     "Veuillez entrer votre emplacement": "الرجاء إدخال موقعك",
     "Compte Bloqué": "الحساب محظور",
-    "Veuillez contacter l'administration pour réactiver votre compte": "يرجى الاتصال بالإدارة لإعادة تنشيط حسابك"
+    "Veuillez contacter l'administration pour réactiver votre compte": "يرجى الاتصال بالإدارة لإعادة تنشيط حسابك",
+    "NOS FORFAITS": "باقاتنا",
+    "Choisissez votre accès": "اختر وصولك",
+    "forfaits": "الباقات",
+    "Gratuit": "مجاني",
+    "Actif": "نشط",
+    "Verrouillé": "مقفل",
+    "Classement": "الترتيب",
+    "Accès gratuit": "وصول مجاني",
+    "Accéder aux maisons": "الوصول إلى المنازل",
+    "Débloquer": "فتح القفل",
+    "Maisons": "المنازل",
+    "Détails de la maison": "تفاصيل المنزل"
 }
