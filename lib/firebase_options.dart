@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -28,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -50,19 +41,53 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDUa7t7B5oHxBjqsJXe2d-wio2-tIGt-Vs',
-    appId: '1:746649956998:android:9b3dc355af77a922001707',
-    messagingSenderId: '746649956998',
-    projectId: 'akarina-2b6a7',
-    storageBucket: 'akarina-2b6a7.appspot.com',
+    apiKey: 'AIzaSyBC_F0NG8hrGbtDXiQjJHa4ItrXJahvGHw',
+    appId: '1:694884663195:android:392a60b7e4f8d0a520eb3e',
+    messagingSenderId: '694884663195',
+    projectId: 'akarena',
+    databaseURL: 'https://akarena-default-rtdb.firebaseio.com',
+    storageBucket: 'akarena.firebasestorage.app',
+  );
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDdA-3of_aLRweqaaGmkyEBJJrKCTtKRmU',
+    appId: '1:694884663195:ios:f1418b23a812084020eb3e',
+    messagingSenderId: '694884663195',
+    projectId: 'akarena',
+    databaseURL: 'https://akarena-default-rtdb.firebaseio.com',
+    storageBucket: 'akarena.firebasestorage.app',
+    iosClientId: '694884663195-cp58n12k4crc7cepbhnltj83ogprb7u9.apps.googleusercontent.com',
+    iosBundleId: 'com.agharinaa.com',
+  );
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyB2uek2f4HGDee6KXYrtkaWetsVJyyBn4g',
+    appId: '1:694884663195:web:5942545931505bd720eb3e',
+    messagingSenderId: '694884663195',
+    projectId: 'akarena',
+    authDomain: 'akarena.firebaseapp.com',
+    databaseURL: 'https://akarena-default-rtdb.firebaseio.com',
+    storageBucket: 'akarena.firebasestorage.app',
+    measurementId: 'G-YMETZTWQMB',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyASo6AVd9iHkP63pi63m_RjgEJJ8jZo_lw',
-    appId: '1:746649956998:ios:1a26a01e0af8343b001707',
-    messagingSenderId: '746649956998',
-    projectId: 'akarina-2b6a7',
-    storageBucket: 'akarina-2b6a7.appspot.com',
-    iosBundleId: 'app.agharinaa.com',
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDdA-3of_aLRweqaaGmkyEBJJrKCTtKRmU',
+    appId: '1:694884663195:ios:f1418b23a812084020eb3e',
+    messagingSenderId: '694884663195',
+    projectId: 'akarena',
+    databaseURL: 'https://akarena-default-rtdb.firebaseio.com',
+    storageBucket: 'akarena.firebasestorage.app',
+    iosClientId: '694884663195-cp58n12k4crc7cepbhnltj83ogprb7u9.apps.googleusercontent.com',
+    iosBundleId: 'com.agharinaa.com',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyB2uek2f4HGDee6KXYrtkaWetsVJyyBn4g',
+    appId: '1:694884663195:web:1f7cae34660a1b7420eb3e',
+    messagingSenderId: '694884663195',
+    projectId: 'akarena',
+    authDomain: 'akarena.firebaseapp.com',
+    databaseURL: 'https://akarena-default-rtdb.firebaseio.com',
+    storageBucket: 'akarena.firebasestorage.app',
+    measurementId: 'G-J6YMHPNRVN',
   );
 }

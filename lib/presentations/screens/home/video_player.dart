@@ -8,7 +8,22 @@ import 'package:webview_flutter/webview_flutter.dart';
 class VideoPlayerWidget extends StatefulWidget {
   final String videoUrl;
 
-  const VideoPlayerWidget({super.key, required this.videoUrl});
+  /// Quand `true`, le lecteur s'affiche sans son propre Scaffold ni bouton
+  /// de fermeture, pour être posé directement dans une page (ex. la fiche
+  /// d'un bien) plutôt qu'ouvert en plein écran.
+  final bool embedded;
+
+  /// Démarrage automatique de la lecture. Désactivé par défaut en mode
+  /// [embedded] pour ne pas déclencher son/données pendant le défilement
+  /// de la page.
+  final bool autoPlay;
+
+  const VideoPlayerWidget({
+    super.key,
+    required this.videoUrl,
+    this.embedded = false,
+    bool? autoPlay,
+  }) : autoPlay = autoPlay ?? !embedded;
 
   @override
   _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
@@ -129,7 +144,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   void _setupChewieController() {
     _chewieController = ChewieController(
       videoPlayerController: _videoPlayerController!,
-      autoPlay: true,
+      autoPlay: widget.autoPlay,
       looping: false,
       aspectRatio: _videoPlayerController!.value.aspectRatio,
       showControls: true,
@@ -299,21 +314,24 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final content = _isLoading
+        ? _buildLoadingWidget()
+        : _hasError
+            ? _buildErrorWidget(_errorMessage)
+            : _useFallback
+                ? _buildWebViewFallback()
+                : _buildVideoPlayer();
+
+    if (widget.embedded) {
+      return Container(color: Colors.black, child: content);
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Stack(
           children: [
-            // Contenu principal
-            if (_isLoading)
-              _buildLoadingWidget()
-            else if (_hasError)
-              _buildErrorWidget(_errorMessage)
-            else if (_useFallback)
-              _buildWebViewFallback()
-            else
-              _buildVideoPlayer(),
-            
+            content,
             // Bouton fermer
             if (!_isLoading)
               Positioned(

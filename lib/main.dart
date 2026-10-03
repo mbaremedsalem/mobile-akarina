@@ -1,12 +1,14 @@
 import 'dart:ui';
 import 'package:akarina/business_logic/cubits/cubit/check_token_cubit.dart';
 import 'package:akarina/business_logic/cubits/cubit/login_cubit.dart';
-import 'package:akarina/business_logic/cubits/cubit/register_cubit.dart';
 import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/localization/localization.dart';
 import 'package:akarina/data/repositories/repository.dart';
 import 'package:akarina/data/services.dart';
+import 'package:akarina/data/services/fcm_service.dart';
+import 'package:akarina/data/services/navigation_service.dart';
+import 'package:akarina/data/services/notification_store.dart';
 import 'package:akarina/firebase_options.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/layout/layout.dart';
@@ -22,14 +24,31 @@ import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // Ajoutez cette ligne avant runApp()
-  WidgetsFlutterBinding.ensureInitialized();
   
-  // Pour iOS - nécessaire pour WebView
-  // if (Platform.isIOS) {
-  //   WebView.platform = CupertinoWebView();
-  // }
+  // ✅ Firebase peut déjà être initialisé nativement (via google-services.json)
+  // avant même l'exécution de main(), donc on catch spécifiquement duplicate-app.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ Firebase initialisé avec succès !');
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      print('ℹ️ Firebase déjà initialisé nativement');
+    } else {
+      print('❌ Erreur initialisation Firebase: $e');
+    }
+  }
+  
+  // ✅ Initialiser FCM seulement si Firebase est initialisé
+  try {
+    if (Firebase.apps.isNotEmpty) {
+      await FCMService.initialize();
+      print('✅ FCM initialisé avec succès !');
+    }
+  } catch (e) {
+    print('❌ Erreur initialisation FCM: $e');
+  }
   
   bool isFirstLaunch = await checkFirstLaunch();
 
@@ -41,7 +60,7 @@ void main() async {
 
   runApp(MyApp(
     appRouter: AppRouter(),
-    isFirstLaunch: isFirstLaunch, // Passer la valeur
+    isFirstLaunch: isFirstLaunch,
   ));
 }
 
@@ -52,20 +71,33 @@ Future<bool> checkFirstLaunch() async {
   if (firstLaunch == null) {
     await storage.write(
         key: 'isFirstLaunch',
-        value: 'false'); // Enregistrer qu'il a déjà été lancé
-    return true; // C'est la première fois
+        value: 'false');
+    return true;
   }
-  return false; // Ce n'est pas la première fois
+  return false;
 }
+
+const String THEME_MODE_KEY = 'themeMode';
 
 class MyApp extends StatefulWidget {
   final AppRouter? appRouter;
-  final bool isFirstLaunch; // Ajout du paramètre
+  final bool isFirstLaunch;
   const MyApp({super.key, this.appRouter, required this.isFirstLaunch});
 
   static void setLocale(BuildContext context, Locale newLocale) {
     _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
     state.setLocale(newLocale);
+  }
+
+  /// Change et persiste le mode clair/sombre de l'app.
+  static void setThemeMode(BuildContext context, ThemeMode mode) {
+    _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
+    state.setThemeMode(mode);
+  }
+
+  static ThemeMode themeModeOf(BuildContext context) {
+    _MyAppState state = context.findAncestorStateOfType<_MyAppState>()!;
+    return state._themeMode;
   }
 
   @override
@@ -74,8 +106,9 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   CountdownTimer? _countdownTimer;
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> navigatorKey = rootNavigatorKey;
   Locale _locale = Locale(ARABIC, 'CA');
+  ThemeMode _themeMode = ThemeMode.light;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
@@ -88,9 +121,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final isBackground = state == AppLifecycleState.paused;
     final isResumed = state == AppLifecycleState.resumed;
 
+    if (isResumed) {
+      // L'isolate d'arrière-plan FCM ne peut pas mettre à jour le badge
+      // affiché dans l'app : on resynchronise au retour au premier plan.
+      NotificationStore.refreshUnreadCount();
+    }
+
     if (isBackground) {
-      _countdownTimer = CountdownTimer(
-          Duration(seconds: int.parse(timer!)), Duration(seconds: 1));
+      if (timer != null) {
+        _countdownTimer = CountdownTimer(
+            Duration(seconds: int.parse(timer)), Duration(seconds: 1));
+      }
     } else if (isResumed) {
       if (_countdownTimer != null &&
           _countdownTimer!.remaining < Duration(seconds: 0)) {
@@ -114,6 +155,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
   }
 
+  void setThemeMode(ThemeMode mode) {
+    setState(() => _themeMode = mode);
+    FlutterSecureStorage().write(key: THEME_MODE_KEY, value: mode.name);
+  }
+
+  Future<void> _loadThemeMode() async {
+    final saved = await FlutterSecureStorage().read(key: THEME_MODE_KEY);
+    if (!mounted || saved == null) return;
+    setState(() {
+      _themeMode = ThemeMode.values.firstWhere(
+        (m) => m.name == saved,
+        orElse: () => ThemeMode.light,
+      );
+    });
+  }
+
   @override
   void didChangeDependencies() {
     getLocale().then((locale) {
@@ -134,14 +191,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _requestLocationPermission(); // Demande de la permission ici
+    _requestLocationPermission();
+    _loadThemeMode();
   }
 
   Future<void> _requestLocationPermission() async {
-    // Demande d'autorisation de localisation
     var status = await Permission.location.status;
     if (!status.isGranted) {
-      // Si la permission n'est pas accordée, on la demande
       await Permission.location.request();
     }
   }
@@ -158,19 +214,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           create: (context) => LoginCubit(
               repository: Repository(networkService: NetworkService())),
         ),
-        BlocProvider<RegisterCubit>(
-          create: (context) => RegisterCubit(
-              repository: Repository(networkService: NetworkService())),
-        ),
-        // Add other cubits here as needed
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-            fontFamily: 'Changa', // Applique la police
+            fontFamily: _locale.languageCode == 'ar' ? 'Cairo' : 'Poppins',
             useMaterial3: false,
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: kWhiteColor,
             appBarTheme: AppBarTheme(color: kWhiteColor, elevation: 0.0)),
+        darkTheme: ThemeData(
+            fontFamily: _locale.languageCode == 'ar' ? 'Cairo' : 'Poppins',
+            useMaterial3: false,
+            brightness: Brightness.dark,
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            cardColor: const Color(0xFF1E1E1E),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF1E1E1E),
+              foregroundColor: kWhiteColor,
+              elevation: 0.0,
+            ),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: pcolor,
+              brightness: Brightness.dark,
+            )),
+        themeMode: _themeMode,
         locale: _locale,
         supportedLocales: const [
           Locale("ar", "SA"),
@@ -193,6 +262,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return supportedLocales.first;
         },
         onGenerateRoute: widget.appRouter!.generateRoute,
+        // L'app s'ouvre toujours sur l'application complète (Layout) ; le
+        // mode "Maisons de cérémonie" reste accessible à la demande depuis
+        // la page de connexion ou Profil (voir applyAppMode), mais ne
+        // change plus l'écran de démarrage.
         home: widget.isFirstLaunch ? const Splash() : const Layout(),
       ),
     );

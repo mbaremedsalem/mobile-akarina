@@ -3,10 +3,9 @@ import 'package:akarina/business_logic/cubits/cubit/login_state.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/models/login_model.dart';
 import 'package:akarina/presentations/components/default_button.dart';
-import 'package:akarina/presentations/components/input.dart';
 import 'package:akarina/presentations/constants/constants.dart';
-import 'package:akarina/presentations/layout/layout.dart';
 import 'package:akarina/presentations/screens/register/register1.dart';
+import 'package:akarina/presentations/utils/app_mode.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,9 +23,9 @@ class Login extends StatefulWidget {
 }
 
 class _LoginState extends State<Login> with TickerProviderStateMixin {
-  final telephonecontroller = TextEditingController();
+  final usernamecontroller = TextEditingController();
   final passcontroller = TextEditingController();
-  final FocusNode _phoneFocusNode = FocusNode();
+  final FocusNode _usernameFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
   
   bool isPasswordVisible = false;
@@ -114,7 +113,7 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
     _fieldsAnimationController.forward();
     
     // Ajout des listeners pour les FocusNodes
-    _phoneFocusNode.addListener(_onFocusChange);
+    _usernameFocusNode.addListener(_onFocusChange);
     _passwordFocusNode.addListener(_onFocusChange);
   }
 
@@ -122,16 +121,16 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
     if (mounted) {
       setState(() {});
     }
-    if (_phoneFocusNode.hasFocus || _passwordFocusNode.hasFocus) {
+    if (_usernameFocusNode.hasFocus || _passwordFocusNode.hasFocus) {
       HapticFeedback.lightImpact();
     }
   }
 
   @override
   void dispose() {
-    telephonecontroller.dispose();
+    usernamecontroller.dispose();
     passcontroller.dispose();
-    _phoneFocusNode.dispose();
+    _usernameFocusNode.dispose();
     _passwordFocusNode.dispose();
     
     _mainAnimationController.dispose();
@@ -671,6 +670,8 @@ void _sendEmail(String email) async {
                       _buildAnimatedLoginButton(state),
                       SizedBox(height: getProportionateScreenHeight(24)),
                       _buildAnimatedRegisterSection(),
+                      SizedBox(height: getProportionateScreenHeight(16)),
+                      _buildSkipButton(),
                       SizedBox(height: getProportionateScreenHeight(20)),
                       _buildAnimatedContactButton(),
                       SizedBox(height: getProportionateScreenHeight(16)),
@@ -752,25 +753,14 @@ void _sendEmail(String email) async {
           child: SlideTransition(
             position: _fieldSlideAnimations[0],
             child: _buildModernInputField(
-              controller: telephonecontroller,
-              focusNode: _phoneFocusNode,
-              label: getTranslated(context, "Numéro de Téléphone")!,
-              icon: Icons.phone_outlined,
-              keyboardType: TextInputType.number,
-              maxLength: 8,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
-              ],
+              controller: usernamecontroller,
+              focusNode: _usernameFocusNode,
+              label: getTranslated(context, "Nom d'utilisateur")!,
+              icon: Icons.person_outline,
+              keyboardType: TextInputType.text,
               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return getTranslated(context, "telobligatoire");
-                }
-                if (value.length != 8) {
-                  return getTranslated(context, "telnonvalide");
-                }
-                if (!value.startsWith('2') && !value.startsWith('3') && !value.startsWith('4')) {
-                  return getTranslated(context, "telnonvalide");
+                if (value == null || value.trim().isEmpty) {
+                  return getTranslated(context, "Nom d'utilisateur obligatoire");
                 }
                 return null;
               },
@@ -787,14 +777,9 @@ void _sendEmail(String email) async {
             child: _buildModernInputField(
               controller: passcontroller,
               focusNode: _passwordFocusNode,
-              label: getTranslated(context, "code")!,
+              label: getTranslated(context, "Mot de passe")!,
               icon: Icons.lock_outline,
               isPassword: !isPasswordVisible,
-              maxLength: 4,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(4),
-              ],
               suffixIcon: IconButton(
                 icon: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
@@ -985,6 +970,66 @@ void _sendEmail(String email) async {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSkipButton() {
+    return FadeTransition(
+      opacity: _fieldFadeAnimations[3],
+      child: SlideTransition(
+        position: _fieldSlideAnimations[3],
+        child: Column(
+          children: [
+            Text(
+              getTranslated(context, "Ou consulter sans compte")!,
+              style: TextStyle(fontSize: 12.5, color: kgrey600, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSkipTab(
+                    icon: Icons.apartment_rounded,
+                    label: getTranslated(context, "Consulter Agharina")!,
+                    mode: kAppModeComplet,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildSkipTab(
+                    icon: Icons.celebration_rounded,
+                    label: getTranslated(context, "Consulter les maisons de cérémonie")!,
+                    mode: kAppModeCeremonie,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkipTab({required IconData icon, required String label, required String mode}) {
+    return OutlinedButton(
+      onPressed: () => _animateButtonTap(() => applyAppMode(context, mode)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: kgrey300),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: pcolor, size: 20),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: kBlackColor),
+          ),
+        ],
       ),
     );
   }
@@ -1846,10 +1891,10 @@ Future<bool> _resetPassword(String email, String code, String newPassword, Strin
 
 
   Future<void> _performLoginWithAnimation(BuildContext context) async {
-    final phone = telephonecontroller.text.trim();
+    final username = usernamecontroller.text.trim();
     final password = passcontroller.text.trim();
 
-    if (phone.isEmpty || password.isEmpty) {
+    if (username.isEmpty || password.isEmpty) {
       _showAnimatedSnackBar(
         getTranslated(context, "Veuillez remplir tous les champs")!,
         Colors.red,
@@ -1859,11 +1904,11 @@ Future<bool> _resetPassword(String email, String code, String newPassword, Strin
 
     _buttonAnimationController.forward();
     HapticFeedback.mediumImpact();
-    
+
     await Future.delayed(const Duration(milliseconds: 100));
-    
+
     context.read<LoginCubit>().userLogin(
-      phone: phone,
+      username: username,
       password: password,
     );
   }
@@ -1878,11 +1923,7 @@ Future<bool> _resetPassword(String email, String code, String newPassword, Strin
     
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const Layout()),
-          (route) => false,
-        );
+        enterAppRoot(context);
       }
     });
   }

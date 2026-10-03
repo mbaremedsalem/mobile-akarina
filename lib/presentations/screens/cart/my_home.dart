@@ -1,47 +1,20 @@
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
+import 'package:akarina/data/data_providers/bien_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
-import 'package:akarina/presentations/components/default_button.dart';
+import 'package:akarina/data/models/bien.dart';
 import 'package:akarina/presentations/components/input.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 import 'package:akarina/presentations/components/skeleton/home_skeleton.dart';
-import 'package:akarina/presentations/screens/home/video_player.dart'; // Import du lecteur vidéo
-
-// Classe helper pour gérer la lecture vidéo
-class VideoHelper {
-  static void playVideo(BuildContext context, String videoUrl) {
-    
-    try {
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.black,
-          insetPadding: EdgeInsets.all(20),
-          child: SizedBox(
-            width: double.infinity,
-            height: MediaQuery.of(context).size.height * 0.7,
-            child: VideoPlayerWidget(videoUrl: videoUrl),
-          ),
-        ),
-      );
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: Impossible de lire la vidéo')),
-      );
-    }
-  }
-}
+import 'package:akarina/presentations/utils/price_utils.dart';
 
 class PropertyType {
   final String name;
-  
-  PropertyType({required this.name});
+  final String typeBien;
+
+  PropertyType({required this.name, required this.typeBien});
 }
 
 class MyHome extends StatefulWidget {
@@ -58,7 +31,7 @@ class _MyHomeState extends State<MyHome> {
   TextEditingController regionController = TextEditingController();
   TextEditingController locationController = TextEditingController();
 
-  List<dynamic> filteredProperties = [];
+  List<Bien> filteredProperties = [];
   bool isLoading = false;
   bool hasSearched = false;
   String? errorMessage;
@@ -67,12 +40,11 @@ class _MyHomeState extends State<MyHome> {
   void initState() {
     super.initState();
     propertyTypes = [
-      PropertyType(name: 'Appartement'),
-      PropertyType(name: 'Duplex'),
-      PropertyType(name: 'Commercial'),
-      PropertyType(name: 'Terrain'),
-      PropertyType(name: 'Residentiel'),
-      PropertyType(name: 'Maisonceremonie'),
+      PropertyType(name: 'Appartement', typeBien: 'appartement'),
+      PropertyType(name: 'Duplex', typeBien: 'duplexe'),
+      PropertyType(name: 'Commercial', typeBien: 'commercial'),
+      PropertyType(name: 'Terrain', typeBien: 'terrain'),
+      PropertyType(name: 'Maisonceremonie', typeBien: 'ceremonie'),
     ];
   }
 
@@ -228,7 +200,7 @@ void _showFilterDialog() {
                                       width: 40,
                                       alignment: Alignment.center,
                                       child: Text(
-                                        'MRU',
+                                        getTranslated(context, 'MRU')!,
                                         style: TextStyle(
                                           color: pcolor,
                                           fontWeight: FontWeight.bold,
@@ -304,7 +276,7 @@ void _showFilterDialog() {
                                     width: 40,
                                     alignment: Alignment.center,
                                     child: Text(
-                                      'MRU',
+                                      getTranslated(context, 'MRU')!,
                                       style: TextStyle(
                                         color: pcolor,
                                         fontWeight: FontWeight.bold,
@@ -513,27 +485,15 @@ void _showFilterDialog() {
     });
 
     try {
-      final baseUrl = 'https://akarina.shop/akareena/models/filter/$type/';
-      final params = <String>[];
-      
-      if (region.isNotEmpty) params.add('ville__region=$region');
-      if (location.isNotEmpty) params.add('location=$location');
-      if (montant.isNotEmpty) params.add('max_rent=$montant');
-      
-      final url = baseUrl + (params.isNotEmpty ? '?${params.join('&')}' : '');
-      
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          filteredProperties = data is List ? data : [];
-        });
-      } else {
-        setState(() {
-          errorMessage = getTranslated(context, "Erreur lors de la récupération des données");
-        });
-      }
+      final search = [location, region].where((s) => s.isNotEmpty).join(' ');
+      final page = await BienService().fetchBiens(
+        typeBien: selectedProperty!.typeBien,
+        prixMax: montant.isNotEmpty ? double.tryParse(montant) : null,
+        search: search.isNotEmpty ? search : null,
+      );
+      setState(() {
+        filteredProperties = page.results;
+      });
     } catch (e) {
       setState(() {
         errorMessage = getTranslated(context, "Erreur de connexion");
@@ -545,95 +505,10 @@ void _showFilterDialog() {
     }
   }
 
-  // Fonction pour extraire l'URL du média (image ou vidéo)
-  String _getMediaUrl(dynamic property) {
-    try {
-      // Vérifier d'abord s'il y a des vidéos
-      if (property['videos'] != null && 
-          property['videos'] is List && 
-          property['videos'].isNotEmpty) {
-        final firstVideo = property['videos'][0];
-        if (firstVideo['video'] != null && firstVideo['video'].toString().isNotEmpty) {
-          return firstVideo['video'].toString();
-        }
-      }
-      
-      // Sinon, vérifier les images
-      if (property['images'] != null && 
-          property['images'] is List && 
-          property['images'].isNotEmpty) {
-        final firstImage = property['images'][0];
-        if (firstImage['image'] != null && firstImage['image'].toString().isNotEmpty) {
-          return firstImage['image'].toString();
-        }
-      }
-      
-      // Image par défaut
-      return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
-    } catch (e) {
-      return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
-    }
-  }
-
-  // Fonction pour déterminer si c'est une vidéo
-  bool _isVideo(String url) {
-    if (url.isEmpty) return false;
-    
-    final videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.wmv', '.flv', '.mkv'];
-    final videoPaths = ['/videos/', '/media/videos/', 'video', 'mp4'];
-    
-    final lowerUrl = url.toLowerCase();
-    
-    return videoExtensions.any((ext) => lowerUrl.endsWith(ext)) ||
-           videoPaths.any((path) => lowerUrl.contains(path));
-  }
-
-  // Widget pour afficher la miniature vidéo
-  Widget _buildVideoThumbnail(String videoUrl, BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        VideoHelper.playVideo(context, videoUrl);
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Fond de la miniature
-          Container(
-            color: Colors.black.withOpacity(0.7),
-            child: Icon(
-              Icons.videocam,
-              color: Colors.white.withOpacity(0.6),
-              size: 30,
-            ),
-          ),
-          // Bouton play centré
-          Positioned.fill(
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _mediaUrl(Bien property) {
+    final photo = property.photoPrincipale;
+    if (photo != null && photo.isNotEmpty) return photo;
+    return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
   }
 
   @override
@@ -769,23 +644,21 @@ void _showFilterDialog() {
                 ),
                 itemCount: filteredProperties.length,
                 itemBuilder: (context, index) {
-                  var property = filteredProperties[index];
-                  final isAvailable = property['available'] == true;
-                  final typeOperation = property['type_operation'] ?? '';
-                  final periode = property['periode'] ?? '';
-                  
-                  // Obtenir l'URL du média
-                  final mediaUrl = _getMediaUrl(property);
-                  final isVideo = _isVideo(mediaUrl);
-                  
-                  String operationLabel = '';
-                  if (typeOperation == 'vendre') {
-                    operationLabel = getTranslated(context, 'vendre') ?? 'À vendre';
-                  } else if (typeOperation == 'alouer') {
-                    operationLabel = getTranslated(context, 'alouer') ?? 'À louer';
-                  } else {
-                    operationLabel = typeOperation;
-                  }
+                  final property = filteredProperties[index];
+                  final language = Localizations.localeOf(context).languageCode;
+                  final isAvailable = !property.vendu;
+                  final isVente = property.isVente;
+                  final operationLabel = isVente
+                      ? getTranslated(context, 'vendre') ?? 'À vendre'
+                      : getTranslated(context, 'alouer') ?? 'À louer';
+                  final lieu = [property.quartierNom, property.villeNom]
+                      .where((e) => e.isNotEmpty)
+                      .join(', ');
+                  final prixFormatted =
+                      property.prix != null ? formatAmount(property.prix) : null;
+                  final unitLabel = property.uniteprix == 'forfait'
+                      ? ''
+                      : '/${getTranslated(context, property.uniteprix) ?? property.uniteprix}';
 
                   return Card(
                     shape: RoundedRectangleBorder(
@@ -797,7 +670,7 @@ void _showFilterDialog() {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ImmobDetails(id: property['id']),
+                            builder: (context) => ImmobDetails(reference: property.reference),
                           ),
                         );
                       },
@@ -809,51 +682,25 @@ void _showFilterDialog() {
                             children: [
                               ClipRRect(
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                child: Container(
+                                child: Image.network(
+                                  _mediaUrl(property),
                                   height: 100,
                                   width: double.infinity,
-                                  color: Colors.grey[300],
-                                  child: isVideo
-                                      ? _buildVideoThumbnail(mediaUrl, context)
-                                      : Image.network(
-                                          mediaUrl,
-                                          height: 100,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Container(
-                                              color: Colors.grey[300],
-                                              child: const Icon(Icons.image, color: Colors.grey),
-                                            );
-                                          },
-                                        ),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[300],
+                                      height: 100,
+                                      child: const Icon(Icons.image, color: Colors.grey),
+                                    );
+                                  },
                                 ),
                               ),
-                              // Badge vidéo
-                              if (isVideo)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade600,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      "VIDEO",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
                               // Badge disponibilité
-                              Positioned(
+                              Positioned.directional(
+                                textDirection: Directionality.of(context),
                                 top: 4,
-                                left: 4,
+                                start: 4,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -882,42 +729,17 @@ void _showFilterDialog() {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    property['adresse'] ?? getTranslated(context, 'Maison')!,
+                                    property.titreFor(language),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    property['region'] ?? '',
+                                    lieu,
                                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  // Rating row
-                                  Row(
-                                    children: [
-                                      ...List.generate(5, (starIndex) {
-                                        double rating = 0.0;
-                                        if (property['ratings'] != null) {
-                                          rating = double.tryParse(property['ratings'].toString()) ?? 0.0;
-                                        }
-                                        return Icon(
-                                          Icons.star,
-                                          color: starIndex < rating ? Colors.amber : Colors.grey.shade300,
-                                          size: 12,
-                                        );
-                                      }),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        (property['ratings'] != null
-                                                ? (double.tryParse(property['ratings'].toString()) ?? 0.0)
-                                                : 0.0)
-                                            .toStringAsFixed(1),
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                                      ),
-                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   Wrap(
@@ -927,30 +749,18 @@ void _showFilterDialog() {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                         decoration: BoxDecoration(
-                                          color: typeOperation == 'vendre' ? Colors.red.shade100 : Colors.blue.shade100,
+                                          color: isVente ? Colors.red.shade100 : Colors.blue.shade100,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           operationLabel,
                                           style: TextStyle(
                                             fontSize: 10,
-                                            color: typeOperation == 'vendre' ? Colors.red : Colors.blue,
+                                            color: isVente ? Colors.red : Colors.blue,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                      if (periode.isNotEmpty)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade200,
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            getTranslated(context, periode) ?? periode,
-                                            style: const TextStyle(fontSize: 10, color: Colors.black87),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
@@ -979,12 +789,10 @@ void _showFilterDialog() {
                                     ],
                                   ),
                                   const Spacer(),
-                                  Text(
-                                    property['montant'] != null
-                                        ? '${property['montant']} MRU'
-                                        : property['loyer_mensuel'] != null
-                                            ? '${property['loyer_mensuel']} MRU/${getTranslated(context, periode) ?? periode}'
-                                            : getTranslated(context, 'Prix sur demande')!,
+                                  PriceText(
+                                    prixFormatted != null
+                                        ? '$prixFormatted ${getTranslated(context, "MRU")}$unitLabel'
+                                        : getTranslated(context, 'Prix sur demande')!,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
                                     maxLines: 1,

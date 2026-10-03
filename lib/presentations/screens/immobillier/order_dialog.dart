@@ -307,7 +307,7 @@ class _OrderDialogState extends State<OrderDialog> {
             if (montantTotal != null) ...[
               const SizedBox(height: 4),
               Text(
-                "${getTranslated(context, "amount")!}: ${montantTotal!.toStringAsFixed(0)} MRU",
+                "${getTranslated(context, "amount")!}: ${montantTotal!.toStringAsFixed(0)} ${getTranslated(context, "MRU")}",
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -629,7 +629,7 @@ class _OrderDialogState extends State<OrderDialog> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 TextSpan(
-                  text: "${getTranslated(context, "bankily_step5")!} ${montantBankily.toStringAsFixed(0)} MRU",
+                  text: "${getTranslated(context, "bankily_step5")!} ${montantBankily.toStringAsFixed(0)} ${getTranslated(context, "MRU")}",
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
@@ -723,7 +723,7 @@ class _OrderDialogState extends State<OrderDialog> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 TextSpan(
-                  text: "${getTranslated(context, "seddad_step5")!} ${montantBankily.toStringAsFixed(0)} MRU",
+                  text: "${getTranslated(context, "seddad_step5")!} ${montantBankily.toStringAsFixed(0)} ${getTranslated(context, "MRU")}",
                 ),
                 const TextSpan(text: "\n"),
                 TextSpan(
@@ -873,7 +873,7 @@ class _OrderDialogState extends State<OrderDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            "${getTranslated(context, "total_amount")!}: ${reservation?['montant_total'] ?? ''} MRU",
+            "${getTranslated(context, "total_amount")!}: ${reservation?['montant_total'] ?? ''} ${getTranslated(context, "MRU")}",
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -1308,7 +1308,7 @@ void _showSuccessDialog(Map<String, dynamic> responseData) {
             children: [
               Text('${getTranslated(context, "reservation_number")!}: ${reservation?['id']}'),
               Text('${getTranslated(context, "status")!}: ${reservation?['statut']}'),
-              Text('${getTranslated(context, "total_amount")!}: ${reservation?['montant_total']} MRU'),
+              Text('${getTranslated(context, "total_amount")!}: ${reservation?['montant_total']} ${getTranslated(context, "MRU")}'),
               
               if (payment?['code_paiement'] != null) ...[
                 const SizedBox(height: 16),

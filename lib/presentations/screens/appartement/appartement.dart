@@ -1,50 +1,21 @@
-import 'dart:convert';
-import 'package:akarina/data/data_providers/network_service.dart';
+import 'package:akarina/data/data_providers/bien_service.dart';
+import 'package:akarina/data/models/bien.dart';
 import 'package:akarina/data/localization/language_constants.dart';
-import 'package:akarina/presentations/components/default_button.dart';
+import 'package:akarina/presentations/components/property/property_card.dart';
 import 'package:akarina/presentations/components/refreshable_widget.dart';
 import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
-import 'package:akarina/presentations/screens/home/video_player.dart';
-import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:akarina/data/services/connectivity_service.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-
-// Classe helper pour gérer la lecture vidéo
-class VideoHelper {
-  static void playVideo(BuildContext context, String videoUrl) {
-    try {
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.black,
-          insetPadding: EdgeInsets.all(20),
-          child: SizedBox(
-            width: double.infinity,
-            height: MediaQuery.of(context).size.height * 0.7,
-            child: VideoPlayerWidget(videoUrl: videoUrl),
-          ),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: Impossible de lire la vidéo')),
-      );
-    }
-  }
-}
 
 class Appartement extends StatefulWidget {
-  final String apiUrl;
+  final String typeBien;
+  final String title;
   final int count;
 
-  const Appartement({super.key, required this.apiUrl, required this.count});
+  const Appartement({super.key, required this.typeBien, required this.title, required this.count});
 
   @override
   _AppartementState createState() => _AppartementState();
@@ -52,17 +23,16 @@ class Appartement extends StatefulWidget {
 
 class _AppartementState extends State<Appartement> {
   // Variables principales
-  List<dynamic> apartments = [];
+  List<Bien> apartments = [];
   bool isLoading = true;
   bool isLoadingCities = true;
   bool hasInternetConnection = true;
   bool hasSearched = false;
 
   // Variables pour les filtres
-  String? selectedVille;
-  String? selectedQuarter;
+  int? selectedVille;
   int? _meublerFilter; // null = tous, 0 = non meublé, 1 = meublé
-  String? _selectedOperation;
+  String? _selectedOperation; // 'location' ou 'vente'
   double? _prixMin;
   double? _prixMax;
 
@@ -72,8 +42,7 @@ class _AppartementState extends State<Appartement> {
   TextEditingController _searchController = TextEditingController();
   bool _showSearchBar = false;
 
-  List<Map<String, dynamic>> availableCities = [];
-  List<String> availableQuarters = [];
+  List<Ville> availableCities = [];
 
   @override
   void initState() {
@@ -110,10 +79,9 @@ class _AppartementState extends State<Appartement> {
   }
 
   Future<void> _loadApartments({
-    String? ville,
-    String? adresse,
+    int? villeId,
     bool? meubler,
-    String? operation,
+    String? typeTransaction,
     double? prixMin,
     double? prixMax,
     String? searchQuery,
@@ -124,60 +92,20 @@ class _AppartementState extends State<Appartement> {
     });
 
     try {
-      Uri uri = Uri.parse(widget.apiUrl);
-      Map<String, String> queryParams = {};
+      final page = await BienService().fetchBiens(
+        typeBien: widget.typeBien,
+        villeId: villeId,
+        meuble: meubler,
+        typeTransaction: typeTransaction,
+        prixMin: (prixMin != null && prixMin > 0) ? prixMin : null,
+        prixMax: (prixMax != null && prixMax > 0) ? prixMax : null,
+        search: searchQuery,
+      );
 
-      if (uri.queryParameters.isNotEmpty) {
-        queryParams.addAll(uri.queryParameters);
-      }
-      
-      if (searchQuery != null && searchQuery.isNotEmpty) {
-        queryParams['search'] = searchQuery;
-      }
-      if (ville != null && ville.isNotEmpty) {
-        queryParams['ville'] = ville;
-      }
-      if (adresse != null && adresse.isNotEmpty) {
-        queryParams['adresse'] = adresse;
-      }
-      if (meubler != null) {
-        queryParams['meubler'] = meubler.toString();
-      }
-      if (operation != null && operation.isNotEmpty) {
-        queryParams['operation'] = operation;
-      }
-      if (prixMin != null && prixMin > 0) {
-        queryParams['prix_min'] = prixMin.toStringAsFixed(0);
-      }
-      if (prixMax != null && prixMax > 0) {
-        queryParams['prix_max'] = prixMax.toStringAsFixed(0);
-      }
-
-      Uri newUri = uri.replace(queryParameters: queryParams);
-      final response = await http.get(newUri);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        
-        List<dynamic> apartmentsList = [];
-        
-        if (data is Map<String, dynamic> && data.containsKey('results')) {
-          apartmentsList = data['results'];
-          print(apartmentsList);
-        } else if (data is List) {
-          apartmentsList = data;
-        } else {
-          throw Exception('Format de réponse inconnu');
-        }
-        
-        setState(() {
-          apartments = apartmentsList;
-          print(apartmentsList);
-          isLoading = false;
-        });
-      } else {
-        throw Exception('Erreur HTTP: ${response.statusCode}');
-      }
+      setState(() {
+        apartments = page.results;
+        isLoading = false;
+      });
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -196,12 +124,11 @@ class _AppartementState extends State<Appartement> {
     if (_meublerFilter != null) {
       meublerFilter = _meublerFilter == 1;
     }
-    
+
     _loadApartments(
-      ville: selectedVille,
-      adresse: selectedQuarter,
+      villeId: selectedVille,
       meubler: meublerFilter,
-      operation: _selectedOperation,
+      typeTransaction: _selectedOperation,
       prixMin: _prixMin,
       prixMax: _prixMax,
       searchQuery: _searchController.text.isNotEmpty ? _searchController.text : null,
@@ -211,7 +138,6 @@ class _AppartementState extends State<Appartement> {
   void _resetAllFilters() {
     setState(() {
       selectedVille = null;
-      selectedQuarter = null;
       _meublerFilter = null;
       _selectedOperation = null;
       _prixMin = null;
@@ -221,7 +147,7 @@ class _AppartementState extends State<Appartement> {
       _searchController.clear();
       _showSearchBar = false;
     });
-    
+
     _loadApartments();
   }
 
@@ -244,8 +170,7 @@ class _AppartementState extends State<Appartement> {
   // === FONCTION POUR COMPTER LES FILTRES ACTIFS ===
   int _getActiveFiltersCount() {
     int count = 0;
-    if (selectedVille != null && selectedVille!.isNotEmpty) count++;
-    if (selectedQuarter != null && selectedQuarter!.isNotEmpty) count++;
+    if (selectedVille != null) count++;
     if (_meublerFilter != null) count++;
     if (_selectedOperation != null && _selectedOperation!.isNotEmpty) count++;
     if (_prixMin != null && _prixMin! > 0) count++;
@@ -508,8 +433,8 @@ void _showFilterDialog(BuildContext context) {
                             hint: getTranslated(context, 'Tous les types')!,
                             items: [
                               {'value': null, 'label': getTranslated(context, 'Tous les types')!},
-                              {'value': 'vendre', 'label': getTranslated(context, 'vendre')!},
-                              {'value': 'alouer', 'label': getTranslated(context, 'alouer')!},
+                              {'value': 'vente', 'label': getTranslated(context, 'vendre')!},
+                              {'value': 'location', 'label': getTranslated(context, 'alouer')!},
                             ],
                             onChanged: (value) {
                               setStateBottom(() {
@@ -540,7 +465,7 @@ void _showFilterDialog(BuildContext context) {
                                   items: [
                                     {'value': null, 'label': getTranslated(context, 'Toutes les villes')!},
                                     ...availableCities.map((ville) => {
-                                      'value': ville['nom'],
+                                      'value': ville.id,
                                       'label': getCityName(ville),
                                     }),
                                   ],
@@ -916,33 +841,11 @@ Widget _buildModernPriceRange() {
 
   Future<void> fetchCities() async {
     try {
-      final url = 'https://akarina.shop/akareena/villes/';
-      
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        try {
-          final data = jsonDecode(utf8.decode(response.bodyBytes));
-          
-          if (data is List) {
-            setState(() {
-              availableCities = List<Map<String, dynamic>>.from(data);
-              isLoadingCities = false;
-            });
-          } else {
-            throw Exception('Format de données villes invalide');
-          }
-        } catch (e) {
-          throw Exception('Erreur de décodage JSON des villes: $e');
-        }
-      } else {
-        throw Exception('Erreur lors du chargement des villes : ${response.statusCode}');
-      }
+      final villes = await BienService().fetchVilles();
+      setState(() {
+        availableCities = villes;
+        isLoadingCities = false;
+      });
     } catch (e) {
       setState(() {
         isLoadingCities = false;
@@ -953,10 +856,8 @@ Widget _buildModernPriceRange() {
     }
   }
 
-  String getCityName(Map<String, dynamic> city) {
-    final currentLang = Localizations.localeOf(context).languageCode;
-    final name = currentLang == 'ar' ? city['nom_ar'] : city['nom'];
-    return name;
+  String getCityName(Ville city) {
+    return city.nomFor(Localizations.localeOf(context).languageCode);
   }
 
   @override
@@ -1174,325 +1075,18 @@ Widget _buildModernPriceRange() {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            crossAxisSpacing: getProportionateScreenWidth(8),
-                            mainAxisSpacing: getProportionateScreenHeight(8),
-                            childAspectRatio: 0.75,
+                            crossAxisSpacing: getProportionateScreenWidth(10),
+                            mainAxisSpacing: getProportionateScreenHeight(10),
+                            childAspectRatio: 0.6,
                           ),
                           itemCount: apartments.length,
                           itemBuilder: (context, index) {
-                            final apartment = apartments[index];
-                            return ApartmentCardModern(apartment: apartment);
+                            return PropertyCard(property: apartments[index]);
                           },
                         ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Nouvelle carte moderne pour appartement
-class ApartmentCardModern extends StatelessWidget {
-  final dynamic apartment;
-
-  const ApartmentCardModern({super.key, required this.apartment});
-
-  bool _isVideo(String url) {
-    if (url.isEmpty) return false;
-    
-    final videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.wmv', '.flv', '.mkv'];
-    final videoPaths = ['/videos/', '/media/videos/', 'video', 'mp4'];
-    
-    final lowerUrl = url.toLowerCase();
-    
-    return videoExtensions.any((ext) => lowerUrl.endsWith(ext)) ||
-           videoPaths.any((path) => lowerUrl.contains(path));
-  }
-
-  void _openVideo(BuildContext context, String videoUrl) {
-    String fullVideoUrl = videoUrl;
-    if (fullVideoUrl.startsWith('/')) {
-      fullVideoUrl = 'https://akarina.shop$fullVideoUrl';
-    }
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.all(20),
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width,
-          height: MediaQuery.of(context).size.height * 0.7,
-          child: VideoPlayerWidget(videoUrl: fullVideoUrl),
-        ),
-      ),
-    );
-  }
-
-  String _resolveMediaUrl(dynamic apartment) {
-    final hasImages = apartment['images'] != null && apartment['images'].isNotEmpty;
-    
-    String mediaUrl = '';
-    
-    if (hasImages) {
-      final firstMedia = apartment['images'][0];
-      
-      if (firstMedia['video'] != null && firstMedia['video'].toString().isNotEmpty) {
-        mediaUrl = firstMedia['video'];
-      } 
-      else if (firstMedia['image'] != null && firstMedia['image'].toString().isNotEmpty) {
-        mediaUrl = firstMedia['image'];
-      }
-    }
-    
-    if (mediaUrl.isEmpty) {
-      mediaUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpM79j6U5ty6oOTpYRbTu1Fli6maxXHWOnZw&s';
-    }
-
-    if (mediaUrl.startsWith('/')) {
-      mediaUrl = 'https://akarina.shop$mediaUrl';
-    }
-    
-    return mediaUrl;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final mediaUrl = _resolveMediaUrl(apartment);
-    final isVideo = _isVideo(mediaUrl);
-    final operationType = apartment['type_operation'] ?? 'alouer';
-    final ratings = apartment['ratings']?.toString() ?? '0.0';
-    final adresse = apartment['adresse'] ?? getTranslated(context, 'Maison')!;
-    final ville = apartment['nom_ville'] ?? '';
-    final montant = apartment['montant'] ?? apartment['loyer_mensuel'];
-    final periode = apartment['periode'] ?? 'mois';
-    final chambres = apartment['nombre_de_chambres'] ?? 0;
-    final sdb = apartment['nombre_de_salles_de_bain'] ?? 0;
-    final surface = apartment['surface'] ?? '';
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  if (isVideo) {
-                    _openVideo(context, mediaUrl);
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ImmobDetails(id: apartment['id']),
-                      ),
-                    );
-                  }
-                },
-                child: SizedBox(
-                  height: constraints.maxWidth * 0.55,
-                  width: double.infinity,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (isVideo)
-                          Container(
-                            color: Colors.black54,
-                            child: const Center(
-                              child: Icon(Icons.videocam, size: 40, color: Colors.white54),
-                            ),
-                          )
-                        else
-                          Image.network(
-                            mediaUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey[200],
-                                child: const Center(
-                                  child: Icon(Icons.home, size: 40, color: Colors.grey),
-                                ),
-                              );
-                            },
-                          ),
-                        if (isVideo)
-                          Container(
-                            color: Colors.black.withOpacity(0.3),
-                          ),
-                        if (isVideo)
-                          Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.play_arrow, size: 32, color: Colors.white),
-                            ),
-                          ),
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: operationType == 'vendre' 
-                                  ? Colors.red.withOpacity(0.8)
-                                  : Colors.blue.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              getTranslated(context, operationType) ?? operationType,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (isVideo)
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                getTranslated(context, "VIDÉO")!,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ImmobDetails(id: apartment['id']),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        adresse,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 10, color: Colors.grey[600]),
-                          const SizedBox(width: 2),
-                          Expanded(
-                            child: Text(
-                              ville,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey[600],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        montant != null
-                            ? '$montant MRU/${getTranslated(context, periode) ?? periode}'
-                            : getTranslated(context, 'Prix sur demande')!,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 2,
-                        children: [
-                          if (chambres > 0)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.bed, size: 10, color: Colors.grey[600]),
-                                const SizedBox(width: 2),
-                                Text(chambres.toString(), style: const TextStyle(fontSize: 9)),
-                              ],
-                            ),
-                          if (sdb > 0)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.bathtub, size: 10, color: Colors.grey[600]),
-                                const SizedBox(width: 2),
-                                Text(sdb.toString(), style: const TextStyle(fontSize: 9)),
-                              ],
-                            ),
-                          if (surface.isNotEmpty && surface != '0' && surface != '0.0')
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.square_foot, size: 10, color: Colors.grey[600]),
-                                const SizedBox(width: 2),
-                                Text('${surface}m²', style: const TextStyle(fontSize: 9)),
-                              ],
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          ...List.generate(5, (starIndex) => Icon(
-                            Icons.star,
-                            size: 12,
-                            color: starIndex < (double.tryParse(ratings) ?? 0).floor()
-                                ? Colors.amber
-                                : Colors.grey[300],
-                          )),
-                          const SizedBox(width: 2),
-                          Text(
-                            ratings,
-                            style: const TextStyle(fontSize: 9),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }

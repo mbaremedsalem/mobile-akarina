@@ -1,2359 +1,2152 @@
+import 'package:akarina/data/data_providers/bien_detail_cache.dart';
+import 'package:akarina/data/data_providers/bien_service.dart';
+import 'package:akarina/data/data_providers/biens_similaires_service.dart';
+import 'package:akarina/data/data_providers/indisponibilite_service.dart';
+import 'package:akarina/data/data_providers/transaction_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/data/models/bien.dart';
+import 'package:akarina/data/models/transaction.dart' as tx_model;
+import 'package:akarina/data/services/geo_service.dart';
+import 'package:akarina/presentations/components/map/property_3d_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:akarina/presentations/components/media/virtual_tour_view.dart';
 import 'package:akarina/presentations/components/refreshable_widget.dart';
 import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
-import 'package:akarina/presentations/screens/chat/chat.dart';
 import 'package:akarina/presentations/screens/home/video_player.dart';
-import 'package:akarina/presentations/screens/immobillier/add_reviwe.dart';
 import 'package:akarina/presentations/screens/immobillier/full_images.dart';
-import 'package:akarina/presentations/screens/immobillier/order_dialog.dart';
 import 'package:akarina/presentations/screens/immobillier/reservation.dart';
 import 'package:akarina/presentations/screens/login/index_login.dart';
+import 'package:akarina/presentations/utils/price_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:akarina/data/data_providers/network_service.dart';
 import 'package:akarina/size_config.dart';
-import 'package:akarina/data/models/user.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:akarina/data/services/connectivity_service.dart';
 
-
-
-
 class ImmobDetails extends StatefulWidget {
-  final int id;
+  final String reference;
 
-  const ImmobDetails({super.key, required this.id});
+  const ImmobDetails({super.key, required this.reference});
 
   @override
   State<ImmobDetails> createState() => _ImmobDetailsState();
 }
 
 class _ImmobDetailsState extends State<ImmobDetails> {
+  final BienService _service = BienService();
+  final IndisponibiliteService _indispoService = IndisponibiliteService();
+  final BiensSimilairesService _similairesService = BiensSimilairesService();
 
-  // Déclare tes controllers ici
-  final TextEditingController dateDebutController = TextEditingController();
-  final TextEditingController dateFinController = TextEditingController();
+  static const String _numeroParDefaut = '20203000';
 
-  LatLng _initialPosition = const LatLng(48.8566, 2.3522);
   bool isLoading = true;
-  Map<String, dynamic>? immobData;
-  GoogleMapController? _controller;
-  late Future<List<User>> futureUsers;
-
-  // Variables pour les reviews
-  List<Map<String, dynamic>> reviews = [];
-  bool isLoadingReviews = false;
-  double averageRating = 0.0;
+  Bien? bien;
+  String? villeNom;
+  String? quartierNom;
+  String language = ARABIC;
   bool hasInternetConnection = true;
-  final FlutterSecureStorage storage = const FlutterSecureStorage();
-  bool isSessionActive = false;
+
+  List<PeriodeIndisponibilite> _periodes = const [];
+  bool _periodesLoading = false;
+
+  List<BienResume> _similaires = const [];
+  bool _similairesLoading = false;
+
+  bool _reservationEnCours = false;
 
   @override
   void initState() {
     super.initState();
     _initializeData();
-    _checkSession();
   }
 
-  // start 
-bool _showCalendar = false;
+  String _t(String key, [String? fallback]) => getTranslated(context, key) ?? fallback ?? key;
 
-void _toggleCalendar() {
-  setState(() {
-    _showCalendar = !_showCalendar;
-  });
-}
+  bool get _isRtl => Localizations.localeOf(context).languageCode == 'ar';
+  bool get _arabe => language == ARABIC;
 
-// Dans votre build method, ajoutez ceci après les autres sections :
-Widget _buildCalendarSection() {
-  if (!_showCalendar) {
-    return Container(); // Retourne un container vide si le calendrier n'est pas visible
-  }
-
-  return Container(
-    margin: const EdgeInsets.symmetric(vertical: 16),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.2),
-          blurRadius: 8,
-          spreadRadius: 2,
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          getTranslated(context, "Calendrier des réservations")!,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ReservationCalendar(
-          reservations: immobData?['reservations'] ?? [],
-          onDateSelect: (start, end) {
-            // Vous pouvez pré-remplir les dates dans le formulaire de réservation
-            if (mounted) {
-              setState(() {
-                dateDebutController.text = DateFormat('yyyy-MM-dd').format(start);
-                dateFinController.text = DateFormat('yyyy-MM-dd').format(end);
-              });
-              
-              // Optionnel: Fermer le calendrier après sélection
-              _toggleCalendar();
-            }
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-
-  Future<void> _checkSession() async {
-    final storage = const FlutterSecureStorage();
-    final String? token = await storage.read(key: "access");
-    setState(() {
-      isSessionActive = token != null && token.isNotEmpty;
-    });
-  }
+  // ================================================================ data
 
   Future<void> _initializeData() async {
-    // Vérifier la connectivité internet d'abord
     final hasConnection = await ConnectivityService.hasInternetConnection();
-    setState(() {
-      hasInternetConnection = hasConnection;
-    });
+    if (!mounted) return;
+    setState(() => hasInternetConnection = hasConnection);
+    if (!hasConnection) return;
 
-    if (!hasConnection) {
-      return; // Ne pas charger les données si pas de connexion
-    }
-
-    fetchImmobDetails();
-    fetchReviews();
-    futureUsers = NetworkService().fetchUsers(context);
+    language = await getCurrentLanguage(context);
+    await _fetchBien();
   }
 
-  Future<void> fetchImmobDetails() async {
+  Future<void> _fetchBien({bool silencieux = false}) async {
+    if (!silencieux) setState(() => isLoading = true);
     try {
-      var data = await NetworkService().fetchImmobDetails(widget.id);
+      final results = await Future.wait([
+        _service.fetchBienDetail(widget.reference),
+        _service.fetchVilles(),
+      ]);
+      final fetched = results[0] as Bien;
+      final villes = results[1] as List<Ville>;
 
-      setState(() {
-        // Extraire les données de l'objet 'immob'
-        immobData = data['immob'] ?? data;
-        _initialPosition = LatLng(
-          double.parse(immobData?['y'] ?? '18.0840609'),
-          double.parse(immobData?['x'] ?? '-15.9784200'),
-        );
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  // Méthode pour récupérer les reviews
-  Future<void> fetchReviews() async {
-    setState(() {
-      isLoadingReviews = true;
-    });
-
-    try {
-      final response = await http.get(
-        Uri.parse(
-            'https://akarina.shop/akareena/immobilier/${widget.id}/reviews/'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        setState(() {
-          reviews = (responseData['reviews'] as List<dynamic>)
-              .cast<Map<String, dynamic>>();
-          averageRating = (responseData['average_rating'] as num).toDouble();
-          isLoadingReviews = false;
-        });
-      } else {
-        setState(() {
-          isLoadingReviews = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        isLoadingReviews = false;
-      });
-    }
-  }
-
-  // Méthode pour créer un review
-  Future<void> createReview(int rating, String comment) async {
-    try {
-      // Vérifier le token
-      final String? token = await storage.read(key: "access");
-      if (token == null || token.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(
-                context, "Vous devez vous connecter pour poster un avis")!),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: getTranslated(context, "Se connecter")!,
-              textColor: Colors.white,
-              onPressed: () {
-                // Naviguer vers la page de connexion
-                Navigator.pushNamed(context, '/login');
-              },
-            ),
-          ),
-        );
-        return;
-      }
-
-      final response = await http.post(
-        Uri.parse('https://akarina.shop/akareena/${widget.id}/reviews/'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'rating': rating,
-          'comment': comment,
-        }),
-      );
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(responseData['message'] ??
-                getTranslated(context, "Review créé avec succès")!),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Rafraîchir les reviews
-        await fetchReviews();
-      } else if (response.statusCode == 401) {
-        // Token expiré ou invalide
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(
-                context, "Vous devez vous connecter pour poster un avis")!),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: getTranslated(context, "Se connecter")!,
-              textColor: Colors.white,
-              onPressed: () {
-                // Naviguer vers la page de connexion
-                Navigator.pushNamed(context, '/login');
-              },
-            ),
-          ),
-        );
-      } else if (response.statusCode == 400) {
-        // Erreur de validation
-
-        try {
-          final errorData = jsonDecode(response.body);
-
-          String errorMessage = getTranslated(context, "Erreur de validation")!;
-
-          // Traiter les erreurs spécifiques
-          if (errorData['rating'] != null) {
-            errorMessage += '\n- Rating: ${errorData['rating'][0]}';
-          }
-          if (errorData['comment'] != null) {
-            errorMessage += '\n- Commentaire: ${errorData['comment'][0]}';
-          }
-          if (errorData['non_field_errors'] != null) {
-            errorMessage += '\n- ${errorData['non_field_errors'][0]}';
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 6),
-            ),
-          );
-        } catch (e) {
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  getTranslated(context, "Erreur de validation des données")!),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } else if (response.statusCode == 403) {
-        // Accès interdit
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(
-                context, "Vous n'avez pas l'autorisation de poster un avis")!),
-            backgroundColor: Colors.red,
-          ),
-        );
-      } else if (response.statusCode == 404) {
-        // Immobilier non trouvé
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(context, "Immobilier non trouvé")!),
-            backgroundColor: Colors.red,
-          ),
-        );
-      } else if (response.statusCode == 429) {
-        // Trop de requêtes
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(
-                context, "Trop de requêtes. Veuillez patienter")!),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      } else if (response.statusCode >= 500) {
-        // Erreur serveur
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(
-                context, "Erreur serveur. Veuillez réessayer plus tard")!),
-            backgroundColor: Colors.red,
-          ),
-        );
-      } else {
-        // Autres erreurs
-       
-        try {
-          final errorData = jsonDecode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorData['message'] ??
-                  errorData['detail'] ??
-                  getTranslated(
-                      context, "Erreur lors de la création du review")!),
-              backgroundColor: Colors.red,
-            ),
-          );
-        } catch (e) {
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            
-            SnackBar(
-              content: Text(
-                  '${getTranslated(context, "Erreur")}: ${response.statusCode}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+      Ville? matchedVille;
+      for (final v in villes) {
+        if (v.id == fetched.villeId) {
+          matchedVille = v;
+          break;
         }
       }
-    } catch (e) {
-      String errorMessage;
-      if (e.toString().contains('SocketException')) {
-        errorMessage = getTranslated(context, "Erreur de connexion réseau")!;
-      } else if (e.toString().contains('TimeoutException')) {
-        errorMessage = getTranslated(context, "Délai d'attente dépassé")!;
-      } else if (e.toString().contains('FormatException')) {
-        errorMessage = getTranslated(context, "Erreur de format de données")!;
-      } else if (e.toString().contains('MissingPluginException')) {
-        errorMessage =
-            getTranslated(context, "Erreur de configuration de l'application")!;
-      } else if (e.toString().contains('HandshakeException')) {
-        errorMessage =
-            getTranslated(context, "Erreur de sécurité de connexion")!;
-      } else if (e.toString().contains('CertificateException')) {
-        errorMessage = getTranslated(context, "Erreur de certificat SSL")!;
-      } else {
-        errorMessage = "Erreur: $e";
+      Quartier? matchedQuartier;
+      for (final q in matchedVille?.quartiers ?? const <Quartier>[]) {
+        if (q.id == fetched.quartierId) {
+          matchedQuartier = q;
+          break;
+        }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 6),
-        ),
-      );
+      if (!mounted) return;
+      setState(() {
+        bien = fetched;
+        villeNom = matchedVille?.nomFor(language);
+        quartierNom = matchedQuartier?.nomFor(language);
+        isLoading = false;
+      });
+      await Future.wait([
+        _fetchIndisponibilites(fetched),
+        _fetchSimilaires(fetched),
+      ]);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => isLoading = false);
     }
   }
-  void _showSessionExpiredDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(getTranslated(context, "Session Expirée")!),
-          content: Text(getTranslated(context, "Votre session a expiré. Veuillez vous reconnecter.")!),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const IndexLogin()),
-                );
-              },
-              child: Text(getTranslated(context, "Se reconnecter")!),
-            ),
-          ],
-        );
-      },
-    );
+
+  Future<void> _fetchIndisponibilites(Bien b) async {
+    setState(() {
+      _periodes = _periodesDepuisBien(b);
+      _periodesLoading = true;
+    });
+    try {
+      final periodes = await _indispoService.fetchPourBien(b.id);
+      if (!mounted) return;
+      setState(() {
+        _periodes = periodes;
+        _periodesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _periodesLoading = false);
+    }
   }
+
+  List<PeriodeIndisponibilite> _periodesDepuisBien(Bien b) => b.indisponibilites
+      .where((i) => i.dateDebut != null && i.dateFin != null)
+      .map((i) => PeriodeIndisponibilite(debut: i.dateDebut!, fin: i.dateFin!, motif: i.motif))
+      .toList();
+
+  Future<void> _fetchSimilaires(Bien b) async {
+    setState(() => _similairesLoading = true);
+    try {
+      final liste = await _similairesService.similairesA(
+        excludeId: b.id,
+        typeTransaction: b.isVente ? 'vente' : 'location',
+        villeId: b.villeId,
+        quartierId: b.quartierId,
+        meuble: b.meuble,
+        nbChambres: b.nbChambres,
+        prix: double.tryParse('${b.prix ?? ''}'),
+      );
+      if (!mounted) return;
+      setState(() {
+        _similaires = liste;
+        _similairesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _similaires = const [];
+        _similairesLoading = false;
+      });
+    }
+  }
+
+  // ================================================================ build
+
   @override
   Widget build(BuildContext context) {
-    // Afficher la page d'erreur de connexion si pas de connexion internet
+    SizeConfig().init(context);
+
     if (!hasInternetConnection) {
       return NoInternetPage(
         onRetry: () async {
-          final hasConnection =
-              await ConnectivityService.hasInternetConnection();
-          setState(() {
-            hasInternetConnection = hasConnection;
-          });
-
-          if (hasConnection) {
-            _initializeData();
-          }
+          final hasConnection = await ConnectivityService.hasInternetConnection();
+          setState(() => hasInternetConnection = hasConnection);
+          if (hasConnection) _initializeData();
         },
       );
     }
+
+    if (isLoading) {
+      return _buildEtatScaffold(body: Center(child: CircularProgressIndicator(color: pcolor)));
+    }
+
+    if (bien == null) {
+      return _buildEtatScaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.home_work_outlined, size: 56, color: Colors.grey[400]),
+              const SizedBox(height: 12),
+              Text(_t("Aucune donnée trouvée."), style: TextStyle(color: Colors.grey[700])),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: _fetchBien,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: pcolor,
+                  side: BorderSide(color: pcolor),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(_t('Réessayer')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final b = bien!;
+    final sections = <Widget>[
+      _buildGestionnairesSection(b),
+      if ((b.descriptionFor(language) ?? '').trim().isNotEmpty)
+        _section(
+          icon: Icons.notes_rounded,
+          title: _t("Description de la maison"),
+          child: _ExpandableText(text: b.descriptionFor(language)!.trim()),
+        ),
+      if (b.equipements.isNotEmpty) _buildEquipementsSection(b),
+      _section(
+        icon: Icons.calendar_month_rounded,
+        title: _t("Calendrier de disponibilité"),
+        child: _AvailabilityCalendar(periodes: _periodes, loading: _periodesLoading),
+      ),
+      if (b.medias.any((m) => m.isVideo)) _buildVideoSection(b),
+      _buildMapSection(b),
+      if (_similairesLoading || _similaires.isNotEmpty) _buildSimilairesSection(),
+    ];
 
     return Scaffold(
+      backgroundColor: Colors.white,
+      bottomNavigationBar: _buildBottomBar(b),
+      body: RefreshableWidget(
+        onRefresh: () => _fetchBien(silencieux: true),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              elevation: 0,
+              scrolledUnderElevation: 0.6,
+              leading: IconButton(
+                icon: Icon(_isRtl ? IconBroken.Arrow___Right_2 : IconBroken.Arrow___Left_2, color: kBlackColor),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: Text(
+                _t("Détails de l'immobilier"),
+                style: const TextStyle(color: kBlackColor, fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  _buildPhotoMosaic(b),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTitleBlock(b),
+                        const SizedBox(height: 18),
+                        _buildQuickFacts(b),
+                        for (final s in sections) ...[_divider(), s],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEtatScaffold({required Widget body}) {
+    return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Localizations.localeOf(context).languageCode == 'ar'
-                ? IconBroken
-                    .Arrow___Right_2 // Icône pour l'arabe (flèche à droite)
-                : IconBroken
-                    .Arrow___Left_2, // Icône pour le français (flèche à gauche)
-            color: kBlackColor,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          icon: Icon(_isRtl ? IconBroken.Arrow___Right_2 : IconBroken.Arrow___Left_2, color: kBlackColor),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          getTranslated(context, "Détails de l'immobilier")!,
-          style: TextStyle(color: kBlackColor),
+          _t("Détails de l'immobilier"),
+          style: const TextStyle(color: kBlackColor, fontSize: 17, fontWeight: FontWeight.w700),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-        try {
-          final String? token = await storage.read(key: "access");
-          
-          if (token == null) {
-            _showSessionExpiredDialog();
-            return;
-          }
-          } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur : $e")),
+      body: body,
+    );
+  }
+
+  // ================================================================ helpers UI
+
+  Widget _divider() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+      );
+
+  Widget _section({
+    required String title,
+    required Widget child,
+    IconData? icon,
+    String? subtitle,
+    Widget? trailing,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 21, color: pcolor),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.black87),
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+        if (subtitle != null && subtitle.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        ],
+        const SizedBox(height: 16),
+        child,
+      ],
+    );
+  }
+
+  Widget _chip(String text, {required Color color, Color? background}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: background ?? color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  String _lieu(Bien b) =>
+      b.adresseFor(language) ?? [quartierNom, villeNom].where((e) => (e ?? '').isNotEmpty).join(', ');
+
+  String _typeBienLabel(String typeBien) {
+    switch (typeBien) {
+      case 'appartement':
+        return 'Appartement';
+      case 'duplexe':
+        return 'Duplex';
+      case 'commercial':
+        return 'Commercial';
+      case 'terrain':
+        return 'Terrain';
+      case 'ceremonie':
+        return 'Maisonceremonie';
+      default:
+        return typeBien;
+    }
+  }
+
+  String _prixTexte(Bien b) {
+    final unitLabel = b.uniteprix == 'forfait' ? '' : '/${_t(b.uniteprix)}';
+    return b.prix != null ? '${formatAmount(b.prix)} ${_t("MRU")}$unitLabel' : _t('Prix sur demande');
+  }
+
+  // ================================================================ photos
+
+  /// Toutes les photos dans une seule carte : 1 grande + jusqu'à 3 petites.
+  /// Chaque photo s'ouvre en plein écran ; « +N » s'il en reste d'autres.
+  Widget _buildPhotoMosaic(Bien b) {
+    final medias = b.medias
+        .map((m) => TourMediaItem(url: m.fichier, isVideo: m.isVideo))
+        .where((m) => m.url.isNotEmpty)
+        .toList();
+    final photosMedias = medias.where((m) => !m.isVideo).map((m) => m.url).toList();
+    final hasVideo = medias.any((m) => m.isVideo);
+    final photos = photosMedias.isNotEmpty
+        ? photosMedias
+        : (b.photoPrincipale != null ? [b.photoPrincipale!] : <String>[]);
+    final n = photos.length;
+    const gap = 3.0;
+
+    Widget tile(int i, {int restant = 0}) {
+      return GestureDetector(
+        onTap: () => _openGallery(photos, i),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _networkImage(photos[i]),
+            if (restant > 0)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                alignment: Alignment.center,
+                child: Text(
+                  '+$restant',
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+              ),
+          ],
+        ),
       );
     }
-          // _showOrderDialog();
-          _showReservationDialog();
-        },
-        backgroundColor: pcolor,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.shopping_cart),
-        label: Text(getTranslated(context, "Commander")!),
-      ),
-      body: SafeArea(
-        child: RefreshableWidget(
-          onRefresh: () async {
-            await fetchImmobDetails();
-          },
-          child: isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : immobData == null
-                  ? Center(
-                      child: Text(
-                          getTranslated(context, "Aucune donnée trouvée.")!))
-                  : SingleChildScrollView(
+
+    Widget contenu;
+    if (n == 0) {
+      contenu = _buildHeroFallback(hasVideo, medias);
+    } else if (n == 1) {
+      contenu = tile(0);
+    } else if (n == 2) {
+      contenu = Row(children: [
+        Expanded(child: tile(0)),
+        const SizedBox(width: gap),
+        Expanded(child: tile(1)),
+      ]);
+    } else if (n == 3) {
+      contenu = Row(children: [
+        Expanded(flex: 2, child: tile(0)),
+        const SizedBox(width: gap),
+        Expanded(
+          child: Column(children: [
+            Expanded(child: tile(1)),
+            const SizedBox(height: gap),
+            Expanded(child: tile(2)),
+          ]),
+        ),
+      ]);
+    } else {
+      contenu = Column(children: [
+        Expanded(flex: 3, child: tile(0)),
+        const SizedBox(height: gap),
+        Expanded(
+          flex: 2,
+          child: Row(children: [
+            Expanded(child: tile(1)),
+            const SizedBox(width: gap),
+            Expanded(child: tile(2)),
+            const SizedBox(width: gap),
+            Expanded(child: tile(3, restant: n - 4)),
+          ]),
+        ),
+      ]);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        height: n >= 4 ? getProportionateScreenHeight(320) : getProportionateScreenHeight(250),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              contenu,
+              if (hasVideo)
+                PositionedDirectional(
+                  top: 12,
+                  start: 12,
+                  child: VirtualTourBadge(onTap: () => _ouvrirVisiteVirtuelle(medias)),
+                ),
+              if (n > 1)
+                PositionedDirectional(
+                  top: 12,
+                  end: 12,
+                  child: Material(
+                    color: Colors.white.withOpacity(0.92),
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => _openGallery(photos, 0),
                       child: Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            _contact(),
-                            SizedBox(height: getProportionateScreenHeight(5)),
-                            _buildPriceAndStatusHeader(),
-                            SizedBox(height: getProportionateScreenHeight(5)),
-                            // Ajoutez la section calendrier ici
-                            _buildCalendarSection(),
-                            // end calander
-                            // Section pour les images
-                            _buildImageSection(immobData?['images'] ?? []),
-            
-                            // Disponibilité
-                            // Informations principales (icônes des caractéristiques)
-                            _buildFeatureInfo(),
-                            const SizedBox(height: 10),
-
-                            // Entourage du maison (icônes des infrastructures)
-                            _buildInfrastructureSection(),
-                            const SizedBox(height: 10),
-
-                            // Description de la maison
-                            FutureBuilder<String>(
-                              future: getCurrentLanguage(context),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const CircularProgressIndicator();
-                                } else if (snapshot.hasError) {
-                                  return Text(getTranslated(context,
-                                      "Erreur lors du chargement de la langue")!);
-                                } else {
-                                  final currentLanguage =
-                                      snapshot.data ?? ARABIC;
-                                  final descriptionKey =
-                                      currentLanguage == ARABIC
-                                          ? 'description_ar'
-                                          : 'description';
-
-                                  return _buildDescriptionSection(
-                                    immobData?[descriptionKey] ??
-                                        getTranslated(context,
-                                            "Pas de description disponible."),
-                                  );
-                                }
-                              },
+                            const Icon(Icons.grid_view_rounded, size: 14, color: Colors.black87),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$n ${_t('photos', 'photos')}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
                             ),
-
-                            const SizedBox(height: 10),
-
-                            // Localisation du maison (Google Maps)
-                            _buildMapSection(immobData),
-
-                            // Section des reviews
-                            _buildReviewsSection(),
                           ],
                         ),
                       ),
                     ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-
-  // Fonction pour le bouton WhatsApp
-  void _launchWhatsApp() async {
-    const phoneNumber = '20203000';
-    const message = 'Bonjour, je vous contacte depuis l\'application';
-    final url = Uri.parse(
-        'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}');
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Impossible d\'ouvrir WhatsApp';
-    }
-  }
-
-  // Fonction pour le bouton Téléphone
-  void _launchPhone() async {
-    const phoneNumber = '20203000';
-    final url = Uri.parse('tel:$phoneNumber');
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Impossible de passer un appel';
-    }
-  }
-
-  Widget _contact() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+  Widget _networkImage(String url) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return Container(color: Colors.grey[200]);
+      },
+      errorBuilder: (context, error, stack) => Container(
+        color: Colors.grey[200],
+        child: Icon(Icons.broken_image_outlined, size: 32, color: Colors.grey[400]),
       ),
-      child: Column(
-        children: [
-          Text(
-            getTranslated(context, "message")!,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+    );
+  }
+
+  Widget _buildHeroFallback(bool hasVideo, List<TourMediaItem> medias) {
+    return GestureDetector(
+      onTap: hasVideo ? () => _ouvrirVisiteVirtuelle(medias) : null,
+      child: Container(
+        color: Colors.grey[200],
+        child: Center(
+          child: Icon(hasVideo ? Icons.videocam_outlined : Icons.home_outlined, size: 60, color: Colors.grey[400]),
+        ),
+      ),
+    );
+  }
+
+  void _openGallery(List<String> photos, int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => FullScreenImageView(imageUrls: photos, initialIndex: index)),
+    );
+  }
+
+  void _ouvrirVisiteVirtuelle(List<TourMediaItem> medias) {
+    VirtualTourView.open(context, medias: medias, titre: bien != null ? bien!.titreFor(language) : '');
+  }
+
+  // ================================================================ titre
+
+  Widget _buildTitleBlock(Bien b) {
+    final lieu = _lieu(b);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _chip(_t(_typeBienLabel(b.typeBien), b.typeBien), color: pcolor),
+                  _chip(
+                    b.isVente ? _t('vendre') : _t('alouer'),
+                    color: Colors.blueGrey.shade700,
+                    background: Colors.blueGrey.shade50,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 7),
+            const SizedBox(width: 8),
+            _buildStatusPill(b),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          b.titreFor(language),
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.black87, height: 1.25),
+        ),
+        if (lieu.isNotEmpty) ...[
+          const SizedBox(height: 8),
           Row(
             children: [
-              // Bouton WhatsApp
+              Icon(Icons.location_on_outlined, size: 17, color: pcolor),
+              const SizedBox(width: 4),
               Expanded(
-                child: InkWell(
-                  onTap: _launchWhatsApp,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF25D366),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_outlined,
-                            color: Colors.white, size: 24),
-                        SizedBox(width: 8),
-                        Text(
-                          getTranslated(context, "WhatsApp")!,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Bouton Téléphone
-              Expanded(
-                child: InkWell(
-                  onTap: _launchPhone,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF34B7F1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.phone, color: Colors.white, size: 24),
-                        SizedBox(width: 8),
-                        Text(
-                          getTranslated(context, "Contact")!,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: Text(
+                  lieu,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
+          ),
+        ],
+        if (b.reference.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: b.reference));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_t('Référence copiée')), duration: const Duration(seconds: 1)),
+              );
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.tag_rounded, size: 15, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(
+                  b.reference,
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 5),
+                Icon(Icons.copy_rounded, size: 13, color: Colors.grey[400]),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStatusPill(Bien b) {
+    final estVendu = b.vendu;
+    final color = estVendu ? Colors.red : Colors.green;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: color.shade50, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(
+            estVendu ? _t('Unavailable', 'Indisponible') : _t('Available', 'Disponible'),
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: color.shade800),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPriceAndStatusHeader() {
-    // Déterminer le type de propriété et extraire les données appropriées
-    Map<String, dynamic>? propertyData;
+  // ================================================================ caractéristiques
 
-    if (immobData?['residentiel'] != null) {
-      propertyData = immobData?['residentiel'];
-    } else if (immobData?['terrain'] != null) {
-      propertyData = immobData?['terrain'];
-    } else if (immobData?['commercial'] != null) {
-      propertyData = immobData?['commercial'];
-    } else {
-      propertyData = immobData;
-    }
+  /// Ligne simple, sans carte ni fond : icône + valeur + libellé.
+  Widget _buildQuickFacts(Bien b) {
+    final facts = <_Fact>[
+      if ((b.nbChambres ?? 0) > 0) _Fact(Icons.king_bed_outlined, '${b.nbChambres}', _t("Chambres")),
+      if ((b.nbSallesBain ?? 0) > 0) _Fact(Icons.bathtub_outlined, '${b.nbSallesBain}', _t("Salle de bain")),
+      if ((b.nbEtages ?? 0) > 0) _Fact(Icons.stairs_outlined, '${b.nbEtages}', _t("avec")),
+      _Fact(Icons.chair_outlined, b.meuble ? _t("Meubler") : _t("pas Meubler"), null),
+    ];
 
-    // Récupération des données
-    final typeOperation = propertyData?['type_operation'] ??
-        immobData?['operation']?['type'] ??
-        'vendre';
-    final montant =
-        double.tryParse(propertyData?['montant']?.toString() ?? '0');
-    final loyerMensuel =
-        double.tryParse(propertyData?['loyer_mensuel']?.toString() ?? '0');
-    final periode = propertyData?['periode'] ?? 'mois';
-    final isAvailable =
-        propertyData?['available'] == true || immobData?['available'] == true;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isSmallScreen = constraints.maxWidth < 350;
-
-        return Container(
-          margin: EdgeInsets.symmetric(),
-          padding: EdgeInsets.all(getProportionateScreenWidth(16)),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-                BorderRadius.circular(getProportionateScreenWidth(10)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                blurRadius: getProportionateScreenWidth(10),
-                spreadRadius: getProportionateScreenWidth(3),
-                offset: Offset(0, getProportionateScreenHeight(4)),
+    final children = <Widget>[];
+    for (var i = 0; i < facts.length; i++) {
+      if (i > 0) children.add(Container(width: 1, height: 34, color: Colors.grey.shade200));
+      final f = facts[i];
+      children.add(
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(f.icon, size: 22, color: Colors.grey[800]),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  f.label == null ? f.valeur : '${f.valeur} ${f.label}',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                ),
               ),
             ],
-            border: Border.all(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
           ),
-          child: Flex(
-            direction: isSmallScreen ? Axis.vertical : Axis.horizontal,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
+        ),
+      );
+    }
+
+    return Row(children: children);
+  }
+
+  // ================================================================ gestionnaires
+
+  String _numeroWhatsApp(String phone) {
+    final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    return digits.length == 8 ? '222$digits' : digits;
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    final message = Uri.encodeComponent("Bonjour, je vous contacte depuis l'application");
+    final url = Uri.parse('https://wa.me/${_numeroWhatsApp(phone)}?text=$message');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  Future<void> _launchPhone(String phone) async {
+    try {
+      await launchUrl(Uri.parse('tel:$phone'));
+    } catch (_) {}
+  }
+
+  Widget _buildGestionnairesSection(Bien b) {
+    final gestionnaires = b.gestionnaires.where((g) => (g.telephone ?? '').trim().isNotEmpty).toList();
+
+    return _section(
+      icon: Icons.support_agent_rounded,
+      title: gestionnaires.isEmpty ? _t("Contact") : _t("Gestionnaires"),
+      child: gestionnaires.isEmpty
+          ? _buildGestionnaireRow(nom: _t("Contact"), telephone: _numeroParDefaut)
+          : Column(
+              children: [
+                for (var i = 0; i < gestionnaires.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _buildGestionnaireRow(
+                    nom: gestionnaires[i].nomAffiche,
+                    telephone: gestionnaires[i].telephone!.trim(),
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _buildGestionnaireRow({required String nom, required String telephone}) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: pcolor.withOpacity(0.12),
+          child: Text(
+            nom.isNotEmpty ? nom[0].toUpperCase() : '?',
+            style: TextStyle(color: pcolor, fontWeight: FontWeight.w800, fontSize: 17),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Partie Prix
-              Flexible(
-                flex: 2,
+              Text(
+                nom,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              PriceText(telephone, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        _circleButton(
+          icon: Icons.chat_rounded,
+          color: const Color(0xFF25D366),
+          onTap: () => _launchWhatsApp(telephone),
+        ),
+        const SizedBox(width: 8),
+        _circleButton(icon: Icons.call_rounded, color: pcolor, onTap: () => _launchPhone(telephone)),
+      ],
+    );
+  }
+
+  Widget _circleButton({required IconData icon, required Color color, required VoidCallback onTap}) {
+    return Material(
+      color: color.withOpacity(0.12),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: color, size: 19),
+        ),
+      ),
+    );
+  }
+
+  // ================================================================ équipements
+
+  static const Map<String, IconData> _equipementIcons = {
+    'alarme': Icons.security_rounded,
+    'ascenseur': Icons.elevator_rounded,
+    'balcon': Icons.balcony_rounded,
+    'camera': Icons.videocam_rounded,
+    'chambre_service': Icons.meeting_room_rounded,
+    'climatisation': Icons.ac_unit_rounded,
+    'cour': Icons.deck_rounded,
+    'garage': Icons.garage_rounded,
+    'jardin': Icons.local_florist_rounded,
+    'parking': Icons.local_parking_rounded,
+    'piscine': Icons.pool_rounded,
+  };
+
+  Widget _buildEquipementsSection(Bien b) {
+    return _section(
+      icon: Icons.verified_outlined,
+      title: _t("Équipements"),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: b.equipements.map((eq) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F6F8),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_equipementIcons[eq.icone] ?? Icons.check_circle_outline_rounded, size: 17, color: pcolor),
+                const SizedBox(width: 7),
+                Text(eq.nomFor(language), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ================================================================ vidéo
+
+  Widget _buildVideoSection(Bien b) {
+    final video = b.medias.firstWhere((m) => m.isVideo);
+    return _section(
+      icon: Icons.play_circle_outline_rounded,
+      title: _t("Vidéo de présentation"),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: VideoPlayerWidget(key: ValueKey(video.fichier), videoUrl: video.fichier, embedded: true),
+        ),
+      ),
+    );
+  }
+
+  // ================================================================ carte
+
+  Widget _buildMapSection(Bien b) {
+    final position = (b.latitude != null && b.longitude != null)
+        ? LatLng(b.latitude!, b.longitude!)
+        : GeoService.nouakchott;
+    final lieu = _lieu(b);
+
+    return _section(
+      icon: Icons.map_outlined,
+      title: _t("Localisation du maison"),
+      subtitle: lieu,
+      trailing: _chip(_t("Vue 3D"), color: pcolor),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Property3DMap(
+          position: position,
+          titre: lieu.isNotEmpty ? lieu : b.titreFor(language),
+          positionApproximative: b.latitude == null || b.longitude == null,
+          hauteur: getProportionateScreenHeight(240),
+        ),
+      ),
+    );
+  }
+
+  // ================================================================ biens similaires
+
+  String _prixResume(BienResume r) {
+    if (r.prix == null) return _t('Prix sur demande');
+    final montant = NumberFormat('#,##0', 'en_US').format(r.prix).replaceAll(',', ' ');
+    final unite = (r.unitePrix.isEmpty || r.unitePrix == 'forfait') ? '' : '/${_t(r.unitePrix)}';
+    return '$montant ${_t("MRU")}$unite';
+  }
+
+  Widget _buildSimilairesSection() {
+    const hauteur = 264.0;
+    return _section(
+      icon: Icons.holiday_village_outlined,
+      title: _t('Biens similaires', 'Biens similaires'),
+      child: SizedBox(
+        height: hauteur,
+        child: _similairesLoading
+            ? ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 3,
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                itemBuilder: (_, __) => SizedBox(
+                  width: 220,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 140,
+                        decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(14)),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(height: 14, width: 120, color: Colors.grey[200]),
+                      const SizedBox(height: 8),
+                      Container(height: 12, width: 170, color: Colors.grey[100]),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: _similaires.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                itemBuilder: (context, i) {
+                  final r = _similaires[i];
+                  return _SimilaireCard(
+                    bien: r,
+                    arabe: _arabe,
+                    prixTexte: _prixResume(r),
+                    meubleLabel: r.meuble ? _t("Meubler") : null,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ImmobDetails(reference: r.reference)),
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  // ================================================================ barre du bas
+
+  /// Plus de boutons WhatsApp/Appeler ici : le contact direct se fait
+  /// désormais depuis la section Gestionnaires. La barre du bas ne propose
+  /// que la réservation, qui exige d'être connecté.
+  Widget _buildBottomBar(Bien b) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: Row(
+            children: [
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      typeOperation == 'vendre'
-                          ? getTranslated(context, 'vendre')!
-                          : getTranslated(context, 'alouer')!,
-                      style: TextStyle(
-                        fontSize: getProportionateScreenWidth(14),
-                        color: Colors.grey.shade600,
-                      ),
+                      b.isVente ? _t('vendre') : _t('alouer'),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
                     ),
-                    SizedBox(height: getProportionateScreenHeight(4)),
-                    Text(
-                      typeOperation == 'vendre'
-                          ? '${montant?.toStringAsFixed(0)} MRU'
-                          : '${loyerMensuel?.toStringAsFixed(0)} MRU/${getTranslated(context, periode)}',
-                      style: TextStyle(
-                        fontSize: getProportionateScreenWidth(22),
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                    const SizedBox(height: 2),
+                    PriceText(
+                      _prixTexte(b),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.black87),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (typeOperation == 'louer')
-                      Padding(
-                        padding: EdgeInsets.only(
-                            top: getProportionateScreenHeight(4)),
-                        child: Text(
-                          getTranslated(context, 'Prix mensuel')!,
-                          style: TextStyle(
-                            fontSize: getProportionateScreenWidth(12),
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-
-              // Espacement conditionnel
-              if (!isSmallScreen)
-                SizedBox(width: getProportionateScreenWidth(16)),
-
-              // Partie Disponibilité
-              Flexible(
-                flex: 1,
-                child: Container(
-                  margin: isSmallScreen
-                      ? EdgeInsets.only(top: getProportionateScreenHeight(12))
-                      : EdgeInsets.zero,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: getProportionateScreenWidth(16),
-                    vertical: getProportionateScreenHeight(8),
-                  ),
-                  decoration: BoxDecoration(
-                    color:
-                        isAvailable ? Colors.green.shade50 : Colors.red.shade50,
-                    borderRadius:
-                        BorderRadius.circular(getProportionateScreenWidth(20)),
-                    border: Border.all(
-                      color: isAvailable
-                          ? Colors.green.shade200
-                          : Colors.red.shade200,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: getProportionateScreenWidth(10),
-                        height: getProportionateScreenWidth(10),
-                        decoration: BoxDecoration(
-                          color: isAvailable ? Colors.green : Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: getProportionateScreenWidth(8)),
-                      Flexible(
-                        child: Text(
-                          isAvailable
-                              ? getTranslated(context, 'Available')!
-                              : getTranslated(context, 'Unavailable')!,
-                          style: TextStyle(
-                            fontSize: getProportionateScreenWidth(14),
-                            fontWeight: FontWeight.w600,
-                            color: isAvailable
-                                ? Colors.green.shade800
-                                : Colors.red.shade800,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: (b.vendu || _reservationEnCours) ? null : () => _handleReserver(b),
+                icon: _reservationEnCours
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.event_available_rounded, size: 19),
+                label: Text(_t('Réserver'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: pcolor,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
-            
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
+  // ================================================================ réservation
 
+  Future<void> _handleReserver(Bien b) async {
+    if (_reservationEnCours) return;
+    const storage = FlutterSecureStorage();
+    final adminToken = await storage.read(key: 'admin_token');
+    if (!mounted) return;
 
-Widget _buildImageSection(List<dynamic> images) {
-  if (images.isEmpty) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.image_not_supported, size: 50, color: Colors.grey[400]),
-          const SizedBox(height: 10),
-          Text(
-            getTranslated(context, "Aucune image disponible.") ??
-                "Aucune image disponible.",
-            style: TextStyle(color: Colors.grey[600]),
+    if (adminToken == null || adminToken.isEmpty) {
+      _showLoginRequiredDialog();
+      return;
+    }
+
+    if (b.isVente) {
+      await _reserverVente(b, adminToken);
+    } else {
+      await _reserverLocation(b, adminToken);
+    }
+  }
+
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(_t('Connexion requise')),
+        content: Text(_t('Vous devez être connecté pour réserver ce bien.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(_t('Annuler')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: pcolor, foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const IndexLogin()));
+            },
+            child: Text(_t('Se connecter')),
           ),
         ],
       ),
     );
   }
 
-  // Séparer les images et les vidéos
-  final List<dynamic> validMedia = images.where((media) {
-    return (media['image'] != null && media['image'].toString().isNotEmpty) ||
-           (media['video'] != null && media['video'].toString().isNotEmpty);
-  }).toList();
-
-  if (validMedia.isEmpty) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.image_not_supported, size: 50, color: Colors.grey[400]),
-          const SizedBox(height: 10),
-          Text(
-            getTranslated(context, "Aucun média disponible.") ??
-                "Aucun média disponible.",
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ],
-      ),
+  Future<void> _reserverVente(Bien b, String adminToken) async {
+    final montant = double.tryParse(b.prix ?? '') ?? 0;
+    final confirme = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ConfirmationVenteSheet(prixTexte: _prixTexte(b), titre: b.titreFor(language)),
+    );
+    if (confirme != true) return;
+    await _envoyerTransaction(
+      bienId: b.id,
+      typeTransaction: 'vente',
+      montant: montant,
+      adminToken: adminToken,
     );
   }
 
-  return FutureBuilder<Locale>(
-    future: getLocale(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return CircularProgressIndicator();
+  Future<void> _reserverLocation(Bien b, String adminToken) async {
+    final periodesReservees = _periodes
+        .map((p) => {
+              'date_debut': p.debut.toIso8601String(),
+              'date_fin': p.fin.toIso8601String(),
+            })
+        .toList();
+
+    final resultat = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ReservationLocationSheet(bien: b, periodesReservees: periodesReservees),
+    );
+    if (resultat == null) return;
+
+    await _envoyerTransaction(
+      bienId: b.id,
+      typeTransaction: 'location',
+      montant: resultat['montant'] as num,
+      adminToken: adminToken,
+      dateDebut: resultat['debut'] as DateTime,
+      dateFin: resultat['fin'] as DateTime,
+    );
+  }
+
+  Future<void> _envoyerTransaction({
+    required int bienId,
+    required String typeTransaction,
+    required num montant,
+    required String adminToken,
+    DateTime? dateDebut,
+    DateTime? dateFin,
+  }) async {
+    setState(() => _reservationEnCours = true);
+    try {
+      final transaction = await TransactionService().creerTransaction(
+        adminToken: adminToken,
+        bienId: bienId,
+        typeTransaction: typeTransaction,
+        montantTotal: montant,
+        dateDebut: dateDebut,
+        dateFin: dateFin,
+      );
+      if (!mounted) return;
+      setState(() => _reservationEnCours = false);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _TransactionConfirmationSheet(transaction: transaction),
+      );
+      if (bien != null) _fetchIndisponibilites(bien!);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _reservationEnCours = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_t("Erreur")}: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+}
+
+class _Fact {
+  final IconData icon;
+  final String valeur;
+  final String? label;
+
+  const _Fact(this.icon, this.valeur, this.label);
+}
+
+// ==================================================================== carte bien similaire
+
+class _SimilaireCard extends StatefulWidget {
+  final BienResume bien;
+  final bool arabe;
+  final String prixTexte;
+  final String? meubleLabel;
+  final VoidCallback onTap;
+
+  const _SimilaireCard({
+    required this.bien,
+    required this.arabe,
+    required this.prixTexte,
+    required this.meubleLabel,
+    required this.onTap,
+  });
+
+  @override
+  State<_SimilaireCard> createState() => _SimilaireCardState();
+}
+
+class _SimilaireCardState extends State<_SimilaireCard> {
+  String? _videoUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkForVideo();
+  }
+
+  /// La liste `/api/biens/` ne renvoie pas les médias : on va chercher le
+  /// détail (mis en cache, voir [BienDetailCache]) pour savoir s'il y a une
+  /// vidéo à proposer directement depuis cette carte.
+  Future<void> _checkForVideo() async {
+    try {
+      final detail = await BienDetailCache.fetch(widget.bien.reference);
+      if (!mounted) return;
+      final videos = detail.medias.where((m) => m.isVideo);
+      if (videos.isNotEmpty) {
+        setState(() => _videoUrl = videos.first.fichier);
       }
+    } catch (_) {
+      // Best-effort : en cas d'échec on affiche simplement la photo.
+    }
+  }
 
-      bool isArabic = snapshot.data?.languageCode == ARABIC;
+  void _openVideo() {
+    final url = _videoUrl;
+    if (url == null) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => VideoPlayerWidget(videoUrl: url)));
+  }
 
-      return SizedBox(
-        height: getProportionateScreenHeight(280),
+  @override
+  Widget build(BuildContext context) {
+    final bien = widget.bien;
+    final lieu = bien.lieuFor(widget.arabe);
+    final hasVideo = _videoUrl != null;
+
+    return SizedBox(
+      width: 220,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Première ligne : Grande image à gauche et deux petites images à droite
-            Expanded(
-              flex: 2,
-              child: Row(
-                children: [
-                  // Grande image/vidéo à gauche
-                  if (validMedia.isNotEmpty)
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          right: isArabic
-                              ? 0.0
-                              : getProportionateScreenWidth(4.0),
-                          left: isArabic
-                              ? getProportionateScreenWidth(4.0)
-                              : 0.0,
-                        ),
-                        child: _buildMedia(validMedia[0], 0, validMedia),
-                      ),
-                    ),
-                  // Deux petits médias à droite
-                  if (validMedia.length > 1)
-                    Expanded(
-                      flex: 1,
-                      child: Column(
-                        children: [
-                          if (validMedia.length > 1)
-                            Expanded(
-                              child: Padding(
-                                padding: EdgeInsets.only(
-                                    bottom: getProportionateScreenHeight(4.0)),
-                                child: _buildMedia(validMedia[1], 1, validMedia),
-                              ),
-                            ),
-                          if (validMedia.length > 2)
-                            Expanded(
-                              child: _buildMedia(validMedia[2], 2, validMedia),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            SizedBox(height: getProportionateScreenHeight(4.0)),
-            // Deuxième ligne : Trois médias en bas
-            if (validMedia.length > 3)
-              Expanded(
-                flex: 1,
-                child: Row(
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: 140,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    for (int i = 3; i < 6 && i < validMedia.length; i++)
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: getProportionateScreenWidth(2.0)),
-                          child: _buildMedia(validMedia[i], i, validMedia),
+                    bien.photoPrincipale != null
+                        ? Image.network(
+                            bien.photoPrincipale!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(),
+                            loadingBuilder: (context, child, progress) =>
+                                progress == null ? child : Container(color: Colors.grey[200]),
+                          )
+                        : _placeholder(),
+                    if (hasVideo)
+                      Positioned.fill(
+                        child: Material(
+                          color: Colors.black.withOpacity(0.18),
+                          child: InkWell(
+                            onTap: _openVideo,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.45),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white.withOpacity(0.85), width: 1.5),
+                                ),
+                                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (widget.meubleLabel != null)
+                      PositionedDirectional(
+                        top: 8,
+                        start: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            widget.meubleLabel!,
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.black87),
+                          ),
                         ),
                       ),
                   ],
                 ),
               ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-// Fonction pour déterminer si c'est une vidéo
-bool _isVideo(String? url) {
-  if (url == null || url.isEmpty) return false;
-  
-  final videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.wmv', '.flv', '.mkv'];
-  final videoPaths = ['/videos/', '/media/videos/', 'video', 'mp4'];
-  
-  final lowerUrl = url.toLowerCase();
-  
-  return videoExtensions.any((ext) => lowerUrl.endsWith(ext)) ||
-         videoPaths.any((path) => lowerUrl.contains(path));
-}
-
-// Fonction pour obtenir l'URL du média (image ou vidéo)
-String _getMediaUrl(dynamic media) {
-  // Priorité à l'image
-  if (media['image'] != null && media['image'].toString().isNotEmpty) {
-    String url = media['image'];
-    if (url.startsWith('/')) {
-      return 'https://akarina.shop$url';
-    }
-    return url;
-  }
-  // Sinon utiliser la vidéo
-  else if (media['video'] != null && media['video'].toString().isNotEmpty) {
-    String url = media['video'];
-    if (url.startsWith('/')) {
-      return 'https://akarina.shop$url';
-    }
-    return url;
-  }
-  return '';
-}
-
-// Fonction pour afficher chaque média (image ou vidéo)
-Widget _buildMedia(dynamic media, int index, List<dynamic> allMedia) {
-  final mediaUrl = _getMediaUrl(media);
-  final isVideo = _isVideo(mediaUrl);
-
-  return GestureDetector(
-    onTap: () {
-      if (isVideo) {
-        // Ouvrir la vidéo avec VideoPlayerWidget
-        _openVideo(context, mediaUrl);
-      } else {
-        // Ouvrir l'image en plein écran
-        final imageUrls = allMedia
-            .where((m) => !_isVideo(_getMediaUrl(m))) // Filtrer seulement les images
-            .map<String>((m) => _getMediaUrl(m))
-            .toList();
-        
-        final imageIndex = imageUrls.indexOf(mediaUrl);
-        
-        if (imageIndex != -1) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FullScreenImageView(
-                imageUrls: imageUrls,
-                initialIndex: imageIndex,
-              ),
             ),
-          );
-        }
-      }
-    },
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
-          children: [
-            // Contenu principal (image ou placeholder vidéo)
-            _buildMediaContent(mediaUrl, isVideo),
-            
-            // Overlay pour les vidéos
-            if (isVideo)
-              Container(
-                color: Colors.black.withOpacity(0.3),
-                child: Center(
-                  child: Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.play_arrow,
-                      size: 30,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            
-            // Badge "VIDÉO" pour les vidéos
-            if (isVideo)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'VIDÉO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-// Fonction pour construire le contenu du média
-Widget _buildMediaContent(String mediaUrl, bool isVideo) {
-  if (mediaUrl.isEmpty) {
-    return Container(
-      color: Colors.grey[300],
-      child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
-    );
-  }
-
-  if (isVideo) {
-    // Pour les vidéos, afficher une vignette ou un placeholder
-    return Container(
-      color: Colors.black54,
-      child: Icon(Icons.videocam, size: 40, color: Colors.white54),
-    );
-  } else {
-    // Pour les images, afficher l'image normale
-    return Image.network(
-      mediaUrl,
-      fit: BoxFit.cover,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Center(
-          child: CircularProgressIndicator(
-            value: loadingProgress.expectedTotalBytes != null
-                ? loadingProgress.cumulativeBytesLoaded /
-                    loadingProgress.expectedTotalBytes!
-                : null,
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: Colors.grey[300],
-          child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
-        );
-      },
-    );
-  }
-}
-
-// Fonction pour ouvrir la vidéo (identique à celle de la page d'accueil)
-void _openVideo(BuildContext context, String videoUrl) {
-  String fullVideoUrl = videoUrl;
-  if (videoUrl.startsWith('/')) {
-    fullVideoUrl = 'https://akarina.shop$videoUrl';
-  }
-  
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      insetPadding: EdgeInsets.all(20),
-      child: SizedBox(
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height * 0.7,
-        child: VideoPlayerWidget(videoUrl: fullVideoUrl),
-      ),
-    ),
-  );
-}
-
-// Vérification URL (conservée)
-bool isValidImageUrl(String? url) {
-  if (url == null || url.isEmpty) {
-    return false;
-  }
-
-  final uri = Uri.tryParse(url);
-  if (uri == null || !uri.hasAbsolutePath) {
-    return false;
-  }
-
-  return true;
-}
-
-  // Section pour afficher la liste des utilisateurs
-  Widget _buildUsersSection() {
-    return FutureBuilder<List<User>>(
-      future: futureUsers,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return const Center(
-              child: Text('Erreur lors du chargement des utilisateurs'));
-        } else if (snapshot.hasData && snapshot.data!.isEmpty) {
-          return const Center(child: Text('Aucun utilisateur trouvé.'));
-        } else if (snapshot.hasData) {
-          return SizedBox(
-            height: getProportionateScreenHeight(100),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                User user = snapshot.data![index];
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 0.0),
-                  child: InkWell(
-                    onTap: () {
-                      final participantImage = user.image?.isNotEmpty == true
-                          ? user.image!
-                          : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png';
-
-                      final participantName =
-                          user.nomComplet?.isNotEmpty == true
-                              ? user.nomComplet!
-                              : getTranslated(context, "Utilisateur inconnu")!;
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatPage(
-                            participantId: user.id,
-                            participantImage: participantImage,
-                            participantName: participantName,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 25,
-                              backgroundColor: pcolor,
-                              child: CircleAvatar(
-                                radius: 23,
-                                backgroundImage: NetworkImage(
-                                  user.image?.isNotEmpty == true
-                                      ? user.image!
-                                      : 'https://icons.veryicon.com/png/o/internet--web/web-interface-flat/6606-male-user.png',
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 2,
-                              right: 2,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.green,
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        SizedBox(
-                          width: getProportionateScreenWidth(70),
-                          child: Text(
-                            user.nomComplet?.isNotEmpty == true
-                                ? user.nomComplet!
-                                : getTranslated(
-                                    context, "Utilisateur inconnu")!,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        } else {
-          return const SizedBox.shrink();
-        }
-      },
-    );
-  }
-
-  // Section pour afficher les caractéristiques sous forme de grille
-  Widget _buildFeatureInfo() {
-    Map<String, dynamic>? propertyData;
-    String propertyType = 'unknown';
-
-    if (immobData?['residentiel'] != null) {
-      propertyData = immobData?['residentiel'];
-      propertyType = 'residentiel';
-    } else if (immobData?['terrain'] != null) {
-      propertyData = immobData?['terrain'];
-      propertyType = 'terrain';
-    } else if (immobData?['commercial'] != null) {
-      propertyData = immobData?['commercial'];
-      propertyType = 'commercial';
-    } else {
-      propertyData = immobData;
-    }
-
-    // Fonction pour vérifier si une valeur existe et n'est pas égale à 0
-    bool isValidValue(dynamic value) {
-      if (value == null) return false;
-      if (value is String)
-        return value.isNotEmpty && value != '0' && value != 'null';
-      if (value is num) return value > 0;
-      if (value is bool) return value == true;
-      return true;
-    }
-
-    // Fonction pour obtenir la valeur numérique
-    int getNumericValue(dynamic value) {
-      if (value == null) return 0;
-      if (value is int) return value;
-      if (value is double) return value.toInt();
-      if (value is String) {
-        return int.tryParse(value) ?? 0;
-      }
-      return 0;
-    }
-
-    List<Map<String, dynamic>> allFeatureItems = [
-      {
-        'key': 'nombre_de_chambres',
-        'image': 'assets/images/chambre.jpeg',
-        'text':
-            '${getNumericValue(propertyData!['nombre_de_chambres'])} ${getTranslated(context, "Chambres")}',
-        'value': propertyData['nombre_de_chambres']
-      },
-      {
-        'key': 'nombre_de_salles_de_bain',
-        'image': 'assets/images/douche.jpeg',
-        'text':
-            '${getNumericValue(propertyData['nombre_de_salles_de_bain'])} ${getTranslated(context, "Salle de bain")}',
-        'value': propertyData['nombre_de_salles_de_bain']
-      },
-      {
-        'key': 'nombre_de_garages',
-        'image': 'assets/images/garage.jpeg',
-        'text':
-            '${getNumericValue(propertyData['nombre_de_garages'])} ${getTranslated(context, "Garage")}',
-        'value': propertyData['nombre_de_garages']
-      },
-      {
-        'key': 'adresse',
-        'image': 'assets/images/localisation.jpeg',
-        'text':
-            '${propertyData['adresse'] ?? immobData?['adresse'] ?? getTranslated(context, "Adresse non spécifiée")}',
-        'value': propertyData['adresse'] ?? immobData?['adresse']
-      },
-      {
-        'key': 'type_operation',
-        'image': 'assets/images/type_operation.jpeg',
-        'text':
-            '${getTranslated(context, propertyData['type_operation'] ?? immobData?['operation']?['type'] ?? "Non spécifié")}',
-        'value':
-            propertyData['type_operation'] ?? immobData?['operation']?['type']
-      },
-      {
-        'key': 'surface',
-        'image': 'assets/images/type_operation.jpeg',
-        'text':
-            '${getNumericValue(propertyData['surface'] ?? immobData?['surface'])} ${getTranslated(context, "m²")}',
-        'value': propertyData['surface'] ?? immobData?['surface']
-      },
-      {
-        'key': 'presence_de_jardin',
-        'image': 'assets/images/gardain.jpeg',
-        'text': (propertyData['presence_de_jardin'] == true)
-            ? '${getTranslated(context, "avec")}'
-            : '${getTranslated(context, "sans")}',
-        'value': propertyData['presence_de_jardin']
-      },
-      {
-        'key': 'nombre_d_etages',
-        'image': 'assets/images/etage.jpeg',
-        'text': (propertyData['nombre_d_etages'] != null &&
-                propertyData['nombre_d_etages'] != 0)
-            ? '${getTranslated(context, "avec")}'
-            : '${getTranslated(context, "sans")}',
-        'value': propertyData['nombre_d_etages']
-      },
-      {
-        'key': 'presence_de_pisime',
-        'image': 'assets/images/pisume.jpeg',
-        'text': (propertyData['presence_de_pisime'] == true)
-            ? '${getTranslated(context, "avec")}'
-            : '${getTranslated(context, "sans")}',
-        'value': propertyData['presence_de_pisime']
-      },
-      {
-        'key': 'presence_de_wifi',
-        'image': 'assets/images/wifi.jpeg',
-        'text': (propertyData['presence_de_wifi'] == true)
-            ? '${getTranslated(context, "avec")}'
-            : '${getTranslated(context, "sans")}',
-        'value': propertyData['presence_de_wifi']
-      },
-      {
-        'key': 'meubler',
-        'image': 'assets/images/type_operation.jpeg',
-        'text': (propertyData['meubler'] == true)
-            ? '${getTranslated(context, "Meubler")}'
-            : '${getTranslated(context, "pas Meubler")}',
-        'value': propertyData['meubler']
-      },
-    ];
-
-    // Filtrer les éléments qui existent et ne sont pas égaux à 0
-    List<Map<String, dynamic>> featureItems = allFeatureItems.where((item) {
-      final value = item['value'];
-      final key = item['key'];
-
-      // Cas spéciaux pour certains champs
-      if (key == 'adresse') {
-        return value != null &&
-            value.toString().isNotEmpty &&
-            value.toString() != 'null';
-      }
-      if (key == 'type_operation') {
-        return value != null &&
-            value.toString().isNotEmpty &&
-            value.toString() != 'null';
-      }
-      if (key == 'surface') {
-        return getNumericValue(value) > 0;
-      }
-      if (key == 'nombre_de_chambres' ||
-          key == 'nombre_de_salles_de_bain' ||
-          key == 'nombre_de_garages') {
-        return getNumericValue(value) > 0;
-      }
-      if (key == 'nombre_d_etages') {
-        return value != null && value != 0;
-      }
-      if (key == 'presence_de_jardin' ||
-          key == 'presence_de_pisime' ||
-          key == 'presence_de_wifi' ||
-          key == 'meubler') {
-        return value == true;
-      }
-
-      return isValidValue(value);
-    }).toList();
-
-    if (featureItems.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.info_outline, size: 50, color: Colors.grey[400]),
-            const SizedBox(height: 10),
-            Text(
-              getTranslated(context, "Aucune caractéristique disponible")!,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 3.5,
-      ),
-      itemCount: featureItems.length,
-      itemBuilder: (context, index) {
-        var item = featureItems[index];
-        return _buildFeatureCard(item['image'], item['text']);
-      },
-    );
-  }
-
-  Widget _buildFeatureCard(String imagePath, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Image.asset(
-            imagePath,
-            width: 30,
-            height: 30,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getImageForInfrastructure(String type) {
-    switch (type) {
-      case 'Lycée':
-        return 'assets/images/school.png';
-      case 'Hôpital':
-        return 'assets/images/hopital.png';
-      case 'Mosquée':
-        return 'assets/images/mosque.jpeg';
-      case 'Marché':
-        return 'assets/images/store.png';
-      case 'Ambassade':
-        return 'assets/images/embassad.jpeg';
-      default:
-        return 'assets/images/store.png';
-    }
-  }
-
-  Widget _buildInfrastructureSection() {
-    Map<String, dynamic>? propertyData;
-
-    if (immobData?['residentiel'] != null) {
-      propertyData = immobData?['residentiel'];
-    } else if (immobData?['terrain'] != null) {
-      propertyData = immobData?['terrain'];
-    } else if (immobData?['commercial'] != null) {
-      propertyData = immobData?['commercial'];
-    } else {
-      propertyData = immobData;
-    }
-
-    List<dynamic> infrastructures = propertyData!['infrastructures_proches'] ??
-        immobData?['infrastructures_proches'] ??
-        [];
-
-    return FutureBuilder<String>(
-      future: getCurrentLanguage(context),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
-        } else if (snapshot.hasError) {
-          return Text(getTranslated(
-              context, "Erreur lors du chargement de la langue")!);
-        } else {
-          final currentLanguage = snapshot.data ?? ARABIC;
-          final isArabic = currentLanguage == ARABIC;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                getTranslated(context, "Entourage du maison")!,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 3.5,
-                ),
-                itemCount: infrastructures.length,
-                itemBuilder: (context, index) {
-                  var infra = infrastructures[index];
-                  return _buildInfrastructureCard(
-                    isArabic ? infra['nom_ar'] : infra['nom'],
-                    _getImageForInfrastructure(
-                      isArabic
-                          ? infra['type_infrastructure_ar']
-                          : infra['type_infrastructure'],
-                    ),
-                  );
-                },
-              ),
-            ],
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildInfrastructureCard(String infraName, String imagePath) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Image.asset(
-            imagePath,
-            width: 30,
-            height: 30,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              infraName,
-              style: const TextStyle(fontSize: 16),
+            const SizedBox(height: 8),
+            PriceText(
+              widget.prixTexte,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.black87),
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              bien.titreFor(widget.arabe),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.black87),
+            ),
+            if (lieu.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 13, color: Colors.grey[500]),
+                  const SizedBox(width: 3),
+                  Expanded(
+                    child: Text(
+                      lieu,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                if ((bien.nbChambres ?? 0) > 0) ...[
+                  Icon(Icons.king_bed_outlined, size: 15, color: Colors.grey[700]),
+                  const SizedBox(width: 4),
+                  Text('${bien.nbChambres}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                  const SizedBox(width: 12),
+                ],
+                if ((bien.nbSallesBain ?? 0) > 0) ...[
+                  Icon(Icons.bathtub_outlined, size: 15, color: Colors.grey[700]),
+                  const SizedBox(width: 4),
+                  Text('${bien.nbSallesBain}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMapSection(Map<String, dynamic>? data) {
-    Map<String, dynamic>? propertyData;
+  Widget _placeholder() => Container(
+        color: Colors.grey[200],
+        child: Icon(Icons.home_outlined, size: 40, color: Colors.grey[400]),
+      );
+}
 
-    if (data?['residentiel'] != null) {
-      propertyData = data?['residentiel'];
-    } else if (data?['terrain'] != null) {
-      propertyData = data?['terrain'];
-    } else if (data?['commercial'] != null) {
-      propertyData = data?['commercial'];
-    } else {
-      propertyData = data;
+// ==================================================================== calendrier
+
+class _AvailabilityCalendar extends StatefulWidget {
+  final List<PeriodeIndisponibilite> periodes;
+  final bool loading;
+
+  const _AvailabilityCalendar({required this.periodes, required this.loading});
+
+  @override
+  State<_AvailabilityCalendar> createState() => _AvailabilityCalendarState();
+}
+
+class _AvailabilityCalendarState extends State<_AvailabilityCalendar> {
+  final DateFormat _format = DateFormat('dd/MM/yyyy');
+  late DateTime _focusedDay;
+
+  DateTime get _aujourdhui {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDay = _aujourdhui;
+  }
+
+  String _t(String key, String fallback) => getTranslated(context, key) ?? fallback;
+
+  bool _bloque(DateTime day) => widget.periodes.any((p) => p.contient(day));
+
+  DateTime _prochaineDispo(DateTime from) {
+    var d = from;
+    for (var i = 0; i < 1000 && _bloque(d); i++) {
+      d = DateTime(d.year, d.month, d.day + 1);
     }
+    return d;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = _aujourdhui;
+    final firstDay = DateTime(today.year, today.month, 1);
+    var lastDay = DateTime(today.year + 1, today.month + 1, 0);
+    for (final p in widget.periodes) {
+      if (p.fin.isAfter(lastDay)) lastDay = DateTime(p.fin.year, p.fin.month + 1, 0);
+    }
+    final focused = _focusedDay.isBefore(firstDay)
+        ? firstDay
+        : (_focusedDay.isAfter(lastDay) ? lastDay : _focusedDay);
+
+    final aVenir = widget.periodes.where((p) => !p.fin.isBefore(today)).toList()
+      ..sort((a, b) => a.debut.compareTo(b.debut));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          getTranslated(context, "Localisation du maison")!,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          height: getProportionateScreenHeight(200),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            color: Colors.grey[300],
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12.withOpacity(0.1),
-                blurRadius: 10,
-                spreadRadius: 5,
-              ),
-            ],
+        _buildStatusBanner(today),
+        if (widget.loading) ...[
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(minHeight: 2, color: pcolor, backgroundColor: pcolor.withOpacity(0.1)),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: GoogleMap(
-              onMapCreated: (GoogleMapController controller) {
-                _controller = controller;
-              },
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  double.parse(propertyData?['y'] ?? data?['y'] ?? '18.0840609'),
-                  double.parse(propertyData?['x'] ?? data?['x'] ?? '-15.9784200'),
-                ),
-                zoom: 12.0,
-              ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('current_location'),
-                  position: LatLng(
-                    double.parse(propertyData?['y'] ?? data?['y'] ?? '18.0840609'),
-                    double.parse(propertyData?['x'] ?? data?['x'] ?? '-15.9784200'),
-                  ),
-                  infoWindow: InfoWindow(
-                      title:
-                          propertyData?['nom_ville'] ?? data?['ville']?['nom']),
-                ),
-              },
+        ],
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: TableCalendar(
+            locale: Localizations.localeOf(context).languageCode,
+            firstDay: firstDay,
+            lastDay: lastDay,
+            focusedDay: focused,
+            startingDayOfWeek: StartingDayOfWeek.monday,
+            availableCalendarFormats: const {CalendarFormat.month: ''},
+            availableGestures: AvailableGestures.horizontalSwipe,
+            rowHeight: 46,
+            daysOfWeekHeight: 26,
+            onPageChanged: (day) => _focusedDay = day,
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: Colors.black87),
+              headerPadding: const EdgeInsets.symmetric(vertical: 6),
+              leftChevronMargin: EdgeInsets.zero,
+              rightChevronMargin: EdgeInsets.zero,
+              leftChevronIcon: _chevron(Icons.chevron_left_rounded),
+              rightChevronIcon: _chevron(Icons.chevron_right_rounded),
+            ),
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: TextStyle(color: Colors.grey[500], fontSize: 12, fontWeight: FontWeight.w600),
+              weekendStyle: TextStyle(color: Colors.grey[500], fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            calendarStyle: const CalendarStyle(outsideDaysVisible: false, cellMargin: EdgeInsets.zero),
+            calendarBuilders: CalendarBuilders(
+              defaultBuilder: (context, day, _) => _dayCell(day, today),
+              todayBuilder: (context, day, _) => _dayCell(day, today),
+              disabledBuilder: (context, day, _) => _dayCell(day, today),
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+        _buildLegend(),
+        if (aVenir.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text(
+            _t('Périodes indisponibles', 'Périodes indisponibles'),
+            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: Colors.black87),
+          ),
+          const SizedBox(height: 10),
+          ...aVenir.map((p) => _buildPeriodeCard(p, today)),
+        ],
+      ],
+    );
+  }
+
+  Widget _chevron(IconData icon) => Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+        child: Icon(icon, size: 20, color: Colors.black87),
+      );
+
+  Widget _dayCell(DateTime day, DateTime today) {
+    final d = DateTime(day.year, day.month, day.day);
+    final passe = d.isBefore(today);
+    final estAujourdhui = isSameDay(d, today);
+
+    if (_bloque(d)) {
+      final prev = DateTime(d.year, d.month, d.day - 1);
+      final next = DateTime(d.year, d.month, d.day + 1);
+      final debutReel = !_bloque(prev);
+      final finReel = !_bloque(next);
+      final arrondiDebut = debutReel || d.weekday == DateTime.monday || d.day == 1;
+      final arrondiFin = finReel || d.weekday == DateTime.sunday || next.month != d.month;
+      const r = Radius.circular(12);
+
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        decoration: BoxDecoration(
+          color: passe ? Colors.red.shade50.withOpacity(0.5) : Colors.red.shade50,
+          borderRadius: BorderRadiusDirectional.horizontal(
+            start: arrondiDebut ? r : Radius.zero,
+            end: arrondiFin ? r : Radius.zero,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: (debutReel || finReel) && !passe
+            ? Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.red.shade400, shape: BoxShape.circle),
+                child: Text(
+                  '${d.day}',
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              )
+            : Text(
+                '${d.day}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: passe ? Colors.red.shade200 : Colors.red.shade700,
+                ),
+              ),
+      );
+    }
+
+    return Center(
+      child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: estAujourdhui
+            ? BoxDecoration(
+                shape: BoxShape.circle,
+                color: pcolor.withOpacity(0.08),
+                border: Border.all(color: pcolor, width: 1.5),
+              )
+            : null,
+        child: Text(
+          '${d.day}',
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: estAujourdhui ? FontWeight.w800 : FontWeight.w500,
+            color: passe ? Colors.grey.shade400 : (estAujourdhui ? pcolor : Colors.black87),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner(DateTime today) {
+    final IconData icon;
+    final Color color;
+    final String titre;
+    final String detail;
+
+    if (_bloque(today)) {
+      icon = Icons.event_busy_rounded;
+      color = Colors.red.shade600;
+      titre = _t('Indisponible actuellement', 'Indisponible actuellement');
+      detail = '${_t('Disponible à partir du', 'Disponible à partir du')} ${_format.format(_prochaineDispo(today))}';
+    } else {
+      final prochaines = widget.periodes.where((p) => p.debut.isAfter(today)).toList()
+        ..sort((a, b) => a.debut.compareTo(b.debut));
+      icon = Icons.event_available_rounded;
+      color = Colors.green.shade600;
+      titre = _t('Disponible maintenant', 'Disponible maintenant');
+      detail = prochaines.isEmpty
+          ? _t('Aucune réservation prévue', 'Aucune réservation prévue')
+          : '${_t('Prochaine indisponibilité le', 'Prochaine indisponibilité le')} ${_format.format(prochaines.first.debut)}';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(titre, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: color)),
+                const SizedBox(height: 2),
+                Text(detail, style: TextStyle(fontSize: 12.5, color: Colors.grey[700])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Wrap(
+      spacing: 18,
+      runSpacing: 8,
+      children: [
+        _legendItem(
+          BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300)),
+          _t('Disponible', 'Disponible'),
+        ),
+        _legendItem(
+          BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+          _t('Indisponible', 'Indisponible'),
+        ),
+        _legendItem(
+          BoxDecoration(shape: BoxShape.circle, border: Border.all(color: pcolor, width: 1.5)),
+          _t("Aujourd'hui", "Aujourd'hui"),
         ),
       ],
     );
   }
 
-void _showReservationDialog() {
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    builder: (BuildContext context) {
-      return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9, // 90% de la largeur
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8, // Max 80% de la hauteur
-          ),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Colors.white,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Titre
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: pcolor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.receipt,
-                  size: 40,
-                  color: pcolor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                getTranslated(context, "Frais de réservation")!,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "10 MRU",
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: pcolor,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                getTranslated(context, "Choisissez votre moyen de paiement")!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              
-              // Grille des moyens de paiement (responsive)
-              Expanded(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: MediaQuery.of(context).size.width < 400 ? 0.9 : 1.0,
-                  ),
-                  itemCount: 4,
-                  itemBuilder: (context, index) {
-                    final paymentMethods = [
-                      {
-                        'imagePath': 'assets/images/bankily.png',
-                        'name': getTranslated(context, "Bankily")!,
-                        'method': 'bankily',
-                      },
-                      {
-                        'imagePath': 'assets/images/saddad.png',
-                        'name': getTranslated(context, "Seddade")!,
-                        'method': 'seddade',
-                      },
-                      {
-                        'imagePath': 'assets/images/masrivi.png',
-                        'name': getTranslated(context, "Masrivi")!,
-                        'method': 'masrivi',
-                      },
-                      {
-                        'imagePath': 'assets/images/click.png',
-                        'name': getTranslated(context, "Click")!,
-                        'method': 'click',
-                      },
-                    ];
-                    
-                    final payment = paymentMethods[index];
-                    
-                    return _buildPaymentMethodCard(
-                      context,
-                      imagePath: payment['imagePath']!,
-                      name: payment['name']!,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _processPayment(payment['method']!);
-                      },
-                    );
-                  },
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              // Bouton annuler
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: Text(
-                  getTranslated(context, "Annuler")!,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
+  Widget _legendItem(BoxDecoration decoration, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 14, height: 14, decoration: decoration),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+      ],
+    );
+  }
 
-Widget _buildPaymentMethodCard(
-  BuildContext context, {
-  required String imagePath,
-  required String name,
-  required VoidCallback onTap,
-}) {
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      // Ajuster la taille en fonction de l'espace disponible
-      final isSmallScreen = MediaQuery.of(context).size.width < 400;
-      final imageSize = isSmallScreen ? 50.0 : 60.0;
-      final fontSize = isSmallScreen ? 12.0 : 14.0;
-      
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Colors.grey.shade50,
+  Widget _buildPeriodeCard(PeriodeIndisponibilite p, DateTime today) {
+    final enCours = p.contient(today);
+    final pillColor = enCours ? Colors.red : Colors.orange;
+    final details = '${p.nbJours} ${_t('jours', 'jours')}${p.motif.isNotEmpty ? ' · ${p.motif}' : ''}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 38,
+            decoration: BoxDecoration(color: pillColor.shade300, borderRadius: BorderRadius.circular(2)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_format.format(p.debut)}  –  ${_format.format(p.fin)}',
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.black87),
+                ),
+                const SizedBox(height: 3),
+                Text(details, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
-            border: Border.all(
-              color: Colors.grey.shade200,
-              width: 1.5,
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(color: pillColor.shade50, borderRadius: BorderRadius.circular(20)),
+            child: Text(
+              enCours ? _t('En cours', 'En cours') : _t('À venir', 'À venir'),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: pillColor.shade800),
             ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Image du moyen de paiement
-              Container(
-                width: imageSize,
-                height: imageSize,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    imagePath,
-                    width: imageSize,
-                    height: imageSize,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        Icons.payment,
-                        size: imageSize * 0.6,
-                        color: Colors.grey[400],
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Nom du moyen de paiement
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              // Indicateur de sélection
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: pcolor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  getTranslated(context, "Sélectionner")!,
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 8 : 10,
-                    color: pcolor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
+        ],
+      ),
+    );
+  }
 }
 
+// ==================================================================== description
 
-void _processPayment(String method) {
-  // Afficher un dialogue de confirmation
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Row(
+class _ExpandableText extends StatefulWidget {
+  final String text;
+  final int trimLines;
+
+  const _ExpandableText({required this.text, this.trimLines = 4});
+
+  @override
+  State<_ExpandableText> createState() => _ExpandableTextState();
+}
+
+class _ExpandableTextState extends State<_ExpandableText> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(fontSize: 14.5, color: Colors.grey[800], height: 1.6);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: widget.text, style: style),
+          maxLines: widget.trimLines,
+          textDirection: Directionality.of(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final depasse = painter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: pcolor),
-            const SizedBox(width: 8),
-            Text(getTranslated(context, "Confirmation")!),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              alignment: AlignmentDirectional.topStart,
+              child: Text(
+                widget.text,
+                style: style,
+                maxLines: _expanded ? null : widget.trimLines,
+                overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+              ),
+            ),
+            if (depasse) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _expanded
+                            ? (getTranslated(context, "Voir moins") ?? "Voir moins")
+                            : (getTranslated(context, "Voir plus") ?? "Voir plus"),
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: pcolor),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                        color: pcolor,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
-        ),
-        content: Column(
+        );
+      },
+    );
+  }
+}
+
+// ==================================================================== réservation
+
+class _ConfirmationVenteSheet extends StatelessWidget {
+  final String prixTexte;
+  final String titre;
+
+  const _ConfirmationVenteSheet({required this.prixTexte, required this.titre});
+
+  String _t(BuildContext context, String key) => getTranslated(context, key) ?? key;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              getTranslated(context, "Vous allez payer 10 MRU")!,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              getTranslated(context, "Moyen de paiement")! + ": ${_getPaymentMethodName(method)}",
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
               ),
+            ),
+            Text(_t(context, 'Confirmer la réservation'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(
+              titre,
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber[200]!),
-              ),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(14)),
               child: Row(
                 children: [
-                  Icon(Icons.info, color: Colors.amber[700], size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      getTranslated(context, "Vous serez redirigé vers l'application de paiement")!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.amber[700],
-                      ),
-                    ),
-                  ),
+                  Icon(Icons.sell_rounded, color: pcolor),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_t(context, 'Montant'), style: TextStyle(color: Colors.grey[700]))),
+                  PriceText(prixTexte, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                 ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text(
-              getTranslated(context, "Annuler")!,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // Fermer le dialogue de confirmation
-              _confirmPayment(method);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: pcolor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: pcolor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(_t(context, 'Confirmer'), style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
-            child: Text(getTranslated(context, "Confirmer")!),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-String _getPaymentMethodName(String method) {
-  switch (method) {
-    case 'bankily':
-      return getTranslated(context, "Bankily")!;
-    case 'seddade':
-      return getTranslated(context, "Seddade")!;
-    case 'masrivi':
-      return getTranslated(context, "Masrivi")!;
-    case 'click':
-      return getTranslated(context, "Click")!;
-    default:
-      return getTranslated(context, "Autre")!;
+          ],
+        ),
+      ),
+    );
   }
 }
 
-void _confirmPayment(String method) {
-  // Afficher un dialogue de chargement
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      return Dialog(
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: pcolor),
-              const SizedBox(height: 16),
-              Text(
-                getTranslated(context, "Traitement du paiement...")!,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
+class _TransactionConfirmationSheet extends StatelessWidget {
+  final tx_model.Transaction transaction;
 
-  // Simuler un délai de traitement
-  Future.delayed(const Duration(seconds: 2), () {
-    Navigator.pop(context); // Fermer le dialogue de chargement
-    
-    // Afficher un dialogue de succès
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green),
-              const SizedBox(width: 8),
-              Text(getTranslated(context, "Paiement réussi")!),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.celebration,
-                size: 60,
-                color: Colors.green,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                getTranslated(context, "Votre réservation a été confirmée avec succès!")!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                getTranslated(context, "Un email de confirmation vous a été envoyé")!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // Fermer le dialogue de succès
-                // Optionnel: Naviguer vers une autre page ou rafraîchir
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: pcolor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(getTranslated(context, "OK")!),
-            ),
-          ],
-        );
-      },
+  const _TransactionConfirmationSheet({required this.transaction});
+
+  String _t(BuildContext context, String key) => getTranslated(context, key) ?? key;
+
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+  void _copy(BuildContext context, String value) {
+    Clipboard.setData(ClipboardData(text: value));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(_t(context, 'Référence copiée')), duration: const Duration(seconds: 1)),
     );
-  });
-}
+  }
 
+  Widget _infoRow(BuildContext context, {required IconData icon, required String label, required Widget value}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey[500]),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 13))),
+          value,
+        ],
+      ),
+    );
+  }
 
-  // void _showOrderDialog() {
-  //   showDialog(
-  //     context: context,
-  //     barrierDismissible: false,
-  //     builder: (BuildContext context) {
-  //       return OrderDialog(
-  //         immobilierId: widget.id,
-  //         immobilierData: immobData,
-  //       );
-  //     },
-  //   );
-  // }
-
-
-  Widget _buildReviewsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _copiableRow(BuildContext context, {required IconData icon, required String label, required String value}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _copy(context, value),
+      child: _infoRow(
+        context,
+        icon: icon,
+        label: label,
+        value: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              getTranslated(context, "Avis et commentaires")!,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            TextButton.icon(
-              onPressed: () => _showAddReviewDialog(),
-              icon: const Icon(Icons.add, color: pcolor),
-              label: Text(
-                getTranslated(context, "Ajouter un avis")!,
-                style: const TextStyle(color: pcolor),
-              ),
-            ),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            const SizedBox(width: 5),
+            Icon(Icons.copy_rounded, size: 13, color: Colors.grey[400]),
           ],
         ),
-        const SizedBox(height: 10),
+      ),
+    );
+  }
 
-        // Affichage de la note moyenne
-        if (reviews.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
+  @override
+  Widget build(BuildContext context) {
+    final isVente = transaction.typeTransaction == 'vente';
+    return Container(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
             ),
-            child: Row(
-              children: [
-                Column(
-                  children: [
-                    Text(
-                      averageRating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: pcolor,
+            Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.6, end: 1),
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.elasticOut,
+                builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.green[50], shape: BoxShape.circle),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green[500],
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.green.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 5)),
+                      ],
+                    ),
+                    child: const Icon(Icons.check_rounded, color: Colors.white, size: 32),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              _t(context, 'Réservation envoyée'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _t(context, "Votre demande de réservation a bien été envoyée."),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                children: [
+                  _copiableRow(
+                    context,
+                    icon: Icons.receipt_long_rounded,
+                    label: _t(context, 'Référence transaction'),
+                    value: transaction.reference,
+                  ),
+                  const Divider(height: 1),
+                  _copiableRow(
+                    context,
+                    icon: Icons.tag_rounded,
+                    label: _t(context, 'Référence du bien'),
+                    value: transaction.bienReference,
+                  ),
+                  const Divider(height: 1),
+                  _infoRow(
+                    context,
+                    icon: isVente ? Icons.sell_rounded : Icons.calendar_month_rounded,
+                    label: _t(context, 'Type'),
+                    value: Text(
+                      isVente ? _t(context, 'Vente') : _t(context, 'Location'),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _infoRow(
+                    context,
+                    icon: Icons.payments_rounded,
+                    label: _t(context, 'Montant'),
+                    value: PriceText(
+                      '${formatAmount(transaction.montantTotal.toString())} MRU',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: pcolor),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _infoRow(
+                    context,
+                    icon: Icons.hourglass_top_rounded,
+                    label: _t(context, 'Statut'),
+                    value: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(20)),
+                      child: Text(
+                        _t(context, 'En attente'),
+                        style: TextStyle(color: Colors.orange[800], fontWeight: FontWeight.w700, fontSize: 11.5),
                       ),
                     ),
-                    Row(
-                      children: List.generate(
-                          5,
-                          (index) => Icon(
-                                Icons.star,
-                                size: 20,
-                                color: index < averageRating.floor()
-                                    ? Colors.amber
-                                    : Colors.grey[300],
-                              )),
+                  ),
+                  if (transaction.dateDebut != null) ...[
+                    const Divider(height: 1),
+                    _infoRow(
+                      context,
+                      icon: Icons.event_rounded,
+                      label: _t(context, 'Date de début'),
+                      value: Text(_formatDate(transaction.dateDebut!), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    ),
+                  ],
+                  if (transaction.dateFin != null) ...[
+                    const Divider(height: 1),
+                    _infoRow(
+                      context,
+                      icon: Icons.event_busy_rounded,
+                      label: _t(context, 'Date de fin'),
+                      value: Text(_formatDate(transaction.dateFin!), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: pcolor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(_t(context, 'Fermer'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReservationLocationSheet extends StatefulWidget {
+  final Bien bien;
+  final List<Map<String, String>> periodesReservees;
+
+  const _ReservationLocationSheet({required this.bien, required this.periodesReservees});
+
+  @override
+  State<_ReservationLocationSheet> createState() => _ReservationLocationSheetState();
+}
+
+class _ReservationLocationSheetState extends State<_ReservationLocationSheet> {
+  DateTime? _debut;
+  DateTime? _fin;
+  bool _editMontant = false;
+  late final TextEditingController _montantController;
+
+  @override
+  void initState() {
+    super.initState();
+    _montantController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _montantController.dispose();
+    super.dispose();
+  }
+
+  String _t(String key) => getTranslated(context, key) ?? key;
+
+  double get _prixUnitaire => double.tryParse(widget.bien.prix ?? '') ?? 0;
+
+  /// Nombre de périodes de tarification couvertes : jours inclus pour un
+  /// prix par jour, tranches de 3 jours entamées pour « 3jours », mois
+  /// calendaires touchés pour un loyer mensuel (01/10 → 31/10 = 1 mois).
+  int _nbPeriodes(DateTime debut, DateTime fin) {
+    final jours = fin.difference(debut).inDays + 1;
+    switch (widget.bien.uniteprix) {
+      case 'jour':
+        return jours;
+      case '3jours':
+        return (jours / 3).ceil();
+      case 'forfait':
+        return 1;
+      default:
+        return ((fin.year * 12 + fin.month) - (debut.year * 12 + debut.month)) + 1;
+    }
+  }
+
+  void _onRangeChanged(DateTime? debut, DateTime? fin) {
+    setState(() {
+      _debut = debut;
+      _fin = fin;
+      _editMontant = false;
+      if (debut != null && fin != null) {
+        _montantController.text = (_prixUnitaire * _nbPeriodes(debut, fin)).round().toString();
+      } else {
+        _montantController.clear();
+      }
+    });
+  }
+
+  String get _uniteLabel {
+    final unite = widget.bien.uniteprix;
+    return unite == 'forfait' ? '' : ' / ${_t(unite)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final montant = double.tryParse(_montantController.text) ?? 0;
+    final periodeComplete = _debut != null && _fin != null;
+    final peutConfirmer = periodeComplete && montant > 0;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Divider(height: 1, color: Colors.grey[200]),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+                  children: [
+                    _buildDateSummary(),
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey[200]!),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 14, offset: const Offset(0, 4)),
+                        ],
+                      ),
+                      child: ReservationCalendar(
+                        reservations: widget.periodesReservees,
+                        onRangeChanged: _onRangeChanged,
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: periodeComplete
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 18),
+                              child: _buildPriceDetails(),
+                            )
+                          : const SizedBox(width: double.infinity),
                     ),
                   ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${reviews.length} ${getTranslated(context, "avis")}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        getTranslated(context, "Note moyenne")!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+              _buildBottomBar(montant: montant, peutConfirmer: peutConfirmer),
+            ],
           ),
-
-        const SizedBox(height: 16),
-
-        // Liste des reviews
-        if (isLoadingReviews)
-          const Center(child: CircularProgressIndicator())
-        else if (reviews.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Icon(Icons.rate_review, size: 50, color: Colors.grey[400]),
-                const SizedBox(height: 10),
-                Text(
-                  getTranslated(context, "Aucun avis pour le moment")!,
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddReviewDialog(),
-                  icon: const Icon(Icons.add),
-                  label: Text(getTranslated(
-                      context, "Soyez le premier à donner votre avis")!),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: pcolor,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: reviews.length,
-            itemBuilder: (context, index) {
-              final review = reviews[index];
-              return _buildReviewCard(review);
-            },
-          ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildReviewCard(Map<String, dynamic> review) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final comment = isArabic && review['comment_ar']?.isNotEmpty == true
-        ? review['comment_ar']
-        : review['comment'];
+  Widget _buildHeader() {
+    final b = widget.bien;
+    final photo = b.photoPrincipale;
+    final langue = Localizations.localeOf(context).languageCode;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.only(top: 10, bottom: 10),
+          decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 12, 14),
+          child: Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: pcolor,
-                child: Text(
-                  (review['user_name'] ?? 'U')[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  width: 58,
+                  height: 58,
+                  child: photo != null && photo.isNotEmpty
+                      ? Image.network(
+                          photo,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _photoFallback(),
+                        )
+                      : _photoFallback(),
                 ),
               ),
               const SizedBox(width: 12),
@@ -2362,153 +2155,287 @@ void _confirmPayment(String method) {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      review['user_name'] ??
-                          getTranslated(context, "Utilisateur")!,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      _t('Choisir une période'),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w600),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      DateFormat('dd/MM/yyyy').format(
-                        DateTime.parse(review['created_at']),
-                      ),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                      b.titreFor(langue),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kBlackColor),
                     ),
+                    const SizedBox(height: 4),
+                    if (b.prix != null)
+                      PriceText(
+                        '${formatAmount(b.prix)} ${_t("MRU")}$_uniteLabel',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: pcolor),
+                      ),
                   ],
                 ),
               ),
-              Row(
-                children: List.generate(
-                    5,
-                    (index) => Icon(
-                          Icons.star,
-                          size: 16,
-                          color: index < (review['rating'] ?? 0)
-                              ? Colors.amber
-                              : Colors.grey[300],
-                        )),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                style: IconButton.styleFrom(backgroundColor: Colors.grey[100]),
+                icon: const Icon(Icons.close_rounded, size: 20, color: kBlackColor),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (comment?.isNotEmpty == true)
-            Text(
-              comment,
-              style: const TextStyle(fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _photoFallback() => Container(
+        color: pcolor.withOpacity(0.1),
+        child: const Icon(Icons.home_rounded, color: pcolor),
+      );
+
+  /// Deux cases « Arrivée » / « Départ » avec la durée au milieu.
+  Widget _buildDateSummary() {
+    final format = DateFormat('dd MMM yyyy', Localizations.localeOf(context).languageCode);
+    final jours = _debut != null && _fin != null ? _fin!.difference(_debut!).inDays + 1 : null;
+
+    Widget dateBox(String label, DateTime? date, IconData icon, bool active) {
+      return Expanded(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: date != null ? pcolor.withOpacity(0.07) : Colors.grey[50],
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: active ? pcolor : (date != null ? pcolor.withOpacity(0.4) : Colors.grey[200]!),
+              width: active ? 1.6 : 1,
             ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddReviewDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AddReviewDialog(
-          onSubmit: (rating, comment) {
-            createReview(rating, comment);
-            Navigator.pop(context);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildDescriptionSection(String description) {
-    return _DescriptionSection(description: description);
-  }
-}
-
-
-class _DescriptionSection extends StatefulWidget {
-  final String description;
-
-  const _DescriptionSection({super.key, required this.description});
-
-  @override
-  __DescriptionSectionState createState() => __DescriptionSectionState();
-}
-
-class __DescriptionSectionState extends State<_DescriptionSection> {
-  bool isExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 2),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 15, color: date != null ? pcolor : Colors.grey[500]),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                date != null ? format.format(date) : '— — —',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  color: date != null ? kBlackColor : Colors.grey[400],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Row(
+          children: [
+            dateBox(_t('Date de début'), _debut, Icons.login_rounded, _debut == null),
+            const SizedBox(width: 10),
+            dateBox(_t('Date de fin'), _fin, Icons.logout_rounded, _debut != null && _fin == null),
+          ],
+        ),
+        if (jours != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: pcolor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: Text(
+              '$jours ${_t(jours > 1 ? "jours" : "jour")}',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPriceDetails() {
+    final nb = _nbPeriodes(_debut!, _fin!);
+    final unite = widget.bien.uniteprix;
+    final sousTotal = (_prixUnitaire * nb).round();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            getTranslated(context, "Description de la maison")!,
-            style: const TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-          ),
-          const SizedBox(height: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
+              Icon(Icons.receipt_long_rounded, size: 18, color: pcolor),
+              const SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  widget.description,
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
-                  maxLines: isExpanded ? null : 3,
-                  overflow:
-                      isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                  _t('Détails du prix'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kBlackColor),
                 ),
               ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      isExpanded = !isExpanded;
-                    });
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isExpanded
-                            ? getTranslated(context, "Voir moins")!
-                            : getTranslated(context, "Voir plus")!,
-                        style:
-                            const TextStyle(fontSize: 16, color: Colors.blue),
-                      ),
-                      const SizedBox(width: 5),
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
-                    ],
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => setState(() => _editMontant = !_editMontant),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    _editMontant ? Icons.check_rounded : Icons.edit_rounded,
+                    size: 18,
+                    color: Colors.grey[600],
                   ),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          if (_prixUnitaire > 0)
+            Row(
+              children: [
+                Expanded(
+                  child: PriceText(
+                    unite == 'forfait'
+                        ? _t('forfait')
+                        : '${formatAmount(widget.bien.prix)} ${_t("MRU")} × $nb ${_t(unite)}',
+                    style: TextStyle(fontSize: 13.5, color: Colors.grey[700]),
+                  ),
+                ),
+                PriceText(
+                  '${formatAmount(sousTotal.toString())} ${_t("MRU")}',
+                  style: TextStyle(fontSize: 13.5, color: Colors.grey[800], fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          if (_editMontant || _prixUnitaire <= 0) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _montantController,
+              keyboardType: TextInputType.number,
+              autofocus: _editMontant,
+              onChanged: (_) => setState(() {}),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                labelText: _t('Montant total'),
+                suffixText: _t('MRU'),
+                isDense: true,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: pcolor, width: 1.5),
+                ),
+              ),
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Colors.grey[300]),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _t('Montant total'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kBlackColor),
+                ),
+              ),
+              PriceText(
+                '${formatAmount(_montantController.text)} ${_t("MRU")}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: pcolor),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar({required double montant, required bool peutConfirmer}) {
+    final format = DateFormat('dd/MM', Localizations.localeOf(context).languageCode);
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, -4)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (peutConfirmer) ...[
+                  PriceText(
+                    '${formatAmount(montant.round().toString())} ${_t("MRU")}',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: kBlackColor),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${format.format(_debut!)} → ${format.format(_fin!)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                  ),
+                ] else
+                  Text(
+                    _debut == null ? _t('Choisissez la date de début') : _t('Choisissez la date de fin'),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: peutConfirmer
+                  ? () => Navigator.pop(context, {
+                        'debut': _debut,
+                        'fin': _fin,
+                        'montant': montant,
+                      })
+                  : null,
+              icon: const Icon(Icons.event_available_rounded, size: 20),
+              label: Text(_t('Réserver'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: pcolor,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                disabledForegroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
-

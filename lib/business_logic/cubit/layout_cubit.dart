@@ -1,12 +1,10 @@
 import 'package:akarina/business_logic/cubit/layout_state.dart';
-import 'package:akarina/presentations/screens/cart/my_home.dart';
-import 'package:akarina/presentations/screens/category/category.dart';
+import 'package:akarina/business_logic/search/search_criteria.dart';
 import 'package:akarina/presentations/screens/home/home.dart';
-import 'package:akarina/presentations/screens/immobillier/add_immobilier.dart';
+import 'package:akarina/presentations/screens/immobillier/immobilier_screen.dart';
 import 'package:akarina/presentations/screens/profile/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LayoutCubit extends Cubit<LayoutStates>
 {
@@ -16,10 +14,9 @@ class LayoutCubit extends Cubit<LayoutStates>
 
   List<Widget> bottomScreen = [
     const Home(),
-    const Category(),
-    // const ChatPage(),
-    PostAnnonceScreen(),
-    const MyHome(),
+    const ImmobilierScreen(title: 'Immobilier', listenToGlobalSearch: true),
+    const ImmobilierScreen(title: 'Vente', initialCriteria: SearchCriteria(typeTransaction: 'vente')),
+    const ImmobilierScreen(title: 'Achat', initialCriteria: SearchCriteria(typeTransaction: 'location')),
     ProfilePage(),
   ];
 

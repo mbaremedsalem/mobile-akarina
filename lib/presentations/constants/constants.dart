@@ -70,14 +70,13 @@ const kchingutelcolor = Color(0xFF0283C0);
 
 const kGreyColor = Color(0xff8A959E);
 
+// Pas de fontFamily explicite : hérite de ThemeData (Poppins/Cairo selon la langue).
 TextStyle textstyle = TextStyle(
-    fontFamily: 'Inter',
     fontSize: getProportionateScreenWidth(14),
     fontWeight: FontWeight.w400,
     color: Colors.black);
-    
+
 final maintextstyle = TextStyle(
-    fontFamily: 'Inter',
     fontSize: getProportionateScreenWidth(14),
     fontWeight: FontWeight.w500,
     color: kBlackColor);

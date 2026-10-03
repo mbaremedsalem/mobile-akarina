@@ -1,11 +1,12 @@
-import 'dart:convert';
+import 'package:akarina/data/data_providers/bien_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/data/models/bien.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/components/no_internet_page.dart';
+import 'package:akarina/presentations/utils/price_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:akarina/data/services/connectivity_service.dart';
 
 class Location extends StatefulWidget {
@@ -19,11 +20,7 @@ class _LocationState extends State<Location> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   bool hasInternetConnection = true;
-  Future<List<dynamic>> futureImmobiliers = Future.value([]);
-
-  // URL de l'API et timeout
-  final String baseUrl = 'https://akarina.shop/';
-  final int timeout = 10;
+  Future<List<Bien>> futureImmobiliers = Future.value([]);
 
   @override
   void initState() {
@@ -44,102 +41,62 @@ class _LocationState extends State<Location> {
     });
   }
 
-  Future<List<dynamic>> fetchImmobiliers() async {
-    var url = Uri.parse("${baseUrl}akareena/imobiers/");
+  Future<List<Bien>> fetchImmobiliers() async {
     try {
-      var response = await http.get(url).timeout(Duration(seconds: timeout));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['results'] ?? []; // Retourne la liste des immobiliers
-      } else {
-        throw Exception('Failed to load immobiliers: ${response.body}');
-      }
+      final page = await BienService().fetchBiens();
+      return page.results;
     } catch (e) {
-
       return [];
     }
   }
 
-  void _addMarkers(List<dynamic> immobiliers) {
+  void _addMarkers(List<Bien> immobiliers) {
     _markers.clear(); // Nettoyer les anciens marqueurs
-    
+    final language = Localizations.localeOf(context).languageCode;
+
     for (var immobilier in immobiliers) {
-      // CORRECTION ICI : Utiliser double.tryParse() au lieu de .toDouble()
-      final double? latitude = _parseCoordinate(immobilier['x']);
-      final double? longitude = _parseCoordinate(immobilier['y']);
-      
+      final latitude = immobilier.latitude;
+      final longitude = immobilier.longitude;
+
       // Si la latitude ou longitude est nulle, ignorer ce marqueur
       if (latitude == null || longitude == null) {
-         continue;
+        continue;
       }
 
-      final bool isAvailable = immobilier['available'] ?? false;
-      final String address = immobilier['adresse'] ?? 'Adresse inconnue';
+      final bool isAvailable = !immobilier.vendu;
+      final String address = immobilier.titreFor(language);
       final String priceInfo = _getPriceInfo(immobilier);
 
       _markers.add(
         Marker(
-          markerId: MarkerId(immobilier['id'].toString()),
+          markerId: MarkerId(immobilier.reference),
           position: LatLng(latitude, longitude),
           infoWindow: InfoWindow(
             title: address,
             snippet: priceInfo,
           ),
-          icon: isAvailable 
+          icon: isAvailable
               ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
               : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
     }
-    
+
   }
 
-  // NOUVELLE MÉTHODE : Parser les coordonnées de manière sécurisée
-  double? _parseCoordinate(dynamic coordinate) {
-    if (coordinate == null) return null;
-    
-    try {
-      if (coordinate is double) {
-        return coordinate;
-      } else if (coordinate is int) {
-        return coordinate.toDouble();
-      } else if (coordinate is String) {
-        // Nettoyer la chaîne si nécessaire (virgules, espaces, etc.)
-        String cleaned = coordinate.toString().replaceAll(',', '.').trim();
-        return double.tryParse(cleaned);
-      }
-    } catch (e) {
+  String _getPriceInfo(Bien immobilier) {
+    final prixValue = double.tryParse(immobilier.prix ?? '');
+    if (prixValue == null) {
+      return getTranslated(context, "Prix non disponible")!;
     }
-    
-    return null;
-  }
 
-  String _getPriceInfo(dynamic immobilier) {
-    try {
-      // Essayer différents chemins pour le prix
-      if (immobilier['operation']?['type'] == 'vendre') {
-        final montant = immobilier['residentiel']?['montant'] ?? 
-                       immobilier['montant'] ?? 
-                       immobilier['operation']?['montant'];
-        
-        if (montant != null) {
-          return '${getTranslated(context, "À vendre")!}: $montant MRU';
-        }
-      } else if (immobilier['operation']?['type'] == 'alouer') {
-        final loyer = immobilier['residentiel']?['loyer_mensuel'] ?? 
-                     immobilier['loyer_mensuel'] ?? 
-                     immobilier['operation']?['loyer_mensuel'];
-        
-        if (loyer != null) {
-          return '${getTranslated(context, "À louer")!}: $loyer MRU/mois';
-        }
-      }
-    } catch (e) {
+    final prixFormatted = formatAmount(immobilier.prix);
 
+    if (immobilier.isVente) {
+      return '${getTranslated(context, "À vendre")!}: $prixFormatted ${getTranslated(context, "MRU")!}';
     }
-    
-    return getTranslated(context, "Prix non disponible")!;
+    final unite = getTranslated(context, immobilier.uniteprix) ?? immobilier.uniteprix;
+    return '${getTranslated(context, "À louer")!}: $prixFormatted ${getTranslated(context, "MRU")!}/$unite';
   }
 
   @override
@@ -173,7 +130,7 @@ class _LocationState extends State<Location> {
           style: TextStyle(color: kBlackColor),
         ),
       ),
-      body: FutureBuilder<List<dynamic>>(
+      body: FutureBuilder<List<Bien>>(
         future: futureImmobiliers,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

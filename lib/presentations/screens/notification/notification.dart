@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/data/models/app_notification.dart';
+import 'package:akarina/data/services/notification_store.dart';
 import 'package:akarina/presentations/components/refreshable_widget.dart';
-import 'package:akarina/presentations/components/no_internet_page.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
-import 'package:akarina/data/services/connectivity_service.dart';
+import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -14,106 +16,48 @@ class NotificationPage extends StatefulWidget {
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  List<Map<String, dynamic>> notifications = [];
+  List<AppNotification> notifications = [];
   bool isLoading = true;
-  bool hasInternetConnection = true;
 
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    _load();
   }
 
-  Future<void> _initializeData() async {
-    // Vérifier la connectivité internet d'abord
-    final hasConnection = await ConnectivityService.hasInternetConnection();
+  Future<void> _load() async {
+    setState(() => isLoading = true);
+    final items = await NotificationStore.getAll();
+    if (!mounted) return;
     setState(() {
-      hasInternetConnection = hasConnection;
+      notifications = items;
+      isLoading = false;
     });
-    
-    if (!hasConnection) {
-      return; // Ne pas charger les données si pas de connexion
-    }
-    
-    fetchNotifications();
   }
 
-  Future<void> fetchNotifications() async {
+  Future<void> _onTapNotification(AppNotification notif) async {
+    await NotificationStore.markRead(notif.id);
+    if (!mounted) return;
     setState(() {
-      isLoading = true;
-    });
-
-    try {
-      // Simuler un appel API
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Données d'exemple
-      final mockData = [
-        {
-          'id': 1,
-          'title': 'Nouvelle propriété disponible',
-          'message': 'Un nouvel appartement a été ajouté dans votre zone de recherche.',
-          'time': 'Il y a 5 minutes',
-          'isRead': false,
-          'type': 'property',
-        },
-        {
-          'id': 2,
-          'title': 'Prix mis à jour',
-          'message': 'Le prix de la propriété que vous surveillez a été mis à jour.',
-          'time': 'Il y a 1 heure',
-          'isRead': true,
-          'type': 'price_update',
-        },
-        {
-          'id': 3,
-          'title': 'Nouveau message',
-          'message': 'Vous avez reçu un nouveau message de l\'agent immobilier.',
-          'time': 'Il y a 2 heures',
-          'isRead': false,
-          'type': 'message',
-        },
+      notifications = [
+        for (final n in notifications) n.id == notif.id ? n.copyWith(read: true) : n,
       ];
-
-      setState(() {
-        notifications = mockData;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
+    });
+    final reference = notif.reference;
+    if (reference != null && reference.isNotEmpty) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ImmobDetails(reference: reference)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Afficher la page d'erreur de connexion si pas de connexion internet
-    if (!hasInternetConnection) {
-      return NoInternetPage(
-        onRetry: () async {
-          final hasConnection = await ConnectivityService.hasInternetConnection();
-          setState(() {
-            hasInternetConnection = hasConnection;
-          });
-          
-          if (hasConnection) {
-            _initializeData();
-          }
-        },
-      );
-    }
-    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(
-            Localizations.localeOf(context).languageCode == 'ar' 
-              ? IconBroken.Arrow___Right_2
-              : IconBroken.Arrow___Left_2,
+            Localizations.localeOf(context).languageCode == 'ar'
+                ? IconBroken.Arrow___Right_2
+                : IconBroken.Arrow___Left_2,
             color: kBlackColor,
           ),
           onPressed: () {
@@ -126,11 +70,22 @@ class _NotificationPageState extends State<NotificationPage> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          if (notifications.any((n) => !n.read))
+            TextButton(
+              onPressed: () async {
+                await NotificationStore.markAllRead();
+                if (!mounted) return;
+                setState(() {
+                  notifications = [for (final n in notifications) n.copyWith(read: true)];
+                });
+              },
+              child: Text(getTranslated(context, "Tout marquer comme lu")!),
+            ),
+        ],
       ),
       body: RefreshableWidget(
-        onRefresh: () async {
-          await fetchNotifications();
-        },
+        onRefresh: _load,
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : notifications.isEmpty
@@ -168,15 +123,10 @@ class _NotificationPageState extends State<NotificationPage> {
                     padding: const EdgeInsets.all(16),
                     itemCount: notifications.length,
                     itemBuilder: (context, index) {
-                      final notification = notifications[index];
+                      final notif = notifications[index];
                       return NotificationCard(
-                        notification: notification,
-                        onTap: () {
-                          // Marquer comme lu
-                          setState(() {
-                            notification['isRead'] = true;
-                          });
-                        },
+                        notification: notif,
+                        onTap: () => _onTapNotification(notif),
                       );
                     },
                   ),
@@ -186,7 +136,7 @@ class _NotificationPageState extends State<NotificationPage> {
 }
 
 class NotificationCard extends StatelessWidget {
-  final Map<String, dynamic> notification;
+  final AppNotification notification;
   final VoidCallback onTap;
 
   const NotificationCard({
@@ -197,34 +147,9 @@ class NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRead = notification['isRead'] as bool;
-    final type = notification['type'] as String;
-
-    IconData getIconForType(String type) {
-      switch (type) {
-        case 'property':
-          return Icons.home;
-        case 'price_update':
-          return Icons.trending_up;
-        case 'message':
-          return Icons.message;
-        default:
-          return Icons.notifications;
-      }
-    }
-
-    Color getColorForType(String type) {
-      switch (type) {
-        case 'property':
-          return Colors.blue;
-        case 'price_update':
-          return Colors.green;
-        case 'message':
-          return Colors.orange;
-        default:
-          return Colors.grey;
-      }
-    }
+    final isRead = notification.read;
+    final locale = Localizations.localeOf(context).languageCode;
+    final time = DateFormat('dd/MM/yyyy • HH:mm', locale).format(notification.receivedAt);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -239,25 +164,25 @@ class NotificationCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            color: isRead ? Colors.white : Colors.blue.withOpacity(0.05),
-            border: isRead 
-                ? null 
-                : Border.all(color: Colors.blue.withOpacity(0.2), width: 1),
+            color: isRead ? Colors.white : pcolor.withOpacity(0.05),
+            border: isRead ? null : Border.all(color: pcolor.withOpacity(0.2), width: 1),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: getColorForType(type).withOpacity(0.1),
+              if (notification.imageUrl != null && notification.imageUrl!.isNotEmpty)
+                ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  getIconForType(type),
-                  color: getColorForType(type),
-                  size: 20,
-                ),
-              ),
+                  child: Image.network(
+                    notification.imageUrl!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _fallbackIcon(),
+                  ),
+                )
+              else
+                _fallbackIcon(),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -267,7 +192,7 @@ class NotificationCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            notification['title'],
+                            notification.title,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
@@ -280,7 +205,7 @@ class NotificationCard extends StatelessWidget {
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: Colors.blue,
+                              color: Colors.red,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -288,7 +213,7 @@ class NotificationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      notification['message'],
+                      notification.body,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -298,7 +223,7 @@ class NotificationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      notification['time'],
+                      time,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[500],
@@ -313,4 +238,15 @@ class NotificationCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _fallbackIcon() => Container(
+        width: 44,
+        height: 44,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: pcolor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(Icons.home_work_rounded, color: pcolor, size: 20),
+      );
 }

@@ -1,4 +1,5 @@
-import 'package:akarina/data/data_providers/network_service.dart';
+import 'package:akarina/data/data_providers/bien_service.dart';
+import 'package:akarina/data/models/bien.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/presentations/components/default_button.dart';
 import 'package:akarina/presentations/components/skeleton/home_skeleton.dart';
@@ -7,6 +8,7 @@ import 'package:akarina/presentations/constants/constants.dart';
 import 'package:akarina/presentations/constants/icon_broken.dart';
 import 'package:akarina/presentations/screens/appartement/appartement.dart';
 import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
+import 'package:akarina/presentations/utils/price_utils.dart';
 import 'package:akarina/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
@@ -22,8 +24,16 @@ class Category extends StatefulWidget {
 }
 
 class _CategoryState extends State<Category> with TickerProviderStateMixin {
-  Map<String, dynamic>? categories;
-  List<dynamic>? recommendations;
+  static const List<Map<String, String>> _categoryDefs = [
+    {'name': 'Appartement', 'typeBien': 'appartement'},
+    {'name': 'Duplex', 'typeBien': 'duplexe'},
+    {'name': 'Commercial', 'typeBien': 'commercial'},
+    {'name': 'Terrain', 'typeBien': 'terrain'},
+    {'name': 'Maisonceremonie', 'typeBien': 'ceremonie'},
+  ];
+
+  List<Map<String, dynamic>>? categories;
+  List<Bien>? recommendations;
   bool isLoading = true;
   bool isLoadingRecommendations = true;
   bool hasInternetConnection = true;
@@ -67,18 +77,24 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
   }
 
   Future<void> _loadCategories() async {
-    NetworkService networkService = NetworkService();
+    try {
+      final pages = await Future.wait(_categoryDefs.map(
+        (def) => BienService().fetchBiens(typeBien: def['typeBien'], pageSize: 1),
+      ));
 
-    // Appeler la méthode fetchCategories en passant le token
-    final fetchedCategories = await networkService.fetchCategories();
-
-    if (fetchedCategories != null) {
       setState(() {
-        categories = fetchedCategories;
+        categories = [
+          for (var i = 0; i < _categoryDefs.length; i++)
+            {
+              'name': _categoryDefs[i]['name']!,
+              'typeBien': _categoryDefs[i]['typeBien']!,
+              'count': pages[i].count,
+            },
+        ];
         isLoading = false;
       });
       _animationController.forward();
-    } else {
+    } catch (e) {
       setState(() {
         isLoading = false;
       });
@@ -86,18 +102,13 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
   }
 
   Future<void> _loadRecommendations() async {
-    NetworkService networkService = NetworkService();
-    
     try {
-      final fetchedRecommendations = await networkService.fetchRecommendations();
-      if (fetchedRecommendations.isNotEmpty) {
-      }
+      final page = await BienService().fetchBiens(ordering: '-date_creation', pageSize: 6);
       setState(() {
-        recommendations = fetchedRecommendations;
+        recommendations = page.results;
         isLoadingRecommendations = false;
       });
     } catch (e) {
-
       setState(() {
         isLoadingRecommendations = false;
       });
@@ -232,28 +243,12 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
                     mainAxisSpacing: 16,
                     childAspectRatio: 0.85,
                   ),
-                  itemCount: 6,
+                  itemCount: categories!.length,
                   itemBuilder: (context, index) {
-                    final categoryNames = [
-                      "Appartement",
-                      "Duplex", 
-                      "Commercial",
-                      "Terrain",
-                      "Residentiel",
-                      "Maisonceremonie"
-                    ];
-                    final categoryKeys = [
-                      'appartements',
-                      'duplexes',
-                      'commerciaux',
-                      'terrains',
-                      'residentiels',
-                      "maisonceremonie"
-                    ];
-                    
+                    final category = categories![index];
                     return _buildCategoryCard(
-                      categoryNames[index],
-                      categories![categoryKeys[index]],
+                      category['name'] as String,
+                      category,
                     );
                   },
                 ),
@@ -306,69 +301,24 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRecommendationCard(Map<String, dynamic> recommendation) {
-    // Extraire les données directement de la réponse API
-    String? imageUrl;
-    String? title;
-    String? description;
-    double? rating;
-    String? price;
-    String? propertyType;
-    String? address;
+  Widget _buildRecommendationCard(Bien bien) {
+    final language = Localizations.localeOf(context).languageCode;
+    final title = bien.titreFor(language);
+    final description = bien.descriptionFor(language) ?? '';
+    final imageUrl = bien.photoPrincipale;
+    final isVente = bien.isVente;
+    final price = bien.prix != null ? formatAmount(bien.prix) : null;
 
-    try {
-      // Extraire les données selon la structure de l'API fournie
-      title = recommendation['adresse']?.toString() ?? 'Propriété';
-      description = recommendation['description']?.toString() ?? 'Aucune description disponible';
-      address = recommendation['adresse']?.toString() ?? '';
-      
-      // Extraire le rating
-      if (recommendation['ratings'] != null) {
-        rating = double.tryParse(recommendation['ratings'].toString()) ?? 0.0;
-            } else {
-        rating = 0.0;
-      }
-
-      // Extraire le prix selon le type d'opération
-      if (recommendation['type_operation'] == 'vendre') {
-        if (recommendation['montant'] != null) {
-          price = '${recommendation['montant']} M';
-        }
-      } else if (recommendation['type_operation'] == 'alouer') {
-        if (recommendation['loyer_mensuel'] != null) {
-          price = '${recommendation['loyer_mensuel']} K/mois';
-        } else if (recommendation['prix_loyer'] != null) {
-          price = '${recommendation['prix_loyer']} K/mois';
-        }
-      }
-
-      // Extraire la première image si disponible
-      if (recommendation['images'] != null && recommendation['images'] is List && recommendation['images'].isNotEmpty) {
-        final firstImage = recommendation['images'][0];
-        if (firstImage is Map && firstImage['image'] != null) {
-          imageUrl = firstImage['image'].toString();
-        }
-      }
-    } catch (e) {
-      // Valeurs par défaut en cas d'erreur
-      imageUrl = null;
-      title = 'Propriété';
-      description = 'Aucune description disponible';
-      rating = 0.0;
-      price = null;
-      propertyType = null;
-    }
-
-        return Container(
+    return Container(
       width: 280,
       margin: const EdgeInsets.only(right: 0),
-              child: Card(
+      child: Card(
         elevation: 4,
-                        shape: RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
         child: InkWell(
-          onTap: () => _navigateToPropertyDetail(recommendation),
+          onTap: () => _navigateToPropertyDetail(bien),
           borderRadius: BorderRadius.circular(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,9 +367,9 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       // Titre
                       Text(
                         title,
@@ -436,14 +386,14 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: recommendation['type_operation'] == 'vendre' ? Colors.red.shade100 : Colors.blue.shade100,
+                          color: isVente ? Colors.red.shade100 : Colors.blue.shade100,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          recommendation['type_operation'] == 'vendre' ? 'À vendre' : 'À louer',
+                          isVente ? 'À vendre' : 'À louer',
                           style: TextStyle(
                             fontSize: 9,
-                            color: recommendation['type_operation'] == 'vendre' ? Colors.red : Colors.blue,
+                            color: isVente ? Colors.red : Colors.blue,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -462,43 +412,17 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      // Rating et Prix
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Rating
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.star,
-                                size: 14,
-                                color: Colors.amber,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                rating.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                      // Prix
+                      if (price != null)
+                        PriceText(
+                          '$price ${getTranslated(context, "MRU")}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: pcolor,
                           ),
-                          // Prix
-                          if (price != null)
-                            Flexible(
-                              child: Text(
-                                '$price MRU',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: pcolor,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                      ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ),
@@ -510,43 +434,13 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
     );
   }
 
-  
-  void _navigateToPropertyDetail(Map<String, dynamic> property) {
-    // Extraire l'ID de la propriété avec gestion de type
-    int? propertyId;
-    
-    try {
-      if (property['immob'] != null) {
-        final immobId = property['immob']['id'];
-        propertyId = immobId is int ? immobId : int.tryParse(immobId.toString());
-      } else {
-        final id = property['id'];
-        propertyId = id is int ? id : int.tryParse(id.toString());
-      }
-      
-      if (propertyId != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ImmobDetails(id: propertyId!),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(getTranslated(context, "Impossible d'ouvrir les détails") ?? "Impossible d'ouvrir les détails"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(getTranslated(context, "Impossible d'ouvrir les détails") ?? "Impossible d'ouvrir les détails"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+  void _navigateToPropertyDetail(Bien bien) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ImmobDetails(reference: bien.reference),
+      ),
+    );
   }
 
   Widget _buildCategoryCard(String categoryName, Map<String, dynamic> categoryData) {
@@ -729,13 +623,6 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
           'gradientStart': const Color(0xFF43e97b),
           'gradientEnd': const Color(0xFF38f9d7),
         };
-      case 'residentiel':
-        return {
-          'image': 'assets/images/maison meuble 1.png',
-          'icon': Icons.home,
-          'gradientStart': const Color(0xFFfa709a),
-          'gradientEnd': const Color(0xFFfee140),
-        };
       case 'maisonceremonie':
         return {
           'image': 'assets/images/ceremoniehause.jpg',
@@ -754,35 +641,14 @@ class _CategoryState extends State<Category> with TickerProviderStateMixin {
   }
 
   void _navigateToCategory(String categoryName, Map<String, dynamic> categoryData) {
-                                    String apiUrl;
-                                    switch (categoryName.toLowerCase()) {
-                                      case 'appartement':
-                                        apiUrl = 'https://akarina.shop/akareena/appartements/';
-                                        break;
-                                      case 'duplex':
-                                        apiUrl = 'https://akarina.shop/akareena/duplexes/';
-                                        break;
-                                      case 'commercial':
-                                        apiUrl = 'https://akarina.shop/akareena/commerciaux/';
-                                        break;
-                                      case 'terrain':
-                                        apiUrl = 'https://akarina.shop/akareena/terrains/';
-                                        break;
-                                      case 'residentiel':
-                                        apiUrl = 'https://akarina.shop/akareena/residentiels/';
-                                        break;
-      case 'maisonceremonie':
-        apiUrl = 'https://akarina.shop/akareena/maison_ceremonie';
-                                        break;
-                                      default:
-        apiUrl = '';
-    }
-    
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => 
-          Appartement(apiUrl: apiUrl, count: categoryData['count']),
+        pageBuilder: (context, animation, secondaryAnimation) => Appartement(
+          typeBien: categoryData['typeBien'] as String,
+          title: categoryName,
+          count: categoryData['count'] as int,
+        ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },

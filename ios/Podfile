@@ -31,6 +31,9 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # SDWebImage >= 5.19 utilise des API d'iOS 17 (HDR) introuvables avec Xcode 14.
+  pod 'SDWebImage', '5.18.12'
 end
 
 post_install do |installer|

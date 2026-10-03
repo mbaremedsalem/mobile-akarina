@@ -1,20 +1,27 @@
-
 import 'package:akarina/data/localization/language_constants.dart';
+import 'package:akarina/presentations/constants/constants.dart';
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:intl/intl.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:http/http.dart' as http;
 import 'package:table_calendar/table_calendar.dart';
 
+/// Calendrier de sélection d'une période de location.
+///
+/// Les jours déjà réservés sont barrés et non sélectionnables ; une période
+/// qui chevauche une réservation existante est refusée.
 class ReservationCalendar extends StatefulWidget {
   final List<dynamic> reservations;
+
+  /// Appelé quand une période complète (début + fin) est choisie.
   final Function(DateTime, DateTime)? onDateSelect;
+
+  /// Appelé à chaque changement de sélection, y compris quand elle est
+  /// incomplète (seulement le début) ou effacée.
+  final void Function(DateTime? start, DateTime? end)? onRangeChanged;
 
   const ReservationCalendar({
     super.key,
     required this.reservations,
     this.onDateSelect,
+    this.onRangeChanged,
   });
 
   @override
@@ -22,163 +29,215 @@ class ReservationCalendar extends StatefulWidget {
 }
 
 class _ReservationCalendarState extends State<ReservationCalendar> {
-  CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
 
+  String _t(String key) => getTranslated(context, key) ?? key;
+
+  void _onRangeSelected(DateTime? start, DateTime? end, DateTime focusedDay) {
+    if (start != null && end != null && _rangeContainsReserved(start, end)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_t('Cette période contient des jours déjà réservés')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() {
+        _rangeStart = start;
+        _rangeEnd = null;
+        _focusedDay = focusedDay;
+      });
+      widget.onRangeChanged?.call(start, null);
+      return;
+    }
+
+    setState(() {
+      _rangeStart = start;
+      _rangeEnd = end;
+      _focusedDay = focusedDay;
+    });
+    widget.onRangeChanged?.call(start, end);
+    if (start != null && end != null) widget.onDateSelect?.call(start, end);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final firstDay = DateTime(today.year, today.month, today.day);
+
     return Column(
       children: [
         TableCalendar(
-          firstDay: DateTime.now(),
-          lastDay: DateTime.now().add(const Duration(days: 365)),
+          locale: Localizations.localeOf(context).languageCode,
+          firstDay: firstDay,
+          lastDay: firstDay.add(const Duration(days: 365)),
           focusedDay: _focusedDay,
-          calendarFormat: _calendarFormat,
-          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          calendarFormat: CalendarFormat.month,
+          availableCalendarFormats: const {CalendarFormat.month: ''},
+          startingDayOfWeek: StartingDayOfWeek.monday,
+          // Sans ce mode, table_calendar n'émet jamais onRangeSelected au
+          // simple tap : la sélection début + fin ne fonctionnerait pas.
+          rangeSelectionMode: RangeSelectionMode.toggledOn,
           rangeStartDay: _rangeStart,
           rangeEndDay: _rangeEnd,
-          onDaySelected: (selectedDay, focusedDay) {
-            setState(() {
-              _selectedDay = selectedDay;
-              _focusedDay = focusedDay;
-              _rangeStart = null;
-              _rangeEnd = null;
-            });
-          },
-          onRangeSelected: (start, end, focusedDay) {
-            setState(() {
-              _rangeStart = start;
-              _rangeEnd = end;
-              _focusedDay = focusedDay;
-              _selectedDay = null;
-            });
-            
-            if (widget.onDateSelect != null && start != null && end != null) {
-              widget.onDateSelect!(start, end);
-            }
-          },
-          onFormatChanged: (format) {
-            setState(() {
-              _calendarFormat = format;
-            });
-          },
-          onPageChanged: (focusedDay) {
-            _focusedDay = focusedDay;
-          },
+          onRangeSelected: _onRangeSelected,
+          onPageChanged: (focusedDay) => _focusedDay = focusedDay,
+          enabledDayPredicate: (day) => !_isDateReserved(day),
+          rowHeight: 46,
+          daysOfWeekHeight: 28,
+          headerStyle: HeaderStyle(
+            titleCentered: true,
+            formatButtonVisible: false,
+            titleTextStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kBlackColor),
+            headerPadding: const EdgeInsets.only(bottom: 12),
+            leftChevronPadding: EdgeInsets.zero,
+            rightChevronPadding: EdgeInsets.zero,
+            leftChevronIcon: _chevron(Icons.chevron_left_rounded),
+            rightChevronIcon: _chevron(Icons.chevron_right_rounded),
+          ),
+          daysOfWeekStyle: DaysOfWeekStyle(
+            weekdayStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500]),
+            weekendStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500]),
+          ),
           calendarStyle: CalendarStyle(
-            // Style pour les jours réservés
-            disabledTextStyle: const TextStyle(color: Colors.red),
-            // Style pour les jours disponibles
-            defaultTextStyle: const TextStyle(color: Colors.green),
-            weekendTextStyle: const TextStyle(color: Colors.blue),
+            outsideDaysVisible: false,
+            cellMargin: const EdgeInsets.symmetric(vertical: 3),
+            rangeHighlightColor: pcolor.withOpacity(0.12),
+            rangeHighlightScale: 0.82,
           ),
           calendarBuilders: CalendarBuilders(
-            defaultBuilder: (context, day, focusedDay) {
-              return _buildDay(day,getTranslated(context, "Disponible")!, Colors.green);
-            },
-            todayBuilder: (context, day, focusedDay) {
-              return _buildDay(day, getTranslated(context, "Aujourd'hui")!, Colors.blue);
-            },
-            selectedBuilder: (context, day, focusedDay) {
-              return _buildDay(day, getTranslated(context, "Sélectionné")!, Colors.orange);
-            },
-            disabledBuilder: (context, day, focusedDay) {
-              return _buildDay(day, getTranslated(context, "Réservé")!, Colors.red);
-            },
+            defaultBuilder: (context, day, _) => _dayCell(day),
+            todayBuilder: (context, day, _) => _dayCell(day, isToday: true),
+            withinRangeBuilder: (context, day, _) => _dayCell(day, inRange: true),
+            rangeStartBuilder: (context, day, _) => _dayCell(day, isEdge: true),
+            rangeEndBuilder: (context, day, _) => _dayCell(day, isEdge: true),
+            disabledBuilder: (context, day, _) => _dayCell(day, reserved: _isDateReserved(day), past: true),
           ),
-          enabledDayPredicate: (day) {
-            // Jours disponibles (non réservés)
-            return !_isDateReserved(day);
-          },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _buildLegend(),
-        const SizedBox(height: 16),
-        if (_rangeStart != null && _rangeEnd != null)
-          Text(
-            '${getTranslated(context, "Période sélectionnée")}: ${DateFormat('dd/MM/yyyy').format(_rangeStart!)} - ${DateFormat('dd/MM/yyyy').format(_rangeEnd!)}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
       ],
     );
   }
 
-  Widget _buildDay(DateTime day, String status, Color color) {
+  Widget _chevron(IconData icon) {
     return Container(
-      margin: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.grey[100],
+        shape: BoxShape.circle,
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              day.day.toString(),
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              status,
-              style: TextStyle(
-                color: color,
-                fontSize: 8,
-              ),
-            ),
-          ],
+      child: Icon(icon, size: 20, color: kBlackColor),
+    );
+  }
+
+  Widget _dayCell(
+    DateTime day, {
+    bool isToday = false,
+    bool inRange = false,
+    bool isEdge = false,
+    bool reserved = false,
+    bool past = false,
+  }) {
+    Color textColor = kBlackColor;
+    Color? background;
+    BoxBorder? border;
+    TextDecoration? decoration;
+
+    if (isEdge) {
+      background = pcolor;
+      textColor = Colors.white;
+    } else if (reserved) {
+      background = Colors.red.withOpacity(0.07);
+      textColor = Colors.red[300]!;
+      decoration = TextDecoration.lineThrough;
+    } else if (past) {
+      textColor = Colors.grey[300]!;
+    } else if (inRange) {
+      textColor = pcolor;
+    } else if (isToday) {
+      border = Border.all(color: pcolor, width: 1.5);
+      textColor = pcolor;
+    }
+
+    return Center(
+      child: Container(
+        width: 38,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: background,
+          shape: BoxShape.circle,
+          border: border,
+          boxShadow: isEdge
+              ? [BoxShadow(color: pcolor.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 3))]
+              : null,
+        ),
+        child: Text(
+          '${day.day}',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isEdge || isToday || inRange ? FontWeight.w700 : FontWeight.w500,
+            color: textColor,
+            decoration: decoration,
+            decorationColor: textColor,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 16,
+      runSpacing: 8,
       children: [
-        _buildLegendItem(getTranslated(context, "Disponible")!, Colors.green),
-        _buildLegendItem(getTranslated(context, "Réservé")!, Colors.red),
-        _buildLegendItem(getTranslated(context, "Aujourd'hui")!, Colors.blue),
-        _buildLegendItem(getTranslated(context, "Sélectionné")!, Colors.orange),
+        _legendItem(_t('Disponible'), dot: Colors.white, border: Colors.grey[400]),
+        _legendItem(_t('Réservé'), dot: Colors.red[200]!),
+        _legendItem(_t('Sélectionné'), dot: pcolor),
+        _legendItem(_t("Aujourd'hui"), dot: Colors.white, border: pcolor),
       ],
     );
   }
 
-  Widget _buildLegendItem(String text, Color color) {
+  Widget _legendItem(String text, {required Color dot, Color? border}) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 12,
           height: 12,
-          color: color.withOpacity(0.3),
-          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: dot,
+            shape: BoxShape.circle,
+            border: border != null ? Border.all(color: border, width: 1.5) : null,
+          ),
         ),
-        Text(
-          text,
-          style: TextStyle(fontSize: 10, color: color),
-        ),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(fontSize: 11.5, color: Colors.grey[600], fontWeight: FontWeight.w500)),
       ],
     );
   }
 
+  bool _rangeContainsReserved(DateTime start, DateTime end) {
+    for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
+      if (_isDateReserved(d)) return true;
+    }
+    return false;
+  }
+
   bool _isDateReserved(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
     for (var reservation in widget.reservations) {
-      final startDate = DateTime.parse(reservation['date_debut']);
-      final endDate = DateTime.parse(reservation['date_fin']);
-      
-      if (date.isAfter(startDate.subtract(const Duration(days: 1))) &&
-          date.isBefore(endDate.add(const Duration(days: 1)))) {
-        return true;
-      }
+      final startDate = DateTime.tryParse('${reservation['date_debut']}');
+      final endDate = DateTime.tryParse('${reservation['date_fin']}');
+      if (startDate == null || endDate == null) continue;
+      final start = DateTime(startDate.year, startDate.month, startDate.day);
+      final end = DateTime(endDate.year, endDate.month, endDate.day);
+      if (!day.isBefore(start) && !day.isAfter(end)) return true;
     }
     return false;
   }
 }
-
- 
