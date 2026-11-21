@@ -31,7 +31,7 @@ class MapHome extends StatefulWidget {
 }
 
 class _MapHomeState extends State<MapHome> {
-  static const String _baseUrl = 'https://admin-akarina.akarina.shop/api/biens/';
+  static const String _baseUrl = 'https://akarina-admin.duckdns.org/api/biens/';
   static const int _pageSize = 20;
 
   /// Hauteur de la fiche du carrousel. Assez généreuse pour absorber les

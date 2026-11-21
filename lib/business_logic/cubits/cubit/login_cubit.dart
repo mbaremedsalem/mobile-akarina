@@ -1,5 +1,6 @@
 import 'package:akarina/data/data_providers/account_service.dart';
 import 'package:akarina/data/services/fcm_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -7,7 +8,7 @@ import '../../../data/models/login_model.dart';
 import '../../../data/repositories/repository.dart';
 import 'login_state.dart';
 
-/// Connexion via https://admin-akarina.akarina.shop/api/connexion/
+/// Connexion via https://akarina-admin.duckdns.org/api/connexion/
 /// (username + mot de passe, jeton DRF stocké sous "admin_token") — c'est
 /// désormais le seul backend d'authentification de l'app.
 class LoginCubit extends Cubit<LoginStates> {
@@ -47,11 +48,15 @@ class LoginCubit extends Cubit<LoginStates> {
           final firstName = profile['first_name']?.toString();
           if (firstName != null && firstName.isNotEmpty) welcomeName = firstName;
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[LOGIN] erreur profil: $e');
+      }
 
       loginModel = LoginModel.fromJason({'message': welcomeName});
       emit(LoginSuccessState(loginModel!));
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[LOGIN] EXCEPTION: $e');
+      debugPrint('$st');
       emit(LoginErrorState("Erreur de connexion: ${e.toString()}"));
     }
   }

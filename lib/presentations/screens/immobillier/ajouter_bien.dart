@@ -12,7 +12,7 @@ import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 
 /// Formulaire de création d'un bien (réservé aux gestionnaires connectés,
 /// `is_staff: true`) : type de bien → détails → médias, contre
-/// https://admin-akarina.akarina.shop/api/biens/ puis /api/medias/.
+/// https://akarina-admin.duckdns.org/api/biens/ puis /api/medias/.
 class AjouterBienScreen extends StatefulWidget {
   final String adminToken;
 

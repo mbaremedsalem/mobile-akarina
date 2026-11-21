@@ -7,7 +7,7 @@ import 'package:akarina/data/models/offre.dart';
 import 'package:akarina/presentations/constants/constants.dart';
 
 /// Carrousel de bannières promotionnelles pour l'écran d'accueil, alimenté
-/// par https://admin-akarina.akarina.shop/api/offres/.
+/// par https://akarina-admin.duckdns.org/api/offres/.
 class OffersCarousel extends StatefulWidget {
   const OffersCarousel({super.key});
 

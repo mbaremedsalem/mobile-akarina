@@ -22,7 +22,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 class NetworkService {
   final storage = const FlutterSecureStorage();
   int timeout = 60;
-  String baseUrl = "https://akarina.shop/";
+  String baseUrl = "https://akarina-admin.duckdns.org/";
 
   Future<dynamic> login(String phone, String? password) async {
     // ignore: prefer_typing_uninitialized_variables
@@ -36,9 +36,10 @@ class NetworkService {
         body: jsonEncode({"login": "+222$phone", "password": password}),
       ).timeout(Duration(seconds: timeout));
 
+      debugPrint('[OLD LOGIN] $url status=${response.statusCode} body=${utf8.decode(response.bodyBytes)}');
       responseJson = _loginresponse(response);
     } catch (e) {
-      // print(e);
+      debugPrint('[OLD LOGIN] ERREUR: $e');
     }
 
     return responseJson;
@@ -382,7 +383,7 @@ Future<http.Response> userSignup({
     );
   }
 Future<List<User>> fetchUsers(BuildContext context) async {
-  final url = Uri.parse('https://akarina.shop/user/owners/');
+  final url = Uri.parse('https://akarina-admin.duckdns.org/user/owners/');
   
   try {
     final response = await http.get(

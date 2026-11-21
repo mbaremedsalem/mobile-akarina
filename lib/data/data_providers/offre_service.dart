@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:akarina/data/models/offre.dart';
 
-/// Client pour l'API https://admin-akarina.akarina.shop/api/offres/.
+/// Client pour l'API https://akarina-admin.duckdns.org/api/offres/.
 class OffreService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   Future<List<Offre>> fetchOffres() async {
     final response = await http.get(

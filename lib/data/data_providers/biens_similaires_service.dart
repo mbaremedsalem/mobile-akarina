@@ -82,7 +82,7 @@ class BienResume {
 }
 
 class BiensSimilairesService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   Future<List<BienResume>> rechercher(Map<String, String> filtres) async {
     final url = Uri.parse('$baseUrl/biens/').replace(queryParameters: filtres);

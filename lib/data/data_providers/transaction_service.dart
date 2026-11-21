@@ -4,12 +4,12 @@ import 'package:http/http.dart' as http;
 
 import 'package:akarina/data/models/transaction.dart';
 
-/// Client pour https://admin-akarina.akarina.shop/api/transactions/.
+/// Client pour https://akarina-admin.duckdns.org/api/transactions/.
 ///
 /// Authentification par jeton DRF (comme [AccountService]), stocké sous la
 /// clé "admin_token" côté app : `Authorization: Token <jeton>`.
 class TransactionService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   Future<Transaction> creerTransaction({
     required String adminToken,

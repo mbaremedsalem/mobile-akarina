@@ -1,4 +1,4 @@
-/// Modèles pour l'API https://admin-akarina.akarina.shop/api/.
+/// Modèles pour l'API https://akarina-admin.duckdns.org/api/.
 ///
 /// `Bien.fromJson` accepte aussi bien la forme "liste" (ville/quartier imbriqués
 /// avec leur nom) que la forme "détail" (ville/quartier réduits à leur id) : le

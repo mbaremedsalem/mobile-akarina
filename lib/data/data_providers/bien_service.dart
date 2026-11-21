@@ -16,9 +16,9 @@ class BienPage {
   });
 }
 
-/// Client pour l'API https://admin-akarina.akarina.shop/api/.
+/// Client pour l'API https://akarina-admin.duckdns.org/api/.
 class BienService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   Future<List<Ville>> fetchVilles() async {
     final response = await http.get(

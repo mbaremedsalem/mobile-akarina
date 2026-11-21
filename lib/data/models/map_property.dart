@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:akarina/data/services/geo_service.dart';
 
 /// Vue normalisée d'un bien pour la carte et les filtres, construite à partir
-/// d'un item de liste de l'API https://admin-akarina.akarina.shop/api/biens/.
+/// d'un item de liste de l'API https://akarina-admin.duckdns.org/api/biens/.
 class MapProperty {
   final int id;
   final String reference;

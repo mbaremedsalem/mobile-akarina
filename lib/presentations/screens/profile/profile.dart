@@ -1139,7 +1139,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     try {
-      final uri = Uri.parse("https://akarina.shop/user/update-profile/");
+      final uri = Uri.parse("https://akarina-admin.duckdns.org/user/update-profile/");
       final request = http.MultipartRequest("PUT", uri);
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['nom_complet'] = nameController.text;
@@ -1738,7 +1738,7 @@ Widget _buildPaymentMethodCard(Map<String, dynamic> method, bool isSelected, boo
       }
 
       final response = await http.post(
-        Uri.parse('https://akarina.shop/akareena/account/deposit/'),
+        Uri.parse('https://akarina-admin.duckdns.org/akareena/account/deposit/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -1901,7 +1901,7 @@ Widget _buildPaymentMethodCard(Map<String, dynamic> method, bool isSelected, boo
       }
 
       final response = await http.post(
-        Uri.parse('https://akarina.shop/user/seddad/demande-peiment/'),
+        Uri.parse('https://akarina-admin.duckdns.org/user/seddad/demande-peiment/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

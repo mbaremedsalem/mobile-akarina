@@ -1,4 +1,4 @@
-/// Réponse de POST https://admin-akarina.akarina.shop/api/transactions/.
+/// Réponse de POST https://akarina-admin.duckdns.org/api/transactions/.
 class Transaction {
   final int id;
   final String reference;

@@ -6,10 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:akarina/data/models/bien.dart';
 
 /// Création de biens et ajout de médias sur
-/// https://admin-akarina.akarina.shop/api/ — réservé aux gestionnaires
+/// https://akarina-admin.duckdns.org/api/ — réservé aux gestionnaires
 /// (`is_staff: true`), jeton DRF "Token <admin_token>".
 class BienCreationService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   Future<List<Equipement>> fetchEquipements(String token) async {
     final response = await http.get(

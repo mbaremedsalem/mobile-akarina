@@ -1552,7 +1552,7 @@ void _showResetPasswordPage(String email) {
 Future<bool> _sendResetCode(String email) async {
   try {
     final response = await http.post(
-      Uri.parse('https://akarina.shop/user/auth/send-reset-code/'),
+      Uri.parse('https://akarina-admin.duckdns.org/user/auth/send-reset-code/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
@@ -1585,7 +1585,7 @@ Future<bool> _sendResetCode(String email) async {
 Future<bool> _resetPassword(String email, String code, String newPassword, String confirmPassword) async {
   try {
     final response = await http.post(
-      Uri.parse('https://akarina.shop/user/auth/reset-password/'),
+      Uri.parse('https://akarina-admin.duckdns.org/user/auth/reset-password/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,

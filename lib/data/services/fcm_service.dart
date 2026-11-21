@@ -13,9 +13,9 @@ import 'package:akarina/data/services/navigation_service.dart';
 import 'package:akarina/data/services/notification_store.dart';
 import 'package:akarina/presentations/screens/immobillier/immob_details.dart';
 
-const String _kDeviceTokensUrl = 'https://admin-akarina.akarina.shop/api/device-tokens/';
+const String _kDeviceTokensUrl = 'https://akarina-admin.duckdns.org/api/device-tokens/';
 const String _kDeviceTokensUnregisterUrl =
-    'https://admin-akarina.akarina.shop/api/device-tokens/unregister/';
+    'https://akarina-admin.duckdns.org/api/device-tokens/unregister/';
 const String _kNotificationChannelId = 'real_estate_channel';
 const int _kNotificationColor = 0xFF2A92CF;
 

@@ -59,7 +59,7 @@ class _PostAnnonceScreenState extends State<PostAnnonceScreen> {
   TextEditingController villeRegionArController = TextEditingController();
 
   final storage = const FlutterSecureStorage();
-  final String apiUrl = 'https://akarina.shop/akareena/residentiel/create/';
+  final String apiUrl = 'https://akarina-admin.duckdns.org/akareena/residentiel/create/';
 
   // Options pour les dropdowns
   final List<String> immoTypes = ['appartement', 'duplex', 'Maisonceremonie','commercial','Terrain'];

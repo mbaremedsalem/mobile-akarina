@@ -27,7 +27,7 @@
 //      String? token = await storage1.read(key: "access");
 //     if (fcmToken != null) {
 //       var response = await http.post(
-//         Uri.parse('https://akarina.shop/user/update_fcm_token/'),
+//         Uri.parse('https://akarina-admin.duckdns.org/user/update_fcm_token/'),
 //         headers: {
 //           'Authorization': 'Bearer $token',  // Remplacez par le token d'accès utilisateur
 //           'Content-Type': 'application/json',

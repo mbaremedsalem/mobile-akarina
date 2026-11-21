@@ -1,4 +1,4 @@
-// Inscription — POST https://admin-akarina.akarina.shop/api/inscription/
+// Inscription — POST https://akarina-admin.duckdns.org/api/inscription/
 import 'package:akarina/data/data_providers/account_service.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/data/services/fcm_service.dart';

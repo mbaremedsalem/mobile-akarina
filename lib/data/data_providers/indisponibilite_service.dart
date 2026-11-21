@@ -40,7 +40,7 @@ class PeriodeIndisponibilite {
 }
 
 class IndisponibiliteService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   /// Récupère toutes les périodes d'indisponibilité d'un bien,
   /// en suivant la pagination (`next`) si l'API en renvoie plusieurs pages.

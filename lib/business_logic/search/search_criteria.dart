@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Critères de recherche pour l'API https://admin-akarina.akarina.shop/api/biens/.
+/// Critères de recherche pour l'API https://akarina-admin.duckdns.org/api/biens/.
 class SearchCriteria {
   final String? typeTransaction;
   final String? typeBien;

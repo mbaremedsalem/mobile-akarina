@@ -1,19 +1,29 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-/// Client pour le compte utilisateur sur https://admin-akarina.akarina.shop/api/.
+/// Client pour le compte utilisateur sur https://akarina-admin.duckdns.org/api/.
 ///
 /// Backend d'authentification de l'app : jeton simple (DRF
 /// TokenAuthentication), pas de refresh — voir LoginCubit.
 class AccountService {
-  static const String baseUrl = 'https://admin-akarina.akarina.shop/api';
+  static const String baseUrl = 'https://akarina-admin.duckdns.org/api';
 
   Future<String?> login(String username, String password) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/connexion/'),
-      headers: {'Content-Type': 'application/json; charset=utf-8'},
-      body: jsonEncode({'username': username, 'password': password}),
-    );
+    final url = Uri.parse('$baseUrl/connexion/');
+    debugPrint('[LOGIN] POST $url');
+    final http.Response response;
+    try {
+      response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({'username': username, 'password': password}),
+      );
+    } catch (e) {
+      debugPrint('[LOGIN] ERREUR RESEAU: $e');
+      rethrow;
+    }
+    debugPrint('[LOGIN] status=${response.statusCode} body=${utf8.decode(response.bodyBytes)}');
     if (response.statusCode != 200) return null;
     final data = json.decode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     return data['token'] as String?;
@@ -46,6 +56,7 @@ class AccountService {
         'code_parrain': codeParrain ?? '',
       }),
     );
+    debugPrint('[INSCRIPTION] status=${response.statusCode} body=${utf8.decode(response.bodyBytes)}');
     if (response.statusCode == 200 || response.statusCode == 201) return;
     throw Exception(_parseRegisterError(response));
   }
@@ -72,6 +83,7 @@ class AccountService {
         'Content-Type': 'application/json; charset=utf-8',
       },
     );
+    debugPrint('[PROFIL] status=${response.statusCode} body=${utf8.decode(response.bodyBytes)}');
     if (response.statusCode != 200) return null;
     return json.decode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
   }

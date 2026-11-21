@@ -1,4 +1,4 @@
-/// Modèle pour l'API https://admin-akarina.akarina.shop/api/offres/.
+/// Modèle pour l'API https://akarina-admin.duckdns.org/api/offres/.
 library;
 
 class Offre {
