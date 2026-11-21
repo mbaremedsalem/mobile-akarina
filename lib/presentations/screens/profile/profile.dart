@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:akarina/data/data_providers/account_service.dart';
+import 'package:akarina/data/data_providers/indisponibilite_service.dart';
+import 'package:akarina/presentations/screens/gestion/mes_ceremonies.dart';
 import 'package:akarina/data/localization/language_constants.dart';
 import 'package:akarina/main.dart';
 import 'package:intl/intl.dart';
@@ -45,6 +47,9 @@ class _ProfilePageState extends State<ProfilePage> {
   String? adminToken;
   Map<String, dynamic>? profile;
   PointsSummary? points;
+  // Maisons de cérémonie affectées à l'utilisateur (gestionnaire) depuis
+  // l'admin : l'entrée "Mes maisons de cérémonie" n'apparaît que s'il en a.
+  int nbCeremonies = 0;
   String appVersion = "";
 
   @override
@@ -87,6 +92,10 @@ class _ProfilePageState extends State<ProfilePage> {
       final results = await Future.wait([
         AccountService().fetchProfile(token),
         AccountService().fetchPoints(token),
+        IndisponibiliteService()
+            .fetchMesBiens(token, typeBien: 'ceremonie')
+            .then((biens) => biens.length)
+            .catchError((_) => 0),
       ]);
       if (!mounted) return;
       final fetchedProfile = results[0] as Map<String, dynamic>?;
@@ -105,6 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         profile = fetchedProfile;
         points = results[1] as PointsSummary?;
+        nbCeremonies = results[2] as int;
         isLoading = false;
       });
     } catch (e) {
@@ -124,6 +134,7 @@ class _ProfilePageState extends State<ProfilePage> {
       adminToken = null;
       profile = null;
       points = null;
+      nbCeremonies = 0;
     });
   }
 
@@ -506,6 +517,17 @@ class _ProfilePageState extends State<ProfilePage> {
     return _buildCard(
       child: Column(
         children: [
+          if (nbCeremonies > 0 && adminToken != null) ...[
+            _actionRow(
+              icon: Icons.calendar_month_rounded,
+              label: "${_t("Mes maisons de cérémonie")} ($nbCeremonies)",
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => MesCeremoniesScreen(token: adminToken!)),
+              ),
+            ),
+            const Divider(height: 1),
+          ],
           _actionRow(
             icon: IconBroken.Filter,
             label: _t("Ma sélection"),
