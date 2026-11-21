@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         applicationId = "app.agharinaa.com" // Doit correspondre à la fiche Google Play
-        minSdk = 23  // ✅ Changement clé
+        minSdk = flutter.minSdkVersion  // ✅ Changement clé
         targetSdk = 36 // Exigé par Google Play (Android 16)
         versionCode = flutter.versionCode
         versionName = flutter.versionName

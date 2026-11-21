@@ -48,15 +48,9 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- ✅ Service FCM CORRIGÉ -->
-        <service
-            android:name="com.google.firebase.messaging.FirebaseMessagingService"
-            android:exported="false"
-            tools:replace="android:exported">  <!-- ✅ AJOUTER tools:replace -->
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+        <!-- Pas de <service> FCM ici : firebase_messaging déclare déjà
+             FlutterFirebaseMessagingService, qui transmet les messages à Dart.
+             Déclarer le service Firebase de base l'intercepterait. -->
 
     </application>
     

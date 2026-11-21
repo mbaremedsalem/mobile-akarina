@@ -43,6 +43,12 @@
     <string>This app does not use your location. Location data is only used to display our agencies or the position of rental apartments on the map.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>This app does not use your location. Location data is only used to display our agencies or the position of rental apartments on the map.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Agharina needs access to your photo library so you can choose photos and videos of the properties you publish, your profile picture, and images you send in chat.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Agharina needs access to your camera so you can take photos of the properties you publish and of your profile.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Agharina needs access to your microphone to record sound when you film a video of a property you publish.</string>
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
     <key>UILaunchStoryboardName</key>
