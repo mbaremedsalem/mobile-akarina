@@ -130,7 +130,9 @@ class _ImmobilierScreenState extends State<ImmobilierScreen> {
         disponibleDu: pageUrl == null ? _criteria.disponibleDu : null,
         disponibleAu: pageUrl == null ? _criteria.disponibleAu : null,
         search: pageUrl == null ? _criteria.search : null,
-        ordering: pageUrl == null ? _criteria.ordering : null,
+        // Toujours transmis : sert aussi à trier les pages suivantes fusionnées.
+        ordering: _criteria.ordering,
+        exclureTerrainsPlan: true,
       );
 
       if (!mounted) return;

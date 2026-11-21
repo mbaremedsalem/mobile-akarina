@@ -44,7 +44,11 @@ class _HomeState extends State<Home> {
     if (!mounted) return;
     setState(() => _isLoadingRecent = true);
     try {
-      final page = await BienService().fetchBiens(ordering: '-date_creation', pageSize: 10);
+      final page = await BienService().fetchBiens(
+        ordering: '-date_creation',
+        pageSize: 10,
+        exclureTerrainsPlan: true,
+      );
       if (!mounted) return;
       setState(() {
         _recentProperties = page.results;
